@@ -1,0 +1,35 @@
+One Message is stored on Amazon Web Services (AWS)
+
+It is a message that is automatically sent to the recipient when the timer you set expires.
+
+Even if your smartphone is turned off,
+Even if your smartphone is damaged or falls into the sea, One Message will still be sent to the recipient.
+
+One Message is sent to 100% of the recipients.
+
+SMS is not secure.
+
+SMS on smartphones cannot be encrypted. Do not include the private key of your cryptocurrency wallet in the message. Instead, leave instructions on where the private key is stored.
+
+"I left you a gift. Open Carl Sagan's Cosmos in Dad's study."
+
+"The private key for the Bitcoin wallet is hidden in the sock drawer, inside the bundle of mismatched socks. There are 100 of them. You are rich now."
+
+Timer reset
+
+When the One Message app detects smartphone usage, it sends a check-in signal to the server and resets the timer.
+The One Message delivery timer can be set for up to 7 days. Each time you use your smartphone, the timer resets to 7 days, and the message will not be sent.
+
+To keep the app running in the background, please add it as an exception to automatic power-saving settings in your smartphone's permission settings.
+If the app cannot detect smartphone usage in power-saving mode, it will send a notification. Tap the notification to open the app. The app will then send a check-in signal to the server and reset the timer.
+
+If you reinstall the app or change your smartphone
+
+Set an emergency recovery password in Settings.
+If you reinstall One Message and enter the recovery password, you can restore your saved messages.
+
+If you do not have a recovery password or have lost it
+
+Do not worry. If you install the app and register your existing phone number, all messages associated with that phone number will be deleted and will not be sent.
+
+End

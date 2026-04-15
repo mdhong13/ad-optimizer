@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}시장 이벤트 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>크립토 시장 이벤트 로그</h1>
+
+<div class="card">
+  {% if events %}
+  <table>
+    <thead>
+      <tr><th>심각도</th><th>유형</th><th>자산</th><th>제목</th><th>가격</th><th>24h 변동</th><th>에이전트</th><th>시간</th></tr>
+    </thead>
+    <tbody>
+      {% for e in events %}
+      <tr>
+        <td>
+          <span class="sev-{{ e.severity }}">●</span>
+          <span style="font-size:11px;">{{ e.severity }}</span>
+        </td>
+        <td><span class="badge badge-gray">{{ e.event_type }}</span></td>
+        <td><strong>{{ e.asset }}</strong></td>
+        <td style="max-width:300px; font-size:13px;">{{ e.title }}</td>
+        <td style="font-size:12px;">
+          {% if e.price_usd %}${{ "{:,.0f}".format(e.price_usd) }}{% else %}—{% endif %}
+        </td>
+        <td style="font-size:12px;">
+          {% if e.change_24h is not none %}
+            <span class="{% if e.change_24h > 0 %}sev-low{% elif e.change_24h < 0 %}sev-high{% else %}sev-medium{% endif %}">
+              {{ "%+.1f"|format(e.change_24h) }}%
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if e.triggered_agent %}
+            <span class="badge badge-yellow">트리거됨</span>
+          {% else %}
+            <span style="color:#4a5568; font-size:11px;">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:11px; color:#4a5568;">{{ (e.created_at|string)[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">이벤트 기록이 없습니다. 크립토 모니터가 실행되면 여기에 표시됩니다.</div>
+  {% endif %}
+</div>
+{% endblock %}

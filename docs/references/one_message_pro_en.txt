@@ -1,0 +1,28 @@
+A more reliable message with added safeguards.
+
+One Message Pro is a premium message with added safeguards to reduce accidental delivery and improve delivery reliability.
+It includes all the basic features of One Message, plus the following:
+
+The delivery timer can be set for up to 1 year.
+You can save multiple messages with different timers.
+You will receive SMS reminders as the delivery time approaches. Each reminder includes a timer reset link. Even if the app has been deleted, you can reset the timer using the link.
+
+Examples of reminder timing
+
+Day 3, Day 2, 1 day before, 12 hours before, 1 hour before. 
+
+How to use One Message Pro more safely
+
+Set the timer for more than 10 days. In some cases, a person may regain consciousness after 10 days.
+If you set an important message to be delivered after 15 days, create an additional 10-day Safety Message first. This message can be sent to trusted family members or close friends so they can contact you first and check your condition.
+
+“I am sending this on behalf of John. Please contact John first. If there is no response, please check with family members or people nearby.”
+
+If your phone number changes
+
+If you registered your email address in Settings, you can send an email to the developer to request that message delivery be stopped if your phone number changes.
+
+support@dotcell.net
+
+
+End

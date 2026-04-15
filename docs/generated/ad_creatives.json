@@ -1,0 +1,329 @@
+{
+  "google_ads": {
+    "search": [
+      {
+        "headline_1_kr": "암호화폐 키 보호",
+        "headline_1_en": "Protect Crypto Keys",
+        "headline_2_kr": "최악의 상황에도 100% 전송",
+        "headline_2_en": "100% Delivery, Even After You",
+        "headline_3_kr": "원메시지로 디지털 자산 안전",
+        "headline_3_en": "OneMessage Secures Your Assets",
+        "description_1_kr": "사고, 재난 시에도 암호화폐 프라이빗 키 정보가 안전하게 전달됩니다. AWS 클라우드 기반.",
+        "description_1_en": "Ensure crypto private key info is delivered safely during emergencies. AWS cloud-based.",
+        "description_2_kr": "스마트폰 파손, 분실 걱정 없이 중요한 정보를 지정 수신자에게 100% 전달하세요.",
+        "description_2_en": "100% deliver critical info to designated recipients, even if your phone is lost or damaged.",
+        "target_keywords_kr": [
+          "암호화폐 유산",
+          "비트코인 상속",
+          "프라이빗 키 백업",
+          "디지털 자산 보호",
+          "원메시지 암호화폐"
+        ],
+        "target_keywords_en": [
+          "crypto inheritance",
+          "bitcoin legacy",
+          "private key backup",
+          "digital asset protection",
+          "OneMessage crypto"
+        ]
+      },
+      {
+        "headline_1_kr": "디지털 유산 안전하게",
+        "headline_1_en": "Secure Your Digital Legacy",
+        "headline_2_kr": "나만의 자동 유언장 메시지",
+        "headline_2_en": "Personal Auto-Will Message",
+        "headline_3_kr": "원메시지 프로로 미래 준비",
+        "headline_3_en": "Prepare Future with OneMessage Pro",
+        "description_1_kr": "최대 1년 타이머 설정! 비상 복구 비밀번호로 메시지 복원. 소중한 메시지를 남기세요.",
+        "description_1_en": "Set timer up to 1 year! Restore messages with emergency password. Leave important messages.",
+        "description_2_kr": "갑작스러운 상황에 대비, 가족에게 남기고 싶은 이야기, 선물 위치, 비밀 정보를 전달합니다.",
+        "description_2_en": "Prepare for sudden events. Deliver stories, gift locations, secret info to loved ones.",
+        "target_keywords_kr": [
+          "디지털 유산",
+          "상속 메시지",
+          "긴급 전달 서비스",
+          "원메시지 유언",
+          "스마트 유산"
+        ],
+        "target_keywords_en": [
+          "digital legacy",
+          "inheritance message",
+          "emergency delivery service",
+          "OneMessage will",
+          "smart legacy"
+        ]
+      },
+      {
+        "headline_1_kr": "긴급 메시지 자동 전송",
+        "headline_1_en": "Auto-Send Emergency Messages",
+        "headline_2_kr": "고위험 직업군 필수 앱",
+        "headline_2_en": "Essential for High-Risk Jobs",
+        "headline_3_kr": "자동 생존 감지 & 전달 보장",
+        "headline_3_en": "Auto-Survival Detect & Deliver",
+        "description_1_kr": "군인, 소방관, 경찰 등 당신의 안전을 위해 자동으로 중요한 메시지를 전달합니다.",
+        "description_1_en": "For military, firefighters, police, automatically send critical messages for your safety.",
+        "description_2_kr": "스마트폰 미사용 감지 시 타이머 만료 후 클라우드에서 안전하게 메시지를 전송합니다.",
+        "description_2_en": "If phone unused, timer expires, messages are securely sent from cloud.",
+        "target_keywords_kr": [
+          "고위험 직업",
+          "긴급 알림",
+          "생존 확인",
+          "군인 앱",
+          "소방관 앱",
+          "원메시지 긴급"
+        ],
+        "target_keywords_en": [
+          "high-risk job",
+          "emergency alert",
+          "survival check",
+          "military app",
+          "firefighter app",
+          "OneMessage emergency"
+        ]
+      },
+      {
+        "headline_1_kr": "고령 가족 안부 확인",
+        "headline_1_en": "Elderly Family Safety Check",
+        "headline_2_kr": "12시간 미사용 시 자동 알림",
+        "headline_2_en": "Auto-Alert on 12hr Inactivity",
+        "headline_3_kr": "안심메시지로 마음 편히",
+        "headline_3_en": "Peace of Mind with Safety Message",
+        "description_1_kr": "부모님이 12시간 스마트폰 미사용 시 지정 번호로 '안부 확인' SMS를 자동 발송합니다.",
+        "description_1_en": "If parents don't use phone for 12hrs, 'check-in' SMS automatically sent to designated number.",
+        "description_2_kr": "매일 '잘 지내고 있습니다' 메시지 옵션. 해외 거주자도 가족의 안심을 지키세요.",
+        "description_2_en": "Daily 'I'm okay' message option. Overseas residents can ensure family's peace of mind.",
+        "target_keywords_kr": [
+          "고령자 안심 앱",
+          "부모님 안부",
+          "독거노인 안전",
+          "스마트폰 사용 감지",
+          "안심메시지 앱"
+        ],
+        "target_keywords_en": [
+          "elderly safety app",
+          "parent check-in",
+          "senior living safety",
+          "smartphone usage detection",
+          "Safety Message app"
+        ]
+      },
+      {
+        "headline_1_kr": "클라우드 기반 100% 전송",
+        "headline_1_en": "Cloud-Based 100% Delivery",
+        "headline_2_kr": "당신의 메시지, 반드시 도달",
+        "headline_2_en": "Your Message, Guaranteed Arrival",
+        "headline_3_kr": "원메시지로 모든 걱정 끝!",
+        "headline_3_en": "End All Worries with OneMessage!",
+        "description_1_kr": "스마트폰 꺼짐, 파손, 분실 걱정 없이 중요한 메시지를 클라우드에서 완벽하게 전달합니다.",
+        "description_1_en": "Deliver important messages perfectly from the cloud, regardless of phone status.",
+        "description_2_kr": "최대 1년 타이머 설정, 자동 생존 감지, 비상 복구 기능. 지금 바로 경험하세요.",
+        "description_2_en": "Up to 1-year timer, auto-survival detection, emergency recovery. Experience it now.",
+        "target_keywords_kr": [
+          "자동 메시지",
+          "긴급 연락",
+          "클라우드 메시지",
+          "안부 확인 앱",
+          "원메시지",
+          "원메시지 프로"
+        ],
+        "target_keywords_en": [
+          "auto message",
+          "emergency contact",
+          "cloud message",
+          "check-in app",
+          "OneMessage",
+          "OneMessage Pro"
+        ]
+      }
+    ],
+    "display": [
+      {
+        "headline_kr": "내 생존 여부, 메시지로 증명",
+        "headline_en": "Prove My Survival with a Message",
+        "long_headline_kr": "사고, 위급 상황에도 클라우드에서 당신의 메시지를 100% 안전하게 전송합니다.",
+        "long_headline_en": "Even in accidents or emergencies, your message is 100% securely sent from the cloud.",
+        "description_kr": "고위험 직업군, 해외 거주자 필수! 당신의 생존이 곧 메시지가 되는 원메시지.",
+        "description_en": "Essential for high-risk jobs, expats! Your survival becomes a message with OneMessage.",
+        "image_suggestion_kr": "생존 헬멧을 쓴 군인/소방관이 스마트폰을 보며 미소 짓는 모습, 구름 아이콘과 메시지 전송 이미지",
+        "image_suggestion_en": "Soldier/firefighter with a survival helmet smiling at a smartphone, cloud icon and message delivery image"
+      },
+      {
+        "headline_kr": "암호화폐 유산, 지키셨나요?",
+        "headline_en": "Is Your Crypto Legacy Secure?",
+        "long_headline_kr": "갑작스러운 상황에도 당신의 소중한 암호화폐 프라이빗 키 정보를 100% 전달합니다.",
+        "long_headline_en": "Even in sudden events, 100% deliver your valuable crypto private key info.",
+        "description_kr": "디지털 자산 상속의 새로운 기준. 원메시지로 당신의 부를 안전하게 보호하세요.",
+        "description_en": "New standard for digital asset inheritance. Secure your wealth with OneMessage.",
+        "image_suggestion_kr": "비트코인 로고와 함께 잠금 아이콘, 클라우드 위에 안전하게 보관된 금고 이미지",
+        "image_suggestion_en": "Bitcoin logo with a lock icon, a safe securely stored on a cloud image"
+      },
+      {
+        "headline_kr": "부모님 안부, 매일 확인하세요",
+        "headline_en": "Check Parents' Well-being Daily",
+        "long_headline_kr": "12시간 스마트폰 미사용 시 자동 알림. 매일 '잘 지낸다'는 메시지로 안심을 선물하세요.",
+        "long_headline_en": "Auto-alert on 12-hour phone inactivity. Gift peace of mind with daily 'I'm okay' messages.",
+        "description_kr": "해외 거주자도, 바쁜 당신도 안심메시지로 고령 가족의 안부를 놓치지 않습니다.",
+        "description_en": "Even expats, busy individuals won't miss elderly family's well-being with Safety Message.",
+        "image_suggestion_kr": "노부부가 화상 통화를 하며 환하게 웃는 모습, 그 옆에 '안심메시지' 앱 아이콘",
+        "image_suggestion_en": "Elderly couple smiling brightly during a video call, 'Safety Message' app icon next to them"
+      }
+    ]
+  },
+  "meta_ads": {
+    "facebook": [
+      {
+        "primary_text_kr": "🚀 갑작스러운 사고, 누가 내 디지털 자산을 지킬까요? 원메시지는 AWS 클라우드 기반 100% 전송 보장으로 당신의 암호화폐 프라이빗 키 정보를 안전하게 전달합니다. 고위험 직업군, 암호화폐 투자자 필수 앱!",
+        "primary_text_en": "🚀 Sudden accident, who will protect my digital assets? OneMessage guarantees 100% delivery via AWS cloud, securely transmitting your crypto private key info. Essential for high-risk jobs, crypto investors!",
+        "headline_kr": "당신의 디지털 유산, 100% 보호",
+        "headline_en": "Your Digital Legacy, 100% Protected",
+        "description_kr": "클라우드 기반 자동 전송",
+        "description_en": "Cloud-based auto-delivery",
+        "cta_kr": "자세히 알아보기",
+        "cta_en": "Learn More",
+        "image_suggestion_kr": "비트코인 로고가 있는 금고가 구름 위에 떠 있는 이미지. 긴장감과 안도감을 동시에 표현.",
+        "image_suggestion_en": "A safe with a Bitcoin logo floating on a cloud. Expressing both tension and relief.",
+        "target_audience_kr": "암호화폐 투자자, 고위험 직업군",
+        "target_audience_en": "Crypto investors, high-risk professionals"
+      },
+      {
+        "primary_text_kr": "👨‍👩‍👧‍👦 부모님 안부가 걱정될 때, 멀리 있어도 매일 확인하고 싶다면? 안심메시지가 12시간 스마트폰 미사용 시 자동으로 알림을 보내드립니다. '오늘 하루 잘 지내고 있습니다' 메시지로 매일 안부를 전하세요. 해외 거주자에게 강력 추천!",
+        "primary_text_en": "👨‍👩‍👧‍👦 Worried about your parents, want to check in daily even from afar? Safety Message automatically sends alerts if their smartphone is unused for 12 hours. Send daily 'I'm doing well today' messages. Highly recommended for expats!",
+        "headline_kr": "부모님 안심, 매일 확인하세요",
+        "headline_en": "Parents' Safety, Check Daily",
+        "description_kr": "스마트폰 미사용 자동 알림",
+        "description_en": "Auto-alert for phone inactivity",
+        "cta_kr": "앱 다운로드",
+        "cta_en": "Download App",
+        "image_suggestion_kr": "해외에 있는 자녀가 스마트폰으로 부모님과 영상 통화하며 안심하는 모습. '안심' 이모티콘 추가.",
+        "image_suggestion_en": "Child abroad video calling parents on smartphone, looking relieved. 'Safe' emoji added.",
+        "target_audience_kr": "고령 가족 돌봄 관계자, 해외 거주자",
+        "target_audience_en": "Elderly family caregivers, expats"
+      },
+      {
+        "primary_text_kr": "🚨 인생은 예측 불가능! 당신의 마지막 메시지가 클라우드에 안전하게 저장되어 설정된 타이머에 맞춰 정확히 전달된다면? 원메시지 프로는 최대 1년 타이머, 여러 메시지 동시 예약, 앱 삭제 후 리셋까지 지원합니다. 혼수 상태, 사고 등 어떤 상황에도 대비하세요.",
+        "primary_text_en": "🚨 Life is unpredictable! What if your last message is securely stored in the cloud and delivered precisely on a set timer? OneMessage Pro supports up to a 1-year timer, multiple simultaneous message scheduling, and reset even after app deletion. Prepare for coma, accidents, any situation.",
+        "headline_kr": "예측 불가능한 삶, 준비하세요",
+        "headline_en": "Unpredictable Life, Be Prepared",
+        "description_kr": "최대 1년 타이머, 100% 전달",
+        "description_en": "Up to 1-year timer, 100% delivery",
+        "cta_kr": "지금 시작하기",
+        "cta_en": "Get Started Now",
+        "image_suggestion_kr": "시계와 메시지 아이콘이 합쳐진 이미지. '원메시지 프로' 로고와 함께 미래를 준비하는 비전을 표현.",
+        "image_suggestion_en": "An image combining a clock and a message icon. Expressing a vision of preparing for the future with the 'OneMessage Pro' logo.",
+        "target_audience_kr": "디지털 자산 보유자, 고위험 직업군",
+        "target_audience_en": "Digital asset holders, high-risk professionals"
+      },
+      {
+        "primary_text_kr": "🤔 당신의 스마트폰이 고장 나거나 사라진다면? 소중한 메시지, 암호화폐 키, 유언장이 그대로 사라질까 걱정되나요? 원메시지는 AWS 클라우드 서버에 저장되어 100% 전송을 보장합니다. 자동 생존 감지 시스템으로 더욱 안심! 이제 걱정 없이 중요한 정보를 전달하세요.",
+        "primary_text_en": "🤔 What if your smartphone breaks or disappears? Worried your precious messages, crypto keys, or will might vanish with it? OneMessage is stored on AWS cloud servers, guaranteeing 100% delivery. Feel more secure with the auto-survival detection system! Now deliver important info worry-free.",
+        "headline_kr": "스마트폰 없어도 100% 전송",
+        "headline_en": "100% Delivery Even Without Phone",
+        "description_kr": "클라우드 기반, 자동 생존 감지",
+        "description_en": "Cloud-based, auto-survival detection",
+        "cta_kr": "무료 체험",
+        "cta_en": "Free Trial",
+        "image_suggestion_kr": "고장 난 스마트폰 옆에 구름 아이콘과 메시지가 안전하게 전달되는 모습. 대비되는 이미지를 통해 문제 해결 강조.",
+        "image_suggestion_en": "A broken smartphone next to a cloud icon with messages being delivered safely. Emphasizing problem-solving through contrasting images.",
+        "target_audience_kr": "모든 스마트폰 사용자, 디지털 자산 보유자",
+        "target_audience_en": "All smartphone users, digital asset holders"
+      }
+    ],
+    "instagram": [
+      {
+        "caption_kr": "갑작스러운 사고, 누가 내 비트코인 지갑을 지킬까요? 😥 원메시지는 당신의 소중한 암호화폐 프라이빗 키 정보가 클라우드에 안전하게 보관되었다가, 설정된 타이머에 맞춰 지정 수신자에게 100% 전달되도록 합니다. 최악의 상황에도 당신의 디지털 유산을 완벽하게 보호하세요. #원메시지 #암호화폐 #비트코인 #디지털자산 #프라이빗키 #유산 #미래준비 #재테크 #생존확인 #클라우드보안",
+        "caption_en": "Sudden accident, who will protect my Bitcoin wallet? 😥 OneMessage ensures your valuable crypto private key information is securely stored in the cloud and 100% delivered to designated recipients on a set timer. Perfectly protect your digital legacy even in the worst-case scenario. #OneMessage #Crypto #Bitcoin #DigitalAssets #PrivateKey #Legacy #FuturePlanning #WealthManagement #SurvivalCheck #CloudSecurity",
+        "image_suggestion_kr": "고급스러운 비트코인 아이콘이 담긴 금고가 구름 위에 떠 있는 예술적인 이미지. '100% Secure' 문구 추가.",
+        "image_suggestion_en": "Artistic image of a luxurious safe containing a Bitcoin icon, floating on a cloud. Add '100% Secure' text.",
+        "story_text_kr": "내 비트코인, 마지막까지 안전하게! 🔑",
+        "story_text_en": "My Bitcoin, safe till the end! 🔑"
+      },
+      {
+        "caption_kr": "매일 부모님께 안부 전화 드리기 어려우셨죠? 📞 해외에 계신 분들도 이제 안심하세요! 안심메시지는 부모님의 스마트폰 사용 여부를 감지해, 12시간 미사용 시 지정 번호로 '안부 확인' 문자를 보내드립니다. 매일 '잘 지내고 있습니다' 메시지 옵션으로 걱정 없이 편안하게! ❤️ #안심메시지 #부모님사랑 #가족안심 #해외생활 #효도앱 #스마트케어 #독거노인 #안부확인 #마음편한앱",
+        "caption_en": "Was it hard to call your parents every day? 📞 Even if you're abroad, rest assured now! Safety Message detects your parents' smartphone usage and sends a 'check-in' text to a designated number if unused for 12 hours. With the daily 'I'm doing well' message option, live worry-free! ❤️ #SafetyMessage #ParentalLove #FamilyPeaceOfMind #LifeAbroad #FilialPietyApp #SmartCare #ElderlyCare #WellBeingCheck #PeaceOfMindApp",
+        "image_suggestion_kr": "따뜻한 색감의 가족 사진 (다세대 가족이 행복하게 웃는 모습) 위에 스마트폰 알림 아이콘과 하트 이모티콘이 오버레이된 릴스/스토리 영상. '부모님 안부, 스마트하게' 문구.",
+        "image_suggestion_en": "A reel/story video with warm-toned family photo (multi-generational family smiling happily) overlaid with a smartphone notification icon and heart emoji. Text: 'Parents' well-being, smartly handled'.",
+        "story_text_kr": "부모님 안부, 이제 AI가 챙겨드려요! 💖",
+        "story_text_en": "Parents' safety, now AI takes care of it! 💖"
+      },
+      {
+        "caption_kr": "삶은 예상치 못한 순간들로 가득하죠. ⏳ 나의 소중한 메시지, 중요한 정보, 또는 비밀스러운 선물이 최악의 순간에도 약속된 사람에게 전달될 수 있다면 어떨까요? 원메시지 프로는 최대 1년 타이머로 당신의 '미래 메시지'를 안전하게 보관하고 100% 전송을 보장합니다. 오늘, 당신의 미래를 계획하세요! ✨ #원메시지프로 #미래계획 #디지털유언 #긴급메시지 #생존감지 #100프로전송 #클라우드서비스 #나만의메시지 #삶의지혜",
+        "caption_en": "Life is full of unexpected moments. ⏳ What if your precious messages, important information, or secret gifts could be delivered to the promised person even in the worst moments? OneMessage Pro securely stores your 'future messages' with up to a 1-year timer and guarantees 100% delivery. Plan your future today! ✨ #OneMessagePro #FuturePlanning #DigitalWill #EmergencyMessage #SurvivalDetection #100PercentDelivery #CloudService #MyOwnMessage #LifeWisdom",
+        "image_suggestion_kr": "아름다운 풍경을 배경으로 한 손에 스마트폰을 들고 다른 손으로는 저 멀리 지평선을 가리키는 사람의 뒷모습. '미래를 위한 한 걸음' 문구.",
+        "image_suggestion_en": "A person's back view holding a smartphone in one hand and pointing to the distant horizon with the other, against a beautiful landscape. Text: 'One step for the future'.",
+        "story_text_kr": "미래를 위한 메시지, 지금 설정! ✍️",
+        "story_text_en": "Message for the future, set now! ✍️"
+      }
+    ]
+  },
+  "twitter_x": [
+    {
+      "tweet_text_kr": "🚨 크립토 시장의 불확실성 속, 당신의 프라이빗 키는 안전한가요? 원메시지는 AWS 클라우드 기반으로 당신의 디지털 자산 정보를 100% 전달합니다. 최악의 상황에도 당신의 부를 지키세요. #크립토 #비트코인 #암호화폐 #프라이빗키 #디지털유산 #원메시지",
+      "tweet_text_en": "🚨 Amidst crypto market uncertainty, are your private keys safe? OneMessage ensures 100% delivery of your digital asset info via AWS cloud. Protect your wealth even in the worst scenarios. #Crypto #Bitcoin #Cryptocurrency #PrivateKey #DigitalLegacy #OneMessage",
+      "thread_hook_kr": "비트코인 횡보장, 당신의 플랜 B는?",
+      "thread_hook_en": "Bitcoin sideways market, what's your Plan B?",
+      "image_suggestion_kr": "하락하는 차트와 비트코인 로고, 그 위로 방패 아이콘이 겹쳐진 이미지",
+      "image_suggestion_en": "Downward trending chart and Bitcoin logo, with a shield icon overlaid"
+    },
+    {
+      "tweet_text_kr": "불가피한 상황, 당신의 프라이빗 키가 가족에게 전달되지 못한다면? 📉 원메시지 프로는 최대 1년 타이머로 설정, 앱 삭제 후에도 리셋 가능한 링크 제공! 클라우드에 안전하게 보관하고 100% 전송 보장. 지금 대비하세요. #암호화폐상속 #비트코인상속 #디지털유언 #원메시지프로",
+      "tweet_text_en": "Unforeseen circumstances, what if your private key can't reach your family? 📉 OneMessage Pro sets a timer up to 1 year, provides a reset link even after app deletion! Securely stored in the cloud, 100% delivery guaranteed. Prepare now. #CryptoInheritance #BitcoinInheritance #DigitalWill #OneMessagePro",
+      "thread_hook_kr": "당신의 디지털 자산, 영원히 사라질까?",
+      "thread_hook_en": "Will your digital assets disappear forever?",
+      "image_suggestion_kr": "스마트폰이 부서진 이미지와 함께 구름 아이콘이 메시지를 전달하는 그래픽",
+      "image_suggestion_en": "Graphic of a broken smartphone with a cloud icon delivering a message"
+    },
+    {
+      "tweet_text_kr": "🔥 FTX 사태, 은행 파산... 중앙화된 시스템은 언제나 위험! 당신의 암호화폐 프라이빗 키는 어디에? 원메시지는 분산된 클라우드에 안전하게 보관, 100% 자동 전송 보장으로 진정한 자산 주권을 지킵니다. #디지털자산 #자산보호 #개인지갑 #DAO #웹3 #원메시지",
+      "tweet_text_en": "🔥 FTX crash, bank failures... centralized systems are always risky! Where are your crypto private keys? OneMessage securely stores them in a distributed cloud, guaranteeing 100% automatic delivery to protect true asset sovereignty. #DigitalAssets #AssetProtection #PersonalWallet #DAO #Web3 #OneMessage",
+      "thread_hook_kr": "중앙화 리스크, 당신은 자유로운가?",
+      "thread_hook_en": "Centralization risk, are you free?",
+      "image_suggestion_kr": "불타는 은행 건물과 대비되는 안전한 클라우드 아이콘. 비트코인 로고 포함.",
+      "image_suggestion_en": "Burning bank building contrasted with a secure cloud icon. Bitcoin logo included."
+    },
+    {
+      "tweet_text_kr": "지금 바로, 비트코인 불장 대비! 🚀 만약의 상황에 당신의 수익을 가족에게 안전하게 전달할 플랜 B가 있나요? 원메시지로 당신의 프라이빗 키 보관 장소를 안전하게 알리고, 예상치 못한 상황에 대비하세요. #비트코인 #불장 #크립토대비 #수익보호 #상속플랜 #원메시지",
+      "tweet_text_en": "Prepare for the Bitcoin bull run now! 🚀 Do you have a Plan B to safely deliver your profits to your family in case of unforeseen circumstances? Use OneMessage to securely communicate your private key storage location and prepare for the unexpected. #Bitcoin #BullRun #CryptoPrep #ProfitProtection #InheritancePlan #OneMessage",
+      "thread_hook_kr": "불장 속, 나의 수익은 영원히?",
+      "thread_hook_en": "In a bull run, will my profits last forever?",
+      "image_suggestion_kr": "로켓이 우주로 발사되는 이미지와 함께 비트코인 심볼, 그리고 안전하게 잠겨있는 메시지 아이콘",
+      "image_suggestion_en": "Rocket launching into space image with Bitcoin symbol and securely locked message icon"
+    },
+    {
+      "tweet_text_kr": "디지털 유언장, 아직도 종이에 쓰시나요? 📜 원메시지는 당신의 중요한 메시지, 디지털 자산 정보 등을 클라우드에 안전하게 저장하고, 설정된 타이머에 맞춰 자동으로 전달합니다. 당신의 마지막 메시지가 영원히 전해지도록. #디지털유언 #스마트유산 #재산상속 #미래준비 #원메시지 #원메시지프로",
+      "tweet_text_en": "Still writing digital wills on paper? 📜 OneMessage securely stores your important messages, digital asset info, etc., in the cloud and automatically delivers them on a set timer. Ensure your last message is delivered forever. #DigitalWill #SmartLegacy #EstateInheritance #FuturePreparation #OneMessage #OneMessagePro",
+      "thread_hook_kr": "종이 유언장, 믿을 수 있나요?",
+      "thread_hook_en": "Can paper wills be trusted?",
+      "image_suggestion_kr": "낡은 종이와 펜 옆에 빛나는 스마트폰과 클라우드 아이콘. 과거와 미래의 대비.",
+      "image_suggestion_en": "Old paper and pen next to a glowing smartphone and cloud icon. Contrast of past and future."
+    }
+  ],
+  "reddit": [
+    {
+      "title_kr": "[질문] 혹시 모를 사고에 대비해 비트코인 프라이빗 키 전달 방법 고민 중입니다.",
+      "title_en": "[Question] Thinking about how to transfer Bitcoin private keys in case of an unforeseen accident.",
+      "body_kr": "안녕하세요, 코인 투자 좀 하다가 최근에 문득 불안해졌습니다. 제가 혹시라도 사고를 당하거나 불의의 상황에 처했을 때, 가족들이 제 비트코인 자산을 찾지 못할까 봐요. 요즘 원메시지라는 앱을 봤는데, 클라우드에 메시지를 저장해뒀다가 스마트폰 미사용 시 자동으로 보내주는 기능이 있더라고요. 이거 써보신 분 계신가요? 혹시 이런 서비스 말고 다른 좋은 방법 있으면 추천 부탁드립니다. 프라이빗 키를 직접 저장하는 건 위험하다고 해서, 키가 어디에 있는지 알려주는 식으로 쓰면 괜찮을까 싶어서요.",
+      "body_en": "Hi everyone, I've been investing in crypto for a while and recently got a bit anxious. What if I get into an accident or an unexpected situation, and my family can't find my Bitcoin assets? I recently saw an app called OneMessage, which stores messages in the cloud and sends them automatically if the smartphone is unused. Has anyone tried it? If there are other good methods besides this service, please recommend them. I heard it's risky to store private keys directly, so I'm wondering if it would be okay to use it to inform where the keys are stored.",
+      "target_subreddit": "r/cryptocurrency",
+      "angle_kr": "사용자 질문 형식으로 자연스러운 정보 공유 및 제품 언급",
+      "angle_en": "Natural information sharing and product mention in a user question format"
+    },
+    {
+      "title_kr": "부모님 안부가 걱정되는 해외 거주자분들, 혹시 어떤 앱 쓰시나요?",
+      "title_en": "Expats worried about their parents' well-being, what apps do you use?",
+      "body_kr": "안녕하세요, 해외 거주 5년 차인데 요즘 부모님 안부가 너무 신경 쓰입니다. 매일 전화드리는 것도 한계가 있고, 혹시라도 연락이 안 되면 불안해서요. 한국에 계신 부모님 스마트폰 사용 여부를 감지해서 일정 시간 사용 없으면 저한테 알림 보내주는 앱이 있다면 좋을 것 같은데, 혹시 이런 기능 있는 앱 써보신 분 계신가요? 최근에 '안심메시지'라는 걸 봤는데, 12시간 미사용 시 알림 보내주고 '잘 지내고 있습니다' 메시지도 보낼 수 있다던데, 실제 사용 후기 궁금합니다. 아니면 다른 좋은 앱이나 노하우 있으면 공유 부탁드립니다!",
+      "body_en": "Hi everyone, I've been living abroad for 5 years, and I'm really worried about my parents' well-being lately. Calling them every day has its limits, and I get anxious if I can't reach them. It would be great if there was an app that detects whether my parents in Korea are using their smartphone and sends me an alert if they haven't used it for a certain period. Has anyone used an app with such a feature? I recently saw something called 'Safety Message,' which sends an alert after 12 hours of inactivity and can also send 'I'm doing well' messages. I'm curious about real user reviews. Or if you have any other good apps or tips, please share!",
+      "target_subreddit": "r/personalfinance",
+      "angle_kr": "개인적인 고민을 공유하며 커뮤니티의 조언을 구하는 형식 (제품 자연스럽게 소개)",
+      "angle_en": "Sharing personal concerns and seeking community advice (naturally introducing the product)"
+    },
+    {
+      "title_kr": "비트코인 보유자분들, 만약의 사태에 대비한 '디지털 유언장' 생각해보셨나요?",
+      "title_en": "Bitcoin holders, have you considered a 'digital will' for unforeseen events?",
+      "body_kr": "요즘 비트코인 시장이 워낙 변동성이 커서 저도 불안감을 느끼는 동시에, 만약의 사태에 대비해야겠다는 생각이 들었습니다. 비트코인 지갑의 프라이빗 키는 정말 중요해서, 저한테 무슨 일이 생기면 가족들이 찾기 어려울 것 같더라고요. 혹시 원메시지 같은 클라우드 기반 자동 메시지 전송 서비스를 이용해서 프라이빗 키의 보관 장소를 알려주거나, 중요한 디지털 유산을 남길 계획이 있으신 분 계신가요? 어떤 방식으로 준비하고 계신지 궁금합니다. 개인적으로는 AWS 클라우드에 저장되고 100% 전송 보장이라는 점이 매력적이더군요. 너무 광고 같았으면 죄송합니다 😅",
+      "body_en": "The Bitcoin market's volatility lately has made me anxious and also made me realize I need to prepare for any unforeseen circumstances. Private keys for Bitcoin wallets are extremely important, and I worry my family might struggle to find them if something happens to me. Are there any Bitcoin holders here who plan to use a cloud-based auto-message delivery service like OneMessage to inform about private key storage locations, or to leave important digital legacies? I'm curious how you're preparing. Personally, the fact that it's stored on AWS cloud and guarantees 100% delivery is appealing. Sorry if this sounded too much like an ad 😅",
+      "target_subreddit": "r/Bitcoin",
+      "angle_kr": "공통의 우려를 제기하며 해결책 중 하나로 제품을 언급, 솔직한 어조",
+      "angle_en": "Raising common concerns and mentioning the product as one solution, with a candid tone"
+    }
+  ]
+}

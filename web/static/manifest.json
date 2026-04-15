@@ -1,0 +1,22 @@
+{
+  "name": "OneMessage Ad Optimizer",
+  "short_name": "AdOptimizer",
+  "description": "OneMessage 마케팅 자동화 대시보드",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#1a1f2e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

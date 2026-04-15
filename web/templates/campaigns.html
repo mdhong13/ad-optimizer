@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}캠페인 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>캠페인 최적화</h1>
+
+<!-- 플랫폼별 요약 -->
+<div class="stat-grid">
+  {% for plat, count in platform_summary.items() %}
+  <div class="stat">
+    <div class="label">{{ plat }}</div>
+    <div class="value">{{ count }}</div>
+    <div class="sub">활성 캠페인</div>
+  </div>
+  {% endfor %}
+  <div class="stat">
+    <div class="label">사이클 주기</div>
+    <div class="value">8h</div>
+    <div class="sub">20→2 진화</div>
+  </div>
+</div>
+
+<!-- 수동 실행 -->
+<div class="card">
+  <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+    <h2 style="margin:0;">사이클 관리</h2>
+    <button class="btn btn-blue" onclick="runCycle()">캠페인 사이클 실행</button>
+    <span id="cycle-status" style="font-size:12px; color:#4a5568;"></span>
+  </div>
+
+  <!-- 최근 사이클 -->
+  {% if latest_cycle %}
+  <div style="background:#0d1117; border:1px solid #2d3748; border-radius:6px; padding:16px; margin-bottom:16px;">
+    <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
+      <div><span style="color:#718096;">사이클:</span> {{ latest_cycle.get('cycle_id', 'N/A') }}</div>
+      <div><span style="color:#718096;">플랫폼:</span> {{ latest_cycle.get('platform', 'N/A') }}</div>
+      <div><span style="color:#718096;">상태:</span>
+        <span class="badge {% if latest_cycle.get('status') == 'completed' %}badge-green{% else %}badge-yellow{% endif %}">
+          {{ latest_cycle.get('status', 'N/A') }}
+        </span>
+      </div>
+      <div><span style="color:#718096;">생존:</span> {{ latest_cycle.get('survivors_count', 0) }}개</div>
+      <div><span style="color:#718096;">생성:</span> {{ latest_cycle.get('new_campaigns_count', 0) }}개</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 사이클 이력 -->
+<div class="card">
+  <h2>최근 사이클 이력</h2>
+  {% if cycles %}
+  <table>
+    <thead>
+      <tr><th>사이클 ID</th><th>플랫폼</th><th>상태</th><th>생존</th><th>신규</th><th>시작</th></tr>
+    </thead>
+    <tbody>
+      {% for c in cycles %}
+      <tr>
+        <td style="font-size:11px; font-family:monospace;">{{ c.get('cycle_id', '')[:12] }}</td>
+        <td><span class="badge {% if c.get('platform') == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ c.get('platform', '') }}</span></td>
+        <td>
+          <span class="badge {% if c.get('status') == 'completed' %}badge-green{% elif c.get('status') == 'running' %}badge-yellow{% else %}badge-gray{% endif %}">
+            {{ c.get('status', '') }}
+          </span>
+        </td>
+        <td>{{ c.get('survivors_count', 0) }}</td>
+        <td>{{ c.get('new_campaigns_count', 0) }}</td>
+        <td style="font-size:11px; color:#4a5568;">{{ (c.get('created_at', '')|string)[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">사이클 이력이 없습니다. 첫 캠페인 사이클을 실행하세요.</div>
+  {% endif %}
+</div>
+
+<!-- 최근 성과 -->
+<div class="card">
+  <h2>최근 캠페인 성과 (3일)</h2>
+  {% if performance %}
+  <table>
+    <thead>
+      <tr><th>플랫폼</th><th>캠페인</th><th>날짜</th><th>지출</th><th>클릭</th><th>노출</th><th>CTR</th><th>CPC</th><th>ROAS</th></tr>
+    </thead>
+    <tbody>
+      {% for r in performance %}
+      <tr>
+        <td><span class="badge {% if r.platform == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ r.platform }}</span></td>
+        <td>{{ r.get('campaign_name', r.get('campaign_id', ''))[:30] }}</td>
+        <td>{{ r.date }}</td>
+        <td>${{ "%.2f"|format(r.spend) }}</td>
+        <td>{{ "{:,}".format(r.clicks) }}</td>
+        <td>{{ "{:,}".format(r.impressions) }}</td>
+        <td>{{ "%.2f"|format(r.get('ctr', 0) * 100) }}%</td>
+        <td>${{ "%.3f"|format(r.get('cpc', 0)) }}</td>
+        <td>{{ "%.2f"|format(r.get('roas', 0)) }}x</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">성과 데이터가 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runCycle() {
+  document.getElementById('cycle-status').textContent = '사이클 실행 중 (백그라운드)...';
+  const r = await fetch('/campaigns/run-cycle', {method:'POST'});
+  const data = await r.json();
+  document.getElementById('cycle-status').textContent = '사이클 시작됨. 완료 후 새로고침하세요.';
+}
+</script>
+{% endblock %}

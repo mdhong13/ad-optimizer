@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}대시보드 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>광고 성과 대시보드 <small style="font-size:13px;color:#4a5568;">최근 7일</small></h1>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="label">총 지출</div>
+    <div class="value">${{ "%.2f"|format(totals.spend) }}</div>
+    <div class="sub">7일 누적</div>
+  </div>
+  <div class="stat">
+    <div class="label">총 클릭</div>
+    <div class="value">{{ "{:,}".format(totals.clicks) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">총 노출</div>
+    <div class="value">{{ "{:,}".format(totals.impressions) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">전환</div>
+    <div class="value">{{ totals.conversions }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">평균 ROAS</div>
+    <div class="value">{{ avg_roas }}x</div>
+    <div class="sub">목표: 3.0x</div>
+  </div>
+  <div class="stat">
+    <div class="label">평균 CTR</div>
+    <div class="value">{{ avg_ctr }}%</div>
+    <div class="sub">목표: 2%</div>
+  </div>
+</div>
+
+<!-- 시장 이벤트 알림 -->
+{% if events %}
+<div class="card" style="border-color: #744210; background: #2d1a00;">
+  <h2 style="color:#f6ad55;">최근 크립토 시장 이벤트</h2>
+  {% for e in events %}
+  <div style="padding: 6px 0; border-bottom: 1px solid #3a2000; font-size:13px;">
+    <span class="badge {% if e.get('severity') == 'critical' %}badge-red{% elif e.get('severity') == 'high' %}badge-yellow{% else %}badge-blue{% endif %}">
+      {{ e.get('event_type', '') }}
+    </span>
+    {{ e.get('title', '') }}
+    <span style="color:#4a5568; font-size:11px; float:right;">{{ (e.get('created_at', '')|string)[:16] }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- 캠페인 성과 테이블 -->
+<div class="card">
+  <h2>캠페인별 성과</h2>
+  {% if performance %}
+  <table>
+    <thead>
+      <tr>
+        <th>플랫폼</th>
+        <th>캠페인</th>
+        <th>날짜</th>
+        <th>지출</th>
+        <th>클릭</th>
+        <th>노출</th>
+        <th>CTR</th>
+        <th>CPC</th>
+        <th>ROAS</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in performance %}
+      <tr>
+        <td>
+          <span class="badge {% if r.get('platform') == 'meta' %}badge-blue{% else %}badge-green{% endif %}">
+            {{ r.get('platform', '') }}
+          </span>
+        </td>
+        <td>{{ r.get('campaign_name', r.get('campaign_id', '')) }}</td>
+        <td>{{ r.get('date', '') }}</td>
+        <td>${{ "%.2f"|format(r.get('spend', 0)) }}</td>
+        <td>{{ "{:,}".format(r.get('clicks', 0)) }}</td>
+        <td>{{ "{:,}".format(r.get('impressions', 0)) }}</td>
+        <td>{{ "%.2f"|format(r.get('ctr', 0) * 100) }}%</td>
+        <td>${{ "%.3f"|format(r.get('cpc', 0)) }}</td>
+        <td>
+          <span class="{% if r.get('roas', 0) >= 3 %}sev-low{% elif r.get('roas', 0) >= 1 %}sev-medium{% else %}sev-high{% endif %}">
+            {{ "%.2f"|format(r.get('roas', 0)) }}x
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">성과 데이터가 없습니다. 스케줄러를 실행하거나 수동으로 수집하세요.</div>
+  {% endif %}
+</div>
+{% endblock %}

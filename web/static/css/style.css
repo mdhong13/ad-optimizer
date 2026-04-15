@@ -1,0 +1,52 @@
+/* OneMessage Ad Optimizer — 추가 스타일 (base.html 인라인 보완) */
+
+/* 반응형 */
+@media (max-width: 768px) {
+  nav { flex-wrap: wrap; height: auto; padding: 12px; gap: 8px; }
+  nav .brand { width: 100%; }
+  .container { padding: 12px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  table { font-size: 11px; }
+  td, th { padding: 6px 8px; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .stat .value { font-size: 20px; }
+}
+
+/* 로딩 스피너 */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #4a5568;
+  border-top-color: #63b3ed;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 토스트 알림 */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #1a1f2e;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 13px;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

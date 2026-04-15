@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}스케줄러 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>스케줄러 관리</h1>
+
+<div class="card">
+  <h2>등록된 스케줄</h2>
+  <table>
+    <thead>
+      <tr><th>태스크</th><th>Cron</th><th>주기</th><th>수동 실행</th></tr>
+    </thead>
+    <tbody>
+      {% for s in schedules %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td><code style="color:#63b3ed; font-size:12px;">{{ s.cron }}</code></td>
+        <td><span class="badge badge-gray">{{ s.period }}</span></td>
+        <td>
+          <button class="btn btn-blue" onclick="trigger('{{ s.id }}', this)">
+            ▶ 지금 실행
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>이벤트 드리븐 트리거 조건</h2>
+  <table>
+    <thead><tr><th>조건</th><th>임계값</th><th>에이전트 액션</th></tr></thead>
+    <tbody>
+      <tr><td>BTC 24h 가격 급등</td><td>≥ +10%</td><td>신규 진입자 타겟 소재 예산 증액</td></tr>
+      <tr><td>BTC 24h 가격 급락</td><td>≤ -10%</td><td>"자산 보호" 소재 전면 강화</td></tr>
+      <tr><td>크립토 해킹 뉴스</td><td>키워드 감지</td><td>보안 소재 긴급 예산 배정</td></tr>
+      <tr><td>BTC 신고가(ATH)</td><td>ATH 갱신</td><td>교육형 소재 예산 확대</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="log" class="card" style="display:none;">
+  <h2>실행 로그</h2>
+  <div id="log-content" style="font-size:13px; color:#68d391; font-family:monospace;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function trigger(taskId, btn) {
+  btn.disabled = true;
+  btn.textContent = '실행 중...';
+  const r = await fetch(`/scheduler/trigger/${taskId}`, {method: 'POST'});
+  const data = await r.json();
+  const log = document.getElementById('log');
+  const logContent = document.getElementById('log-content');
+  log.style.display = 'block';
+  const now = new Date().toLocaleTimeString('ko-KR');
+  logContent.innerHTML += `[${now}] ${data.name || taskId} 실행 시작됨 (백그라운드)<br>`;
+  btn.disabled = false;
+  btn.textContent = '▶ 지금 실행';
+}
+</script>
+{% endblock %}

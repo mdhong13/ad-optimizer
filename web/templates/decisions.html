@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}결정 이력 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>에이전트 결정 이력</h1>
+
+<!-- 대기 중인 결정 -->
+{% if pending %}
+<div class="card" style="border-color: #744210;">
+  <h2 style="color:#f6ad55;">승인 대기 중 ({{ pending|length }})</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>플랫폼</th><th>액션</th><th>대상</th><th>변경</th><th>이유</th><th>생성</th><th>처리</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in pending %}
+      <tr>
+        <td><span class="badge {% if d.platform == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ d.platform }}</span></td>
+        <td><span class="badge badge-yellow">{{ d.action }}</span></td>
+        <td style="font-size:11px; color:#718096;">{{ d.target_id[:20] }}</td>
+        <td style="font-size:12px;">{{ d.current_value }} → <strong>{{ d.new_value }}</strong>
+          {% if d.change_pct %}<br><span style="color:#f6ad55;">{{ "%+.1f"|format(d.change_pct) }}%</span>{% endif %}
+        </td>
+        <td style="font-size:12px; max-width:300px;">{{ d.reason }}</td>
+        <td style="font-size:11px; color:#4a5568;">{{ (d.created_at|string)[:16] }}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-green" onclick="approve({{ d.id }})">승인</button>
+          <button class="btn btn-red" onclick="reject({{ d.id }})">거절</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty">대기 중인 결정 없음</div>
+</div>
+{% endif %}
+
+<!-- 전체 이력 -->
+<div class="card">
+  <h2>최근 결정 이력 (50건)</h2>
+  {% if recent %}
+  <table>
+    <thead>
+      <tr>
+        <th>유형</th><th>플랫폼</th><th>액션</th><th>변경</th><th>상태</th><th>이유</th><th>생성</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in recent %}
+      <tr>
+        <td><span class="badge badge-gray">{{ d.task_type }}</span></td>
+        <td>{{ d.platform }}</td>
+        <td>{{ d.action }}</td>
+        <td style="font-size:11px;">{{ d.current_value }} → {{ d.new_value }}</td>
+        <td>
+          <span class="badge
+            {% if d.status == 'executed' %}badge-green
+            {% elif d.status == 'pending' %}badge-yellow
+            {% elif d.status == 'rejected' %}badge-red
+            {% else %}badge-gray{% endif %}">
+            {{ d.status }}
+          </span>
+          {% if d.dry_run %}<span class="badge badge-gray" style="font-size:10px;">dry</span>{% endif %}
+        </td>
+        <td style="font-size:12px; max-width:280px; color:#a0aec0;">{{ d.reason[:80] }}{% if d.reason|length > 80 %}...{% endif %}</td>
+        <td style="font-size:11px; color:#4a5568;">{{ (d.created_at|string)[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">결정 이력이 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function approve(id) {
+  const r = await fetch(`/decisions/approve/${id}`, {method: 'POST'});
+  const data = await r.json();
+  if (data.success) { location.reload(); }
+  else { alert('실행 실패. 로그를 확인하세요.'); }
+}
+async function reject(id) {
+  const r = await fetch(`/decisions/reject/${id}`, {method: 'POST'});
+  if ((await r.json()).success) location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}콘텐츠 배포 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>콘텐츠 배포</h1>
+
+<!-- 플랫폼별 통계 -->
+<div class="stat-grid">
+  {% for plat, stats in platform_stats.items() %}
+  <div class="stat">
+    <div class="label">{{ plat }}</div>
+    <div class="value">{{ stats.count }}</div>
+    <div class="sub">게시 {{ stats.published }} / 조회 {{ "{:,}".format(stats.views) }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 액션 -->
+<div class="card">
+  <div style="display:flex; gap:12px; align-items:center;">
+    <button class="btn btn-blue" onclick="collectMetrics()">성과 수집</button>
+    <span id="metrics-status" style="font-size:12px; color:#4a5568;"></span>
+  </div>
+</div>
+
+<!-- 게시물 목록 -->
+<div class="card">
+  <h2>최근 게시물 (50건)</h2>
+  {% if contents %}
+  <table>
+    <thead>
+      <tr><th>플랫폼</th><th>유형</th><th>텍스트</th><th>상태</th><th>조회</th><th>좋아요</th><th>댓글</th><th>시간</th></tr>
+    </thead>
+    <tbody>
+      {% for c in contents %}
+      <tr>
+        <td><span class="badge badge-blue">{{ c.platform }}</span></td>
+        <td><span class="badge badge-gray">{{ c.get('content_type', 'text') }}</span></td>
+        <td style="font-size:12px; color:#a0aec0; max-width:300px;">
+          {% if c.get('post_url') %}
+          <a href="{{ c.post_url }}" target="_blank">{{ c.get('text', '')[:60] }}{% if c.get('text', '')|length > 60 %}...{% endif %}</a>
+          {% else %}
+          {{ c.get('text', '')[:60] }}{% if c.get('text', '')|length > 60 %}...{% endif %}
+          {% endif %}
+        </td>
+        <td>
+          <span class="badge
+            {% if c.status == 'published' %}badge-green
+            {% elif c.status == 'queued' %}badge-yellow
+            {% elif c.status == 'dry_run' %}badge-gray
+            {% else %}badge-red{% endif %}">
+            {{ c.status }}
+          </span>
+          {% if c.get('dry_run') %}<span class="badge badge-gray" style="font-size:10px;">dry</span>{% endif %}
+        </td>
+        <td>{{ c.get('metrics', {}).get('views', '—') }}</td>
+        <td>{{ c.get('metrics', {}).get('likes', '—') }}</td>
+        <td>{{ c.get('metrics', {}).get('comments', '—') }}</td>
+        <td style="font-size:11px; color:#4a5568;">{{ (c.get('created_at', '')|string)[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">게시물이 없습니다. 콘텐츠를 업로드하면 여기에 표시됩니다.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function collectMetrics() {
+  document.getElementById('metrics-status').textContent = '성과 수집 중...';
+  await fetch('/publisher/collect-metrics', {method:'POST'});
+  document.getElementById('metrics-status').textContent = '수집 시작됨. 완료 후 새로고침.';
+}
+</script>
+{% endblock %}

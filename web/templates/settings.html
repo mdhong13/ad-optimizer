@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}설정 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>설정</h1>
+
+<!-- API 연동 상태 -->
+<div class="card">
+  <h2>API 연동 상태</h2>
+  <table>
+    <thead>
+      <tr><th>서비스</th><th>상태</th></tr>
+    </thead>
+    <tbody>
+      {% for name, connected in api_status.items() %}
+      <tr>
+        <td><strong>{{ name }}</strong></td>
+        <td>
+          {% if connected %}
+          <span class="badge badge-green">연결됨</span>
+          {% else %}
+          <span class="badge badge-red">미설정</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 시스템 설정 -->
+<div class="card">
+  <h2>시스템 설정</h2>
+  <table>
+    <thead>
+      <tr><th>항목</th><th>값</th></tr>
+    </thead>
+    <tbody>
+      {% for key, value in config_info.items() %}
+      <tr>
+        <td style="font-family:monospace; font-size:12px;">{{ key }}</td>
+        <td>
+          {% if value is sameas true %}
+            <span class="badge badge-yellow">true</span>
+          {% elif value is sameas false %}
+            <span class="badge badge-gray">false</span>
+          {% else %}
+            <code style="color:#63b3ed;">{{ value }}</code>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 스케줄 요약 -->
+<div class="card">
+  <h2>자동화 스케줄</h2>
+  <table>
+    <thead>
+      <tr><th>태스크</th><th>주기</th><th>설명</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>성과 수집</td><td><code>0 */2 * * *</code></td><td>매 2시간 플랫폼 API에서 데이터 수집</td></tr>
+      <tr><td>캠페인 사이클</td><td><code>0 */8 * * *</code></td><td>8시간마다 20→2 최적화 반복</td></tr>
+      <tr><td>시장 체크</td><td><code>0 */1 * * *</code></td><td>매시간 BTC/ETH 가격 및 변동 감지</td></tr>
+      <tr><td>바이럴 활동</td><td><code>*/30 * * * *</code></td><td>30분마다 커뮤니티 스캔 + 댓글 생성</td></tr>
+      <tr><td>콘텐츠 게시</td><td><code>0 9,13,18 * * *</code></td><td>하루 3회 콘텐츠 배포</td></tr>
+      <tr><td>일간 리포트</td><td><code>0 20 * * *</code></td><td>매일 20:00 Gmail 발송</td></tr>
+      <tr><td>Meta 토큰 갱신</td><td><code>0 3 * * 1</code></td><td>매주 월 03:00 자동 갱신</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}

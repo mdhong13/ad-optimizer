@@ -1,0 +1,18 @@
+If something unusual happens to you, a message will be sent.
+
+An app running in the background detects smartphone usage.
+If smartphone usage cannot be detected in power-saving mode, you will receive a notification. Please tap the notification to open the app.
+If your smartphone is not used for 12 hours, an SMS will be sent to the designated number.
+
+
+"On January 19, John did not use his smartphone for 12 hours. Please call to check on him."
+
+
+One free message is provided each week. After the free message is used, additional messages can be purchased.
+To send SMS messages to multiple numbers, additional messages are required. One additional message is used for each SMS sent.
+Safety Message sends a daily reassurance message at 6 PM using one additional message.
+
+
+"Today, January 19, John is doing well."
+
+End

@@ -1,0 +1,361 @@
+{
+  "main_page": {
+    "main_titles": [
+      {
+        "title_kr": "OneMessage: 당신의 가장 소중한 메시지, 반드시 전해집니다.",
+        "title_en": "OneMessage: Your Most Precious Message, Always Delivered.",
+        "subtitle_kr": "스마트폰이 꺼져도, 파손되어도, 바다에 빠져도. 클라우드가 지킵니다.",
+        "subtitle_en": "Even if your smartphone is off, broken, or lost at sea. The cloud protects your words."
+      },
+      {
+        "title_kr": "디지털 유산 관리의 시작: 암호화폐 자산, 안전하게 상속하세요.",
+        "title_en": "Start Your Digital Legacy: Securely Inherit Your Crypto Assets.",
+        "subtitle_kr": "프라이빗 키부터 소중한 기억까지, 미래를 위한 확실한 연결.",
+        "subtitle_en": "From private keys to precious memories, a sure connection for the future."
+      },
+      {
+        "title_kr": "사랑하는 이들을 위한 안심: 당신의 안녕, OneMessage가 전합니다.",
+        "title_en": "Peace of Mind for Loved Ones: OneMessage Delivers Your Well-being.",
+        "subtitle_kr": "일상의 안부는 물론, 비상시에도 가장 확실한 보호막.",
+        "subtitle_en": "Your daily safety, and the most reliable safeguard in emergencies."
+      },
+      {
+        "title_kr": "예측 불가능한 미래, 당신은 가장 중요한 메시지를 준비했나요?",
+        "title_en": "The Unpredictable Future: Have You Prepared Your Most Important Message?",
+        "subtitle_kr": "가장 중요한 메시지, 가장 확실한 방법으로 전달될 때까지.",
+        "subtitle_en": "Your most critical message, delivered through the most reliable way, guaranteed."
+      },
+      {
+        "title_kr": "스마트폰이 멈춰도, 당신의 메시지는 살아남습니다.",
+        "title_en": "Even if Your Smartphone Fails, Your Message Endures.",
+        "subtitle_kr": "AWS 클라우드 기반, 100% 발송률. 당신의 마지막 한마디를 지킵니다.",
+        "subtitle_en": "AWS cloud-based, 100% delivery rate. Protecting your final words."
+      }
+    ],
+    "hero_copy": [
+      {
+        "angle": "크립토 자산 보호",
+        "headline_kr": "당신의 디지털 금고, 이제 미래에도 안전합니다.",
+        "headline_en": "Your Digital Vault, Secure for the Future.",
+        "body_kr": "예측 불가능한 상황 속에서 암호화폐 프라이빗 키를 잃을까 걱정되셨나요? OneMessage는 스마트폰 상태와 상관없이 클라우드를 통해 설정한 메시지를 100% 전달합니다. 당신의 디지털 자산을 안전하게 후대에 상속하세요.",
+        "body_en": "Worried about losing your crypto private keys in unpredictable situations? OneMessage guarantees 100% delivery of your message via the cloud, regardless of your smartphone's condition. Securely pass on your digital assets to future generations.",
+        "cta_kr": "내 디지털 유산 설정하기",
+        "cta_en": "Set Up My Digital Legacy"
+      },
+      {
+        "angle": "가족 안심",
+        "headline_kr": "사랑하는 가족에게, 매일 안심을 선물하세요.",
+        "headline_en": "Gift Peace of Mind to Your Loved Ones, Every Day.",
+        "body_kr": "혼자 계신 부모님, 멀리 떨어져 사는 자녀의 안부가 걱정되시나요? OneMessage의 안심메시지는 스마트폰 사용을 감지하여 12시간 미사용 시 가족에게 알립니다. 매일 '잘 지내고 있습니다' 메시지로 서로의 안부를 확인하고 걱정을 덜어낼 수 있습니다.",
+        "body_en": "Worried about your elderly parents living alone, or children far away? OneMessage's Safety Message detects smartphone usage, notifying family after 12 hours of inactivity. Confirm daily well-being with a 'I'm doing well' message and ease worries.",
+        "cta_kr": "가족 안심 시작하기",
+        "cta_en": "Start Family Safety Now"
+      },
+      {
+        "angle": "긴급 상황 대비",
+        "headline_kr": "예측 불가능한 순간, 당신의 목소리는 끊기지 않습니다.",
+        "headline_en": "In Unpredictable Moments, Your Voice Will Not Be Silenced.",
+        "body_kr": "고위험 직업군이거나 잦은 해외 출장으로 비상 상황이 걱정되시나요? OneMessage는 스마트폰이 파손되거나 네트워크가 끊겨도 AWS 클라우드 서버에 안전하게 보관된 메시지를 정해진 시점에 100% 전송합니다. 당신의 마지막 계획과 바람을 확실하게 전달하세요.",
+        "body_en": "Are you in a high-risk profession or travel frequently, worried about emergencies? OneMessage ensures 100% delivery of your securely stored messages from AWS cloud, even if your phone is broken or offline. Guarantee your final plans and wishes are conveyed.",
+        "cta_kr": "긴급 메시지 설정하기",
+        "cta_en": "Set Up Emergency Messages"
+      },
+      {
+        "angle": "디지털 유산 각도",
+        "headline_kr": "당신의 삶의 흔적, 소중한 기억을 영원히 남기세요.",
+        "headline_en": "Leave a Lasting Legacy: Your Life's Footprint, Cherished Memories Forever.",
+        "body_kr": "사진, 일기, 중요한 파일부터 암호화폐 프라이빗 키까지, 당신의 디지털 자산은 소중한 유산입니다. OneMessage는 당신의 부재 시 사랑하는 사람들에게 이 모든 것을 안전하고 확실하게 전달합니다. 미래의 당신을 위해 오늘 준비하세요.",
+        "body_en": "From photos, diaries, important files to cryptocurrency private keys, your digital assets are a precious legacy. OneMessage securely and reliably delivers all of this to your loved ones in your absence. Prepare today for your future self.",
+        "cta_kr": "나의 디지털 유산 만들기",
+        "cta_en": "Create My Digital Legacy"
+      }
+    ],
+    "taglines": [
+      {
+        "kr": "꺼진 폰도, 끊긴 연결도 막을 수 없는 메시지.",
+        "en": "A message unstoppable by dead phones or lost connections."
+      },
+      {
+        "kr": "당신의 메시지, 100% 전송 보장.",
+        "en": "Your message, 100% delivery guaranteed."
+      },
+      {
+        "kr": "가족의 안심, 나의 안녕.",
+        "en": "Family's peace, my well-being."
+      },
+      {
+        "kr": "디지털 유산, 안전하게 상속하세요.",
+        "en": "Securely inherit your digital legacy."
+      },
+      {
+        "kr": "최악의 상황에도, 당신의 목소리는 살아남습니다.",
+        "en": "Even in the worst, your voice survives."
+      },
+      {
+        "kr": "클라우드가 지키는 당신의 마지막 약속.",
+        "en": "Your final promise, protected by the cloud."
+      },
+      {
+        "kr": "미래를 위한 가장 확실한 메시지.",
+        "en": "The most reliable message for the future."
+      },
+      {
+        "kr": "안심 메시지: 당신의 안부를 매일 전합니다.",
+        "en": "Safety Message: Delivering your well-being daily."
+      }
+    ]
+  },
+  "ad_creatives_error": "The read operation timed out",
+  "content_marketing": {
+    "blog_titles": [
+      {
+        "title_kr": "내가 사라져도 내 암호화폐는 가족에게 안전하게! 원메시지 활용법",
+        "title_en": "Even if I'm Gone, My Crypto Reaches Family Safely: How to Use OneMessage",
+        "category": "crypto",
+        "seo_keywords_kr": [
+          "암호화폐 상속",
+          "프라이빗 키 전달",
+          "디지털 자산 보호",
+          "원메시지 암호화폐",
+          "비트코인 유산"
+        ],
+        "seo_keywords_en": [
+          "crypto inheritance",
+          "private key transfer",
+          "digital asset protection",
+          "OneMessage crypto",
+          "bitcoin legacy"
+        ],
+        "outline_kr": "만약의 사태에 대비하여 암호화폐 프라이빗 키나 중요한 디지털 자산을 가족에게 100% 안전하게 전달하는 원메시지의 활용 방안과 주의사항을 안내합니다.",
+        "outline_en": "A guide on how to use OneMessage to 100% securely transfer cryptocurrency private keys or important digital assets to family in case of an emergency, including precautions."
+      },
+      {
+        "title_kr": "홀로 계신 부모님 안부, 이제 스마트폰이 자동으로 확인합니다: 안심메시지",
+        "title_en": "Elderly Parents' Well-being, Now Automatically Checked by Smartphone: Safety Message",
+        "category": "family",
+        "seo_keywords_kr": [
+          "고령층 돌봄",
+          "안부 확인 앱",
+          "스마트폰 미사용 감지",
+          "부모님 안전",
+          "안심메시지"
+        ],
+        "seo_keywords_en": [
+          "elderly care",
+          "well-being check app",
+          "smartphone inactivity detection",
+          "parent safety",
+          "safety message"
+        ],
+        "outline_kr": "부모님의 스마트폰 사용 여부를 감지하여 12시간 미사용 시 지정 번호로 알림을 보내는 안심메시지 기능으로 가족의 걱정을 덜어주는 방법을 소개합니다.",
+        "outline_en": "Introduces how to ease family worries with the Safety Message feature, which detects smartphone usage and sends an alert to a designated number if the phone is unused for 12 hours."
+      },
+      {
+        "title_kr": "고위험 직업군 필수 앱: 당신의 마지막 메시지를 100% 전송합니다",
+        "title_en": "Essential App for High-Risk Professions: Your Last Message, 100% Delivered",
+        "category": "safety",
+        "seo_keywords_kr": [
+          "고위험 직업 안전",
+          "군인 필수 앱",
+          "소방관 안전",
+          "경찰 비상 메시지",
+          "100% 메시지 전송"
+        ],
+        "seo_en": [
+          "high-risk job safety",
+          "military essential app",
+          "firefighter safety",
+          "police emergency message",
+          "100% message delivery"
+        ],
+        "outline_kr": "군인, 소방관, 경찰 등 고위험 직업군이 만약의 사태에 대비하여 소중한 메시지를 클라우드 기반으로 안전하게 저장하고 100% 전송을 보장하는 원메시지의 가치를 설명합니다.",
+        "outline_en": "Explains the value of OneMessage for high-risk professions like soldiers, firefighters, and police, ensuring important messages are securely stored on the cloud and 100% delivered in emergencies."
+      },
+      {
+        "title_kr": "디지털 유산, 스마트하게 준비하는 원메시지 프로의 힘: 최대 1년 타이머",
+        "title_en": "The Power of OneMessage Pro: Smart Digital Legacy with Up to 1-Year Timer",
+        "category": "digital-legacy",
+        "seo_keywords_kr": [
+          "디지털 유산 계획",
+          "장기 메시지 예약",
+          "원메시지 프로",
+          "유언 메시지",
+          "상속 준비"
+        ],
+        "seo_en": [
+          "digital legacy planning",
+          "long-term message scheduling",
+          "OneMessage Pro",
+          "last will message",
+          "inheritance preparation"
+        ],
+        "outline_kr": "최대 1년까지 메시지 전송 타이머를 설정하고 여러 메시지를 동시에 관리할 수 있는 원메시지 프로의 강력한 기능으로 미래를 준비하는 방법을 알아봅니다.",
+        "outline_en": "Discover how to prepare for the future with the powerful features of OneMessage Pro, allowing you to set message timers up to a year and manage multiple messages simultaneously."
+      },
+      {
+        "title_kr": "해외 거주자/여행자를 위한 필수 생존 확인 앱: 원메시지",
+        "title_en": "Essential Survival Check App for Overseas Residents/Travelers: OneMessage",
+        "category": "safety",
+        "seo_keywords_kr": [
+          "해외 여행 안전",
+          "해외 거주자 앱",
+          "생존 확인 시스템",
+          "비상 연락",
+          "타이머 리셋"
+        ],
+        "seo_en": [
+          "overseas travel safety",
+          "expat app",
+          "survival check system",
+          "emergency contact",
+          "timer reset"
+        ],
+        "outline_kr": "해외에서 발생할 수 있는 비상 상황에 대비하여, 주기적인 체크인으로 생존을 알리고 비상시 자동으로 메시지를 전송하는 원메시지의 활용 팁을 공유합니다.",
+        "outline_en": "Shares tips on how to use OneMessage for emergency preparedness abroad, by signaling your well-being through regular check-ins and automatically sending messages in critical situations."
+      },
+      {
+        "title_kr": "프라이빗 키, 절대 직접 기재하지 마세요! 원메시지 활용한 안전한 암호화폐 상속 가이드",
+        "title_en": "Never Write Down Private Keys Directly! A Secure Crypto Inheritance Guide with OneMessage",
+        "category": "crypto",
+        "seo_keywords_kr": [
+          "암호화폐 보안",
+          "프라이빗 키 보관",
+          "디지털 자산 상속",
+          "원메시지 보안",
+          "재산 보호"
+        ],
+        "seo_en": [
+          "cryptocurrency security",
+          "private key storage",
+          "digital asset inheritance",
+          "OneMessage security",
+          "wealth protection"
+        ],
+        "outline_kr": "암호화폐 프라이빗 키를 직접 기재하지 않고, 안전하게 보관 장소 힌트를 가족에게 전달하는 원메시지 활용법과 보안 수칙을 상세히 안내합니다.",
+        "outline_en": "Detailed guide on using OneMessage to securely convey hints about private key storage locations to family, rather than directly writing them down, along with security protocols."
+      },
+      {
+        "title_kr": "당신의 '생존'을 감지합니다: 원메시지의 똑똑한 체크인 시스템",
+        "title_en": "Detecting Your 'Survival': OneMessage's Smart Check-in System",
+        "category": "safety",
+        "seo_keywords_kr": [
+          "생존 감지 앱",
+          "자동 생존 확인",
+          "스마트폰 체크인",
+          "비상 시스템",
+          "안전 기술"
+        ],
+        "seo_en": [
+          "survival detection app",
+          "automatic well-being check",
+          "smartphone check-in",
+          "emergency system",
+          "safety technology"
+        ],
+        "outline_kr": "원메시지의 독자적인 스마트폰 사용 감지 및 체크인 시스템이 어떻게 작동하며, 이를 통해 사용자 생존 여부를 자동으로 확인하고 메시지 전송을 제어하는지 설명합니다.",
+        "outline_en": "Explains how OneMessage's unique smartphone usage detection and check-in system works to automatically confirm user well-being and control message delivery."
+      },
+      {
+        "title_kr": "혼수 상태? 앱 삭제 후에도 타이머 리셋! 원메시지 프로의 압도적 안정성",
+        "title_en": "Coma? Timer Reset Even After App Deletion! OneMessage Pro's Overwhelming Stability",
+        "category": "digital-legacy",
+        "seo_keywords_kr": [
+          "혼수 상태 대비",
+          "앱 삭제 후 복구",
+          "타이머 리셋 링크",
+          "메시지 안정성",
+          "비상 복구"
+        ],
+        "seo_en": [
+          "coma preparedness",
+          "recovery after app deletion",
+          "timer reset link",
+          "message stability",
+          "emergency recovery"
+        ],
+        "outline_kr": "만약의 상황(혼수 상태 등)에서도 타이머를 리셋하고 중요한 메시지 전송을 제어할 수 있는 원메시지 프로의 링크 기반 리셋 기능과 안전 확인 메시지 설정의 중요성을 강조합니다.",
+        "outline_en": "Emphasizes the importance of OneMessage Pro's link-based reset feature and pre-message settings, which allow users to reset timers and control important message delivery even in critical situations (e.g., coma)."
+      }
+    ],
+    "email_subject_lines": [
+      {
+        "subject_kr": "혹시 모를 미래, 당신의 디지털 자산은 안전한가요?",
+        "subject_en": "In Case of an Unforeseen Future, Are Your Digital Assets Safe?",
+        "preview_kr": "클라우드 기반 100% 전송 보장! 암호화폐 상속을 지금 준비하세요.",
+        "preview_en": "100% Cloud-Based Delivery Guaranteed! Prepare Your Crypto Inheritance Now."
+      },
+      {
+        "subject_kr": "부모님 스마트폰 미사용 시, 자동으로 안부를 확인해 드립니다!",
+        "subject_en": "When Your Parents Don't Use Their Smartphone, We'll Automatically Check On Them!",
+        "preview_kr": "12시간 미사용 감지! 가족 안심을 위한 안심메시지를 시작해보세요.",
+        "preview_en": "12-Hour Inactivity Detected! Start Safety Message for Family Peace of Mind."
+      },
+      {
+        "subject_kr": "당신의 마지막 메시지, 100% 전송 보장! 원메시지 프로",
+        "subject_en": "Your Last Message, 100% Delivery Guaranteed! OneMessage Pro",
+        "preview_kr": "고위험 직업군, 해외 거주자에게 필수! 최대 1년 타이머로 준비하세요.",
+        "preview_en": "Essential for High-Risk & Overseas! Prepare with up to a 1-Year Timer."
+      },
+      {
+        "subject_kr": "단 한 번의 설정으로 소중한 가족에게 '안심'을 선물하세요",
+        "subject_en": "Gift 'Peace of Mind' to Your Loved Ones with Just One Setup",
+        "preview_kr": "스마트한 생존 감지 시스템으로 당신의 안부를 자동으로 전합니다.",
+        "preview_en": "Our Smart Survival Detection System Automatically Delivers Your Well-being."
+      },
+      {
+        "subject_kr": "프라이빗 키 보관 걱정 끝! 안전한 암호화폐 상속의 첫걸음",
+        "subject_en": "No More Private Key Worries! The First Step to Secure Crypto Inheritance",
+        "preview_kr": "AWS 클라우드 기반, 비상 복구 비밀번호로 완벽하게 보호하세요.",
+        "preview_en": "AWS Cloud-based, perfectly protected with an emergency recovery password."
+      },
+      {
+        "subject_kr": "앱 삭제해도 타이머 리셋? 원메시지 프로의 압도적 안정성",
+        "subject_en": "Timer Reset Even After App Deletion? OneMessage Pro's Unrivaled Stability",
+        "preview_kr": "혼수 상태, 사고 등 만약의 상황에 대비하는 궁극의 메시지 솔루션.",
+        "preview_en": "The Ultimate Message Solution for Unforeseen Situations like Coma or Accidents."
+      }
+    ],
+    "app_store_copy": {
+      "short_description_kr": "내 안부, 디지털 유산, 비상 메시지를 100% 전달. 가족 안심과 자산 보호의 시작!",
+      "short_description_en": "100% deliver your well-being, digital legacy, emergency messages. Family peace, asset protection!",
+      "long_description_kr": "## OneMessage: 당신의 소중한 메시지를 100% 전송하는 생존 감지 기반 자동 전송 앱\n\nOneMessage는 만약의 상황에 대비하여 당신의 안부, 디지털 자산 정보, 마지막 메시지 등을 가족이나 지인에게 100% 안전하게 전달하는 혁신적인 앱입니다. 클라우드 기반의 안정적인 시스템과 스마트한 생존 감지 기능으로 당신의 걱정을 덜어드립니다.\n\n### 🛡️ 안심메시지 (Safety Message): 소중한 가족의 안부를 매일 확인하세요\n\n*   **스마트폰 사용 감지:** 백그라운드 앱이 스마트폰 사용 여부를 감지합니다.\n*   **자동 안부 알림:** 12시간 동안 스마트폰 미사용 시, 지정 번호로 '안성회님이 12시간 동안 스마트폰을 사용하지 않았습니다. 전화로 안부를 확인해 주세요.'와 같은 SMS가 자동 발송됩니다.\n*   **주 1회 무료 제공:** 기본적인 안부 확인은 주 1회 무료로 제공됩니다.\n*   **매일 안심 옵션:** '오늘 하루 잘 지내고 있습니다.'와 같은 매일 안부 메시지를 설정하여 가족에게 지속적인 안심을 선물할 수 있습니다.\n\n### ✉️ 원메시지 (One Message): 당신의 마지막 메시지를 100% 전달합니다\n\n*   **100% 전송 보장:** AWS 클라우드 서버에 메시지가 저장되어 스마트폰이 꺼지거나, 파손되거나, 분실되어도 설정한 타이머 만료 시 100% 수신자에게 자동 전송됩니다.\n*   **스마트 생존 감지 (체크인):** 스마트폰 사용이 감지되면 타이머가 자동 리셋되어, 당신이 활동 중임을 알리고 불필요한 메시지 전송을 방지합니다.\n*   **비상 복구 비밀번호:** 만약을 위해 설정한 비밀번호로 메시지를 복원할 수 있습니다.\n*   **디지털 자산 보호:** 암호화폐 프라이빗 키 등 민감한 정보를 직접 기재하는 대신, 보관 장소에 대한 힌트를 남겨 안전하게 전달할 수 있도록 돕습니다.\n    *   예시: \"너에게 선물을 남겼어. 아빠 서재에서 칼 세이건의 코스모스를 열어봐.\"\n    *   **주의:** SMS 보안상 암호화폐 프라이빗 키는 직접 기재하지 마시고, 보관 장소를 암시하는 내용을 권장합니다.\n\n### 🔥 원메시지 프로 (One Message Pro): 미래를 위한 완벽한 대비\n\n*   **최대 1년 타이머:** 장기적인 대비를 위해 최대 1년까지 메시지 전송 타이머를 설정할 수 있습니다.\n*   **다중 메시지 관리:** 여러 개의 메시지를 각각 다른 타이머로 저장하고 관리할 수 있습니다.\n*   **SMS 카운트다운 알림:** 메시지 전송 D-Day 3일, D-Day 2일, 1시간 전 등 중요한 시점에 SMS 알림을 받습니다.\n*   **타이머 리셋 링크:** 앱을 삭제했거나 스마트폰을 사용할 수 없는 상황에서도 링크를 통해 타이머를 리셋할 수 있어, 혼수 상태 등 극단적인 상황에서도 메시지 전송을 유연하게 제어할 수 있습니다.\n*   **안전 확인 메시지 권장:** 중요 메시지 전송 전에 가족/지인에게 상태 확인 메시지를 설정하여 오작동을 방지하고 신뢰도를 높입니다.\n\n### 🎯 이런 분들께 강력 추천합니다\n\n*   **암호화폐 개인 지갑 보유자:** 프라이빗 키를 안전하게 전달하고 싶은 분\n*   **고위험 직업군:** 군인, 소방관, 경찰 등 만약의 상황에 대비하고 싶은 분\n*   **해외 거주자/여행자:** 비상시 가족에게 안부를 전하고 싶은 분\n*   **고령 가족 돌봄 관계자:** 부모님, 조부모님의 안부를 주기적으로 확인하고 싶은 분\n*   **디지털 자산 보유자 전반:** 소중한 디지털 유산을 안전하게 남기고 싶은 분\n\nOneMessage로 당신과 가족의 미래에 '안심'을 선물하세요. 지금 바로 다운로드하세요!",
+      "long_description_en": "## OneMessage: Your Survival-Detection Based Auto-Delivery App for 100% Message Transmission\n\nOneMessage is an innovative app designed to ensure 100% secure delivery of your well-being updates, digital asset information, or final messages to family and friends in unforeseen circumstances. Our cloud-based, stable system and smart survival detection features alleviate your worries.\n\n### 🛡️ Safety Message: Check on Your Loved Ones Daily\n\n*   **Smartphone Usage Detection:** A background app detects whether your smartphone is being used.\n*   **Automatic Well-being Alerts:** If your smartphone is unused for 12 hours, an SMS like 'On Jan 19, Ahn Seong-hoi has not used their smartphone for 12 hours. Please call to check on them.' is automatically sent to a designated number.\n*   **Weekly Free Message:** Basic well-being checks are provided free once a week.\n*   **Daily Safety Option:** You can set up daily well-being messages like 'Ahn Seong-hoi is doing well today.' to provide continuous peace of mind to your family.\n\n### ✉️ One Message: 100% Delivery of Your Last Message\n\n*   **100% Transmission Guarantee:** Messages are stored on AWS cloud servers, ensuring 100% automatic delivery to recipients when the set timer expires, even if your smartphone is off, damaged, or lost.\n*   **Smart Survival Detection (Check-in):** If smartphone usage is detected, the timer automatically resets, indicating you are active and preventing unnecessary message delivery.\n*   **Emergency Recovery Password:** You can restore messages using a password set for emergencies.\n*   **Digital Asset Protection:** Instead of directly writing down sensitive information like cryptocurrency private keys, OneMessage helps you securely convey hints about their storage location.\n    *   Example: \"I've left you a gift. Open Carl Sagan's Cosmos in Dad's study.\"\n    *   **Caution:** For SMS security, we recommend hinting at the storage location rather than directly writing cryptocurrency private keys.\n\n### 🔥 One Message Pro: Perfect Preparation for the Future\n\n*   **Up to 1-Year Timer:** Set message delivery timers for up to a year for long-term preparedness.\n*   **Multiple Message Management:** Store and manage several messages, each with different timers.\n*   **SMS Countdown Alerts:** Receive SMS alerts at critical times, such as Day 3, Day 2, and 1 hour before message transmission.\n*   **Timer Reset Link:** Even if the app is deleted or the smartphone is unusable (e.g., in a coma), you can reset the timer via a link, allowing flexible control over message delivery in extreme situations.\n*   **Recommended Safety Check Message:** Set a status check message to family/friends before important messages are sent to prevent false alarms and increase reliability.\n\n### 🎯 Highly Recommended for These Individuals\n\n*   **Cryptocurrency Private Wallet Holders:** Those who want to securely transfer private keys.\n*   **High-Risk Professionals:** Soldiers, firefighters, police, etc., who want to prepare for unforeseen circumstances.\n*   **Overseas Residents/Travelers:** Those who want to convey their well-being to family in emergencies.\n*   **Caregivers of Elderly Family:** Those who want to regularly check on the well-being of parents or grandparents.\n*   **All Digital Asset Holders:** Those who want to securely leave behind their valuable digital legacy.\n\nGift 'peace of mind' to yourself and your family with OneMessage. Download now!",
+      "whats_new_kr": "새로운 OneMessage 앱이 출시되었습니다! 이제 당신의 안부와 소중한 메시지를 100% 안전하게 전달할 수 있습니다. 스마트한 생존 감지 기능과 클라우드 기반의 안정적인 시스템을 경험해보세요.",
+      "whats_new_en": "The new OneMessage app is here! Now you can deliver your well-being and important messages 100% securely. Experience smart survival detection and a stable cloud-based system.",
+      "keywords_kr": [
+        "생존 확인",
+        "안부 메시지",
+        "암호화폐 상속",
+        "프라이빗 키",
+        "디지털 유산",
+        "비상 메시지",
+        "가족 안전",
+        "자동 전송",
+        "클라우드 메시지",
+        "고령층 돌봄",
+        "해외 여행 안전",
+        "고위험 직업",
+        "유언 메시지",
+        "재산 보호",
+        "메시지 타이머"
+      ],
+      "keywords_en": [
+        "survival check",
+        "well-being message",
+        "crypto inheritance",
+        "private key",
+        "digital legacy",
+        "emergency message",
+        "family safety",
+        "auto send",
+        "cloud message",
+        "elderly care",
+        "overseas travel safety",
+        "high-risk job",
+        "last will message",
+        "asset protection",
+        "message timer"
+      ]
+    }
+  }
+}

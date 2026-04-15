@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}바이럴 마케팅 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>바이럴 마케팅</h1>
+
+<!-- 플랫폼별 통계 -->
+<div class="stat-grid">
+  {% for plat, stats in platform_stats.items() %}
+  <div class="stat">
+    <div class="label">{{ plat }}</div>
+    <div class="value">{{ stats.count }}</div>
+    <div class="sub">생성 {{ stats.generated }} / 게시 {{ stats.posted }}</div>
+  </div>
+  {% endfor %}
+  <div class="stat">
+    <div class="label">캐릭터</div>
+    <div class="value">{{ characters|length }}</div>
+    <div class="sub">활성 AI 캐릭터</div>
+  </div>
+</div>
+
+<!-- 액션 버튼 -->
+<div class="card">
+  <h2>바이럴 봇 실행</h2>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+    <button class="btn btn-blue" onclick="scanReddit()">Reddit 스캔</button>
+    <button class="btn btn-green" onclick="scanAll()">전체 스캔 (OpenClaw)</button>
+    <span id="scan-status" style="font-size:12px; color:#4a5568;"></span>
+  </div>
+</div>
+
+<!-- AI 캐릭터 목록 -->
+<div class="card">
+  <h2>AI 캐릭터</h2>
+  {% if characters %}
+  <table>
+    <thead>
+      <tr><th>이름</th><th>플랫폼</th><th>톤</th><th>언어</th><th>페르소나</th></tr>
+    </thead>
+    <tbody>
+      {% for c in characters %}
+      <tr>
+        <td><strong>{{ c.name }}</strong></td>
+        <td><span class="badge badge-blue">{{ c.platform }}</span></td>
+        <td><span class="badge badge-gray">{{ c.get('tone', '') }}</span></td>
+        <td>{{ c.get('language', 'en') }}</td>
+        <td style="font-size:12px; color:#a0aec0; max-width:400px;">{{ c.persona[:80] }}{% if c.persona|length > 80 %}...{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">등록된 캐릭터가 없습니다. 스캔 실행 시 프리셋 캐릭터가 자동 생성됩니다.</div>
+  {% endif %}
+</div>
+
+<!-- 최근 활동 -->
+<div class="card">
+  <h2>최근 바이럴 활동 (50건)</h2>
+  {% if activities %}
+  <table>
+    <thead>
+      <tr><th>캐릭터</th><th>플랫폼</th><th>유형</th><th>상태</th><th>생성 텍스트</th><th>대상</th><th>시간</th></tr>
+    </thead>
+    <tbody>
+      {% for a in activities %}
+      <tr>
+        <td><strong>{{ a.get('character_name', a.get('character_id', '')) }}</strong></td>
+        <td><span class="badge badge-blue">{{ a.platform }}</span></td>
+        <td><span class="badge badge-gray">{{ a.task_type }}</span></td>
+        <td>
+          <span class="badge {% if a.status == 'posted' %}badge-green{% elif a.status == 'generated' %}badge-yellow{% else %}badge-gray{% endif %}">
+            {{ a.status }}
+          </span>
+        </td>
+        <td style="font-size:12px; color:#a0aec0; max-width:300px;">{{ a.get('generated_text', '')[:80] }}{% if a.get('generated_text', '')|length > 80 %}...{% endif %}</td>
+        <td style="font-size:11px;">
+          {% if a.get('target_url') %}
+          <a href="{{ a.target_url }}" target="_blank">링크</a>
+          {% else %}—{% endif %}
+        </td>
+        <td style="font-size:11px; color:#4a5568;">{{ (a.get('created_at', '')|string)[:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">바이럴 활동이 없습니다. 스캔을 실행하여 시작하세요.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function scanReddit() {
+  document.getElementById('scan-status').textContent = 'Reddit 스캔 실행 중...';
+  await fetch('/viral/scan/reddit', {method:'POST'});
+  document.getElementById('scan-status').textContent = 'Reddit 스캔 시작됨. 완료 후 새로고침.';
+}
+async function scanAll() {
+  document.getElementById('scan-status').textContent = 'OpenClaw 전체 스캔 실행 중...';
+  await fetch('/viral/scan/all', {method:'POST'});
+  document.getElementById('scan-status').textContent = '전체 스캔 시작됨. 완료 후 새로고침.';
+}
+</script>
+{% endblock %}
