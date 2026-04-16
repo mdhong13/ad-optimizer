@@ -46,6 +46,15 @@ class Settings:
     THREADS_APP_ID: str = os.getenv("THREADS_APP_ID", "")
     THREADS_APP_SECRET: str = os.getenv("THREADS_APP_SECRET", "")
 
+    # --- YouTube [ONEMSG] (mdhong13@gmail.com, ad-optimizer용) ---
+    YOUTUBE_ONEMSG_API_KEY: str = os.getenv("YOUTUBE_ONEMSG_API_KEY", "")
+    YOUTUBE_ONEMSG_OAUTH_CLIENT_ID: str = os.getenv("YOUTUBE_ONEMSG_OAUTH_CLIENT_ID", "")
+    YOUTUBE_ONEMSG_OAUTH_CLIENT_SECRET: str = os.getenv("YOUTUBE_ONEMSG_OAUTH_CLIENT_SECRET", "")
+    YOUTUBE_ONEMSG_OAUTH_REFRESH_TOKEN: str = os.getenv("YOUTUBE_ONEMSG_OAUTH_REFRESH_TOKEN", "")
+
+    # --- YouTube [QCAT] (bungbungcar13@gmail.com, QuantumCat용 — 참조만) ---
+    YOUTUBE_QCAT_API_KEY: str = os.getenv("YOUTUBE_QCAT_API_KEY", "")
+
     # --- MongoDB ---
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
     MONGODB_DB: str = os.getenv("AD_OPTIMIZER_DB", "ad_optimizer")

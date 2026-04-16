@@ -127,22 +127,36 @@ class ContentUploader:
     # --- YouTube ---
 
     def _upload_youtube(self, content: dict, dry_run: bool) -> dict:
-        """YouTube Data API v3로 영상 업로드 (OAuth2 필요)"""
+        """YouTube Data API v3로 영상 업로드 (OneMessage OAuth2)"""
         if dry_run:
             return {"status": "dry_run", "post_id": "dry_run_youtube"}
 
-        # YouTube 업로드는 OAuth2 + resumable upload 필요
-        # 현재는 메타데이터만 기록, 실제 업로드는 별도 스크립트
         media_path = content.get("media_path", "")
         if not media_path or not os.path.exists(media_path):
             return {"status": "error", "reason": "media_path not found"}
 
-        logger.info(f"YouTube upload queued: {media_path}")
-        return {
-            "status": "queued",
-            "post_id": "",
-            "reason": "YouTube resumable upload — use scripts/upload_youtube.py",
-        }
+        try:
+            from publisher.platforms.youtube import YouTubeClient
+            yt = YouTubeClient()
+            if not yt.is_configured():
+                return {"status": "error", "reason": "YouTube ONEMSG OAuth not configured"}
+
+            result = yt.upload_video(
+                file_path=media_path,
+                title=content.get("title", content.get("text", "")[:80]),
+                description=content.get("text", ""),
+                tags=content.get("tags", []),
+                privacy_status=content.get("privacy", "public"),
+                is_short=content.get("is_short", False),
+            )
+            return {
+                "status": "published",
+                "post_id": result["video_id"],
+                "url": result["url"],
+            }
+        except Exception as e:
+            logger.error(f"YouTube upload error: {e}")
+            return {"status": "error", "reason": str(e)}
 
     # --- Instagram ---
 

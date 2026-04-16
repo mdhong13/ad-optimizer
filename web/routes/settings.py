@@ -25,6 +25,7 @@ async def settings_page(request: Request):
         "Gmail": bool(settings.GMAIL_REFRESH_TOKEN),
         "Threads": bool(settings.THREADS_APP_ID),
         "Gemini (Google API)": bool(settings.GEMINI_API_KEY),
+        "YouTube [ONEMSG] (mdhong13)": bool(settings.YOUTUBE_ONEMSG_OAUTH_REFRESH_TOKEN),
         "MongoDB": bool(settings.MONGODB_URI),
     }
 
