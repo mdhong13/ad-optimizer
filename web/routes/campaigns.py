@@ -32,8 +32,7 @@ async def campaigns_page(request: Request):
         platform_counts[plat].add(cid)
     platform_summary = {k: len(v) for k, v in platform_counts.items()}
 
-    return templates.TemplateResponse("campaigns.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "campaigns.html", {
         "latest_cycle": latest_cycle,
         "cycles": cycles,
         "performance": performance[:20],

@@ -11,8 +11,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 @router.get("")
 async def events_page(request: Request):
     events = get_recent_market_events(limit=50)
-    return templates.TemplateResponse("events.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "events.html", {
         "events": events,
     })
 

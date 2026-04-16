@@ -40,8 +40,7 @@ async def settings_page(request: Request):
         "MONGODB_DB": settings.MONGODB_DB,
     }
 
-    return templates.TemplateResponse("settings.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "settings.html", {
         "api_status": api_status,
         "config_info": config_info,
     })

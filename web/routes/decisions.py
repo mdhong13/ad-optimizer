@@ -18,8 +18,7 @@ async def decisions_page(request: Request):
     ).sort("created_at", -1).limit(50)
     recent = list(cursor)
 
-    return templates.TemplateResponse("decisions.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "decisions.html", {
         "pending": pending,
         "recent": recent,
     })

@@ -31,8 +31,7 @@ async def viral_page(request: Request):
         elif a.get("status") == "posted":
             platform_stats[plat]["posted"] += 1
 
-    return templates.TemplateResponse("viral.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "viral.html", {
         "characters": characters,
         "activities": activities,
         "platform_stats": platform_stats,

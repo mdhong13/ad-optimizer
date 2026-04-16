@@ -29,8 +29,7 @@ async def publisher_page(request: Request):
         platform_stats[plat]["views"] += m.get("views", 0)
         platform_stats[plat]["likes"] += m.get("likes", 0)
 
-    return templates.TemplateResponse("publisher.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "publisher.html", {
         "contents": contents,
         "platform_stats": platform_stats,
     })

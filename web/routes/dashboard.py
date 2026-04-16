@@ -23,8 +23,7 @@ async def dashboard(request: Request):
     avg_roas = sum(r.get("roas", 0) for r in performance) / len(performance) if performance else 0
     avg_ctr = sum(r.get("ctr", 0) for r in performance) / len(performance) if performance else 0
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "performance": performance,
         "events": events,
         "totals": totals,

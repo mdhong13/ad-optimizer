@@ -32,8 +32,7 @@ SCHEDULE_INFO = [
 
 @router.get("")
 async def scheduler_page(request: Request):
-    return templates.TemplateResponse("scheduler.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "scheduler.html", {
         "schedules": SCHEDULE_INFO,
     })
 
