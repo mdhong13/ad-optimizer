@@ -19,6 +19,14 @@ KEYS_TO_SET = [
     "YOUTUBE_ONEMSG_OAUTH_CLIENT_ID",
     "YOUTUBE_ONEMSG_OAUTH_CLIENT_SECRET",
     "YOUTUBE_ONEMSG_OAUTH_REFRESH_TOKEN",
+    # X/Twitter ONEMSG (@onemsgx, mdhong13@gmail.com)
+    "TWITTER_API_KEY",
+    "TWITTER_API_SECRET",
+    "TWITTER_ACCESS_TOKEN",
+    "TWITTER_ACCESS_TOKEN_SECRET",
+    "TWITTER_BEARER_TOKEN",
+    "TWITTER_CLIENT_ID",
+    "TWITTER_CLIENT_SECRET",
 ]
 
 
@@ -47,20 +55,28 @@ def set_var(name, value, token):
             "value": value,
         }
     }
-    r = httpx.post(
-        "https://backboard.railway.com/graphql/v2",
-        json={"query": query, "variables": variables},
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        timeout=15,
-    )
-    data = r.json()
-    if "errors" in data:
-        print(f"  FAIL: {name} - {data['errors'][0]['message']}")
-    else:
-        print(f"  OK: {name}")
+    for attempt in range(3):
+        try:
+            r = httpx.post(
+                "https://backboard.railway.com/graphql/v2",
+                json={"query": query, "variables": variables},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                timeout=60,
+            )
+            data = r.json()
+            if "errors" in data:
+                print(f"  FAIL: {name} - {data['errors'][0]['message']}")
+            else:
+                print(f"  OK: {name}")
+            return
+        except (httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            if attempt == 2:
+                print(f"  TIMEOUT: {name} (3 attempts)")
+                return
+            print(f"  retry {name} ({attempt+1}/3)...")
 
 
 if __name__ == "__main__":

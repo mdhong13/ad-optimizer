@@ -55,6 +55,15 @@ class Settings:
     # --- YouTube [QCAT] (bungbungcar13@gmail.com, QuantumCat용 — 참조만) ---
     YOUTUBE_QCAT_API_KEY: str = os.getenv("YOUTUBE_QCAT_API_KEY", "")
 
+    # --- X (Twitter) [ONEMSG] (mdhong13@gmail.com, @onemsgx) ---
+    TWITTER_API_KEY: str = os.getenv("TWITTER_API_KEY", "")
+    TWITTER_API_SECRET: str = os.getenv("TWITTER_API_SECRET", "")
+    TWITTER_ACCESS_TOKEN: str = os.getenv("TWITTER_ACCESS_TOKEN", "")
+    TWITTER_ACCESS_TOKEN_SECRET: str = os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
+    TWITTER_BEARER_TOKEN: str = os.getenv("TWITTER_BEARER_TOKEN", "")
+    TWITTER_CLIENT_ID: str = os.getenv("TWITTER_CLIENT_ID", "")
+    TWITTER_CLIENT_SECRET: str = os.getenv("TWITTER_CLIENT_SECRET", "")
+
     # --- MongoDB ---
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
     MONGODB_DB: str = os.getenv("AD_OPTIMIZER_DB", "ad_optimizer")
