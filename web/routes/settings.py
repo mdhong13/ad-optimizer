@@ -27,6 +27,7 @@ async def settings_page(request: Request):
         "Gemini (Google API)": bool(settings.GEMINI_API_KEY),
         "YouTube [ONEMSG] (mdhong13)": bool(settings.YOUTUBE_ONEMSG_OAUTH_REFRESH_TOKEN),
         "X/Twitter [ONEMSG] (@onemsgx)": bool(settings.TWITTER_API_KEY and settings.TWITTER_ACCESS_TOKEN),
+        "Reddit Ads": bool(settings.REDDIT_CLIENT_ID and settings.REDDIT_REFRESH_TOKEN and settings.REDDIT_ADS_ACCOUNT_ID),
         "MongoDB": bool(settings.MONGODB_URI),
     }
 

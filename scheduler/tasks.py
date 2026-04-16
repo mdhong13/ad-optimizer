@@ -21,8 +21,9 @@ def collect_performance():
     total = 0
 
     from platforms.twitter import TwitterAds
+    from platforms.reddit import RedditAds
 
-    for PlatformClass in [MetaAds, GoogleAds, TwitterAds]:
+    for PlatformClass in [MetaAds, GoogleAds, TwitterAds, RedditAds]:
         p = PlatformClass()
         if not p.is_configured():
             continue
@@ -53,6 +54,22 @@ def run_campaign_cycle_meta():
     mgr = CampaignManager(meta)
     cycle_id = mgr.run_cycle()
     logger.info(f"Meta campaign cycle: {cycle_id}")
+    return cycle_id
+
+
+def run_campaign_cycle_reddit():
+    """Reddit Ads 전용 캠페인 최적화 사이클 (크립토 서브레딧 타겟팅)"""
+    from platforms.reddit import RedditAds
+    from campaign.manager import CampaignManager
+
+    logger.info("Task: run_campaign_cycle_reddit started")
+    r = RedditAds()
+    if not r.is_configured():
+        logger.warning("Reddit Ads not configured, skipping")
+        return None
+    mgr = CampaignManager(r)
+    cycle_id = mgr.run_cycle()
+    logger.info(f"Reddit campaign cycle: {cycle_id}")
     return cycle_id
 
 
@@ -97,6 +114,7 @@ def run_campaign_cycle():
     # run_campaign_cycle_google()
     # X Ads API 승인 + TWITTER_ADS_ACCOUNT_ID 설정 후 주석 해제
     # run_campaign_cycle_twitter()
+    run_campaign_cycle_reddit()  # REDDIT_* 설정 시 자동 스킵
     logger.info("Task: run_campaign_cycle done")
 
 

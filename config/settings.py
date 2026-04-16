@@ -65,6 +65,15 @@ class Settings:
     TWITTER_CLIENT_SECRET: str = os.getenv("TWITTER_CLIENT_SECRET", "")
     TWITTER_ADS_ACCOUNT_ID: str = os.getenv("TWITTER_ADS_ACCOUNT_ID", "")  # X Ads API 계정 ID (승인 후 발급)
 
+    # --- Reddit Ads [ONEMSG] ---
+    # Reddit 앱: https://reddit.com/prefs/apps (script 타입)
+    # 광고 계정: https://ads.reddit.com (account_id는 a2_xxx 형식)
+    REDDIT_CLIENT_ID: str = os.getenv("REDDIT_CLIENT_ID", "")
+    REDDIT_CLIENT_SECRET: str = os.getenv("REDDIT_CLIENT_SECRET", "")
+    REDDIT_REFRESH_TOKEN: str = os.getenv("REDDIT_REFRESH_TOKEN", "")
+    REDDIT_ADS_ACCOUNT_ID: str = os.getenv("REDDIT_ADS_ACCOUNT_ID", "")
+    REDDIT_USER_AGENT: str = os.getenv("REDDIT_USER_AGENT", "OneMsg-Ad-Optimizer/1.0 by onemsgx")
+
     # --- MongoDB ---
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
     MONGODB_DB: str = os.getenv("AD_OPTIMIZER_DB", "ad_optimizer")

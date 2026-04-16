@@ -27,6 +27,12 @@ PLATFORM_CONFIG = {
         "task": "run_campaign_cycle_twitter",
         "note": "Ads API 승인 + TWITTER_ADS_ACCOUNT_ID 설정 필요",
     },
+    "reddit": {
+        "name": "Reddit Ads (크립토 서브레딧 타겟팅)",
+        "enabled": bool(settings.REDDIT_ADS_ACCOUNT_ID and settings.REDDIT_REFRESH_TOKEN),
+        "task": "run_campaign_cycle_reddit",
+        "note": "REDDIT_* 설정 필요 (scripts/reddit_oauth.py)",
+    },
 }
 
 
