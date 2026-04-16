@@ -21,6 +21,12 @@ PLATFORM_CONFIG = {
         "task": "run_campaign_cycle_google",
         "note": "Basic Access 승인 대기",
     },
+    "twitter": {
+        "name": "X (Twitter) Ads",
+        "enabled": bool(settings.TWITTER_ADS_ACCOUNT_ID),
+        "task": "run_campaign_cycle_twitter",
+        "note": "Ads API 승인 + TWITTER_ADS_ACCOUNT_ID 설정 필요",
+    },
 }
 
 

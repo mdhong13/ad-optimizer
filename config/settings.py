@@ -63,6 +63,7 @@ class Settings:
     TWITTER_BEARER_TOKEN: str = os.getenv("TWITTER_BEARER_TOKEN", "")
     TWITTER_CLIENT_ID: str = os.getenv("TWITTER_CLIENT_ID", "")
     TWITTER_CLIENT_SECRET: str = os.getenv("TWITTER_CLIENT_SECRET", "")
+    TWITTER_ADS_ACCOUNT_ID: str = os.getenv("TWITTER_ADS_ACCOUNT_ID", "")  # X Ads API 계정 ID (승인 후 발급)
 
     # --- MongoDB ---
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")

@@ -20,7 +20,9 @@ def collect_performance():
     yesterday = today - timedelta(days=1)
     total = 0
 
-    for PlatformClass in [MetaAds, GoogleAds]:
+    from platforms.twitter import TwitterAds
+
+    for PlatformClass in [MetaAds, GoogleAds, TwitterAds]:
         p = PlatformClass()
         if not p.is_configured():
             continue
@@ -54,6 +56,22 @@ def run_campaign_cycle_meta():
     return cycle_id
 
 
+def run_campaign_cycle_twitter():
+    """X (Twitter) Ads 전용 캠페인 최적화 사이클 (Ads API 승인 + 광고 계정 필요)"""
+    from platforms.twitter import TwitterAds
+    from campaign.manager import CampaignManager
+
+    logger.info("Task: run_campaign_cycle_twitter started")
+    tw = TwitterAds()
+    if not tw.is_configured():
+        logger.warning("Twitter Ads not configured (need TWITTER_ADS_ACCOUNT_ID), skipping")
+        return None
+    mgr = CampaignManager(tw)
+    cycle_id = mgr.run_cycle()
+    logger.info(f"Twitter Ads campaign cycle: {cycle_id}")
+    return cycle_id
+
+
 def run_campaign_cycle_google():
     """Google Ads 전용 캠페인 최적화 사이클 (Basic Access 필요)"""
     from platforms.google_ads import GoogleAds
@@ -77,6 +95,8 @@ def run_campaign_cycle():
     run_campaign_cycle_meta()
     # Google Ads Basic Access 승인 후 주석 해제
     # run_campaign_cycle_google()
+    # X Ads API 승인 + TWITTER_ADS_ACCOUNT_ID 설정 후 주석 해제
+    # run_campaign_cycle_twitter()
     logger.info("Task: run_campaign_cycle done")
 
 
