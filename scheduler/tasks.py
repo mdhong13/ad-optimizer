@@ -38,26 +38,45 @@ def collect_performance():
     logger.info(f"Task: collect_performance done ({total} snapshots)")
 
 
-def run_campaign_cycle():
-    """매 8시간: 캠페인 최적화 사이클 (20→2→20)"""
+def run_campaign_cycle_meta():
+    """Meta Ads 전용 캠페인 최적화 사이클"""
     from platforms.meta import MetaAds
     from campaign.manager import CampaignManager
 
-    logger.info("Task: run_campaign_cycle started")
-
+    logger.info("Task: run_campaign_cycle_meta started")
     meta = MetaAds()
-    if meta.is_configured():
-        mgr = CampaignManager(meta)
-        cycle_id = mgr.run_cycle()
-        logger.info(f"Meta campaign cycle: {cycle_id}")
+    if not meta.is_configured():
+        logger.warning("Meta Ads not configured, skipping")
+        return None
+    mgr = CampaignManager(meta)
+    cycle_id = mgr.run_cycle()
+    logger.info(f"Meta campaign cycle: {cycle_id}")
+    return cycle_id
 
-    # Google Ads — Basic Access 승인 후 활성화
-    # from platforms.google_ads import GoogleAds
-    # google = GoogleAds()
-    # if google.is_configured():
-    #     mgr = CampaignManager(google)
-    #     mgr.run_cycle()
 
+def run_campaign_cycle_google():
+    """Google Ads 전용 캠페인 최적화 사이클 (Basic Access 필요)"""
+    from platforms.google_ads import GoogleAds
+    from campaign.manager import CampaignManager
+
+    logger.info("Task: run_campaign_cycle_google started")
+    google = GoogleAds()
+    if not google.is_configured():
+        logger.warning("Google Ads not configured, skipping")
+        return None
+    mgr = CampaignManager(google)
+    cycle_id = mgr.run_cycle()
+    logger.info(f"Google campaign cycle: {cycle_id}")
+    return cycle_id
+
+
+# 스케줄러용: 모든 플랫폼 순차 실행
+def run_campaign_cycle():
+    """매 8시간: 모든 플랫폼 캠페인 사이클 순차 실행"""
+    logger.info("Task: run_campaign_cycle (all platforms) started")
+    run_campaign_cycle_meta()
+    # Google Ads Basic Access 승인 후 주석 해제
+    # run_campaign_cycle_google()
     logger.info("Task: run_campaign_cycle done")
 
 

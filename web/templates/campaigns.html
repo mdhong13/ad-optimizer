@@ -20,19 +20,45 @@
   </div>
 </div>
 
-<!-- 수동 실행 -->
+<!-- 플랫폼별 사이클 실행 -->
 <div class="card">
-  <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
-    <h2 style="margin:0;">사이클 관리</h2>
-    <button class="btn btn-blue" onclick="runCycle()">캠페인 사이클 실행</button>
-    <span id="cycle-status" style="font-size:12px; color:#4a5568;"></span>
+  <h2 style="margin-top:0;">플랫폼별 사이클 실행</h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:12px;">
+    DRY_RUN: <span class="badge {% if dry_run %}badge-yellow{% else %}badge-red{% endif %}">{{ 'ON (시뮬레이션)' if dry_run else 'OFF (실제 반영)' }}</span>
   </div>
 
-  <!-- 최근 사이클 -->
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+    {% for key, cfg in platforms.items() %}
+    <div style="background:#0d1117; border:1px solid #2d3748; border-radius:6px; padding:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong>{{ cfg.name }}</strong>
+        {% if cfg.enabled %}
+          <span class="badge badge-green">사용 가능</span>
+        {% else %}
+          <span class="badge badge-gray">비활성</span>
+        {% endif %}
+      </div>
+      {% if cfg.get('note') %}
+      <div style="font-size:11px; color:#a0aec0; margin-bottom:10px;">{{ cfg.note }}</div>
+      {% endif %}
+      <button
+        class="btn {% if cfg.enabled %}btn-blue{% else %}btn-gray{% endif %}"
+        onclick="runCycle('{{ key }}', '{{ cfg.name }}')"
+        {% if not cfg.enabled %}disabled{% endif %}
+      >
+        사이클 실행
+      </button>
+      <div id="cycle-status-{{ key }}" style="font-size:11px; color:#4a5568; margin-top:8px;"></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 최근 사이클 요약 -->
   {% if latest_cycle %}
-  <div style="background:#0d1117; border:1px solid #2d3748; border-radius:6px; padding:16px; margin-bottom:16px;">
+  <div style="background:#0d1117; border:1px solid #2d3748; border-radius:6px; padding:16px; margin-top:16px;">
+    <div style="font-size:11px; color:#718096; margin-bottom:6px;">가장 최근 사이클</div>
     <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:13px;">
-      <div><span style="color:#718096;">사이클:</span> {{ latest_cycle.get('cycle_id', 'N/A') }}</div>
+      <div><span style="color:#718096;">ID:</span> {{ latest_cycle.get('cycle_id', 'N/A') }}</div>
       <div><span style="color:#718096;">플랫폼:</span> {{ latest_cycle.get('platform', 'N/A') }}</div>
       <div><span style="color:#718096;">상태:</span>
         <span class="badge {% if latest_cycle.get('status') == 'completed' %}badge-green{% else %}badge-yellow{% endif %}">
@@ -108,11 +134,24 @@
 
 {% block scripts %}
 <script>
-async function runCycle() {
-  document.getElementById('cycle-status').textContent = '사이클 실행 중 (백그라운드)...';
-  const r = await fetch('/campaigns/run-cycle', {method:'POST'});
-  const data = await r.json();
-  document.getElementById('cycle-status').textContent = '사이클 시작됨. 완료 후 새로고침하세요.';
+async function runCycle(platform, platformName) {
+  const statusEl = document.getElementById('cycle-status-' + platform);
+  statusEl.textContent = platformName + ' 사이클 실행 중...';
+  statusEl.style.color = '#d69e2e';
+  try {
+    const r = await fetch('/campaigns/run-cycle/' + platform, {method:'POST'});
+    const data = await r.json();
+    if (r.ok) {
+      statusEl.textContent = '사이클 시작됨. 완료 후 새로고침하세요.';
+      statusEl.style.color = '#48bb78';
+    } else {
+      statusEl.textContent = '에러: ' + (data.detail || '실패');
+      statusEl.style.color = '#f56565';
+    }
+  } catch (e) {
+    statusEl.textContent = '에러: ' + e.message;
+    statusEl.style.color = '#f56565';
+  }
 }
 </script>
 {% endblock %}
