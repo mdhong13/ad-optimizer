@@ -8,6 +8,9 @@ SERVICE_ID = "be362de3-0b00-4ccf-a7c6-946ff4d9c287"
 ENV_FILE = "D:/0_Dotcell/.env.global"
 
 KEYS_TO_SET = [
+    # LLM & Core
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
     "MONGODB_URI",
     "GOOGLE_ADS_CLIENT_ID",
     "GOOGLE_ADS_CLIENT_SECRET",

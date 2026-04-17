@@ -17,6 +17,9 @@ class Settings:
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     AGENT_MODEL: str = "claude-sonnet-4-6"
 
+    # --- OpenAI (GPT-4o) ---
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+
     # --- 로컬 LLM (d4win) ---
     LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "http://d4win.iptime.org:31088")
     LOCAL_LLM_CHAT_ENDPOINT: str = os.getenv("LOCAL_LLM_CHAT_ENDPOINT", "/v1/chat/completions")

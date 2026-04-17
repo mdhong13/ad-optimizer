@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 from config.settings import settings
 from platforms.base import AdPlatform, PerformanceData
-from agent.claude import ClaudeAgent
+from agent.openai import OpenAIAgent  # Claude 대신 GPT-4o 사용
 from agent.local_llm import LocalLLM
 from storage import db
 from storage.models import campaign_cycle
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class CampaignManager:
     def __init__(self, platform: AdPlatform):
         self.platform = platform
-        self.claude = ClaudeAgent()
+        self.claude = OpenAIAgent()  # 이제 GPT-4o 사용
         self.local_llm = LocalLLM()
         self.total = settings.CAMPAIGNS_PER_CYCLE
         self.survive = settings.CAMPAIGNS_SURVIVE
