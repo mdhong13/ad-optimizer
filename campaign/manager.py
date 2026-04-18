@@ -24,6 +24,28 @@ class CampaignManager:
         self.total = settings.CAMPAIGNS_PER_CYCLE
         self.survive = settings.CAMPAIGNS_SURVIVE
         self.dry_run = settings.DRY_RUN
+        self.auto_activate = settings.AUTO_ACTIVATE
+        self.max_budget = settings.MAX_DAILY_BUDGET_PER_CAMPAIGN_USD
+        self.min_budget = settings.MIN_DAILY_BUDGET_PER_CAMPAIGN_USD
+
+    def _preflight(self, campaigns: list) -> tuple[bool, str]:
+        """실계정 모드에서 사이클 진입 전 안전 체크. (ok, reason) 반환"""
+        if self.dry_run:
+            return True, "dry_run"
+        active_count = sum(1 for c in campaigns if getattr(c, "status", "") == "ACTIVE")
+        if active_count > settings.MAX_ACTIVE_CAMPAIGNS:
+            return False, f"active={active_count} > cap={settings.MAX_ACTIVE_CAMPAIGNS}"
+        try:
+            totals_1d = db.get_total_spend(days=1)
+            spent = float(totals_1d.get("spend", 0))
+            if spent >= settings.DAILY_BUDGET_CAP_USD:
+                return False, f"24h spend=${spent:.2f} >= cap=${settings.DAILY_BUDGET_CAP_USD:.2f}"
+        except Exception as e:
+            logger.warning(f"Preflight spend check failed: {e}")
+        return True, "ok"
+
+    def _clamp_budget(self, v: float) -> float:
+        return max(self.min_budget, min(float(v or self.min_budget), self.max_budget))
 
     def run_cycle(self) -> str:
         """
@@ -51,6 +73,17 @@ class CampaignManager:
 
         # 1. 현재 캠페인 성과 수집
         campaigns = self.platform.get_campaigns()
+
+        # Pre-flight: 활성 수 / 일일 집행액 체크
+        ok, reason = self._preflight(campaigns)
+        if not ok:
+            logger.warning(f"[{cycle_id}] Preflight FAILED: {reason} — aborting")
+            db.update_cycle(cycle_id, {
+                "status": "aborted", "step": "preflight", "step_label": f"중단: {reason}",
+                "progress_pct": 0,
+            })
+            return cycle_id
+
         if not campaigns:
             logger.info(f"[{cycle_id}] No existing campaigns, starting fresh")
             return self._initial_cycle(cycle_id)
@@ -98,9 +131,15 @@ class CampaignManager:
         })
         created_ids = self._create_campaigns(new_campaigns)
 
-        # 7. 새 캠페인 활성화
-        for cid in created_ids:
-            self.platform.activate_campaign(cid, dry_run=self.dry_run)
+        # 7. 새 캠페인 활성화 (AUTO_ACTIVATE=true일 때만; false면 PAUSED로 남겨 사람이 Meta UI에서 확인)
+        if self.auto_activate or self.dry_run:
+            for cid in created_ids:
+                self.platform.activate_campaign(cid, dry_run=self.dry_run)
+        else:
+            logger.warning(
+                f"[{cycle_id}] AUTO_ACTIVATE=false → {len(created_ids)}개 캠페인 PAUSED 유지. "
+                "Meta UI에서 수동 활성화 필요"
+            )
 
         # 8. 사이클 완료
         db.update_cycle(cycle_id, {
@@ -119,28 +158,47 @@ class CampaignManager:
         return cycle_id
 
     def _initial_cycle(self, cycle_id: str) -> str:
-        """첫 사이클 — 캠페인 0개에서 시작"""
-        logger.info(f"[{cycle_id}] Generating initial {self.total} campaigns")
+        """첫 사이클 — 캠페인 0개에서 시작. 실계정 + CANARY_MODE면 소량만 생성"""
+        target_count = self.total
+        canary = (not self.dry_run) and settings.CANARY_MODE
+        if canary:
+            target_count = min(settings.CANARY_COUNT, self.total)
+            logger.warning(f"[{cycle_id}] CANARY_MODE: {target_count}개만 생성")
 
-        # Claude로 초기 캠페인 전략 생성
+        logger.info(f"[{cycle_id}] Generating initial {target_count} campaigns")
+
+        db.update_cycle(cycle_id, {
+            "step": "generate", "step_label": f"초기 {target_count}개 생성", "progress_pct": 30,
+            "total": target_count,
+        })
+
         variants = self.claude.generate_campaign_variants(
             survivors=[],
-            count=self.total,
+            count=target_count,
             market_context="Initial campaign launch for OneMessage safety messaging app",
         )
 
+        db.update_cycle(cycle_id, {
+            "step": "create", "step_label": f"플랫폼에 {len(variants)}개 등록", "progress_pct": 70,
+        })
         created_ids = self._create_campaigns(variants)
 
-        cycle_doc = campaign_cycle(
-            cycle_id=cycle_id,
-            platform=self.platform.platform_name,
-            total=self.total,
-            survive=0,
-        )
-        cycle_doc["status"] = "completed"
-        cycle_doc["new_campaigns"] = created_ids
-        db.insert_cycle(cycle_doc)
+        if self.auto_activate or self.dry_run:
+            for cid in created_ids:
+                self.platform.activate_campaign(cid, dry_run=self.dry_run)
+        else:
+            logger.warning(
+                f"[{cycle_id}] AUTO_ACTIVATE=false → {len(created_ids)}개 PAUSED 유지 (수동 활성화 필요)"
+            )
 
+        db.update_cycle(cycle_id, {
+            "status": "completed",
+            "step": "done",
+            "step_label": "완료" + (" (CANARY)" if canary else ""),
+            "progress_pct": 100,
+            "new_campaigns": created_ids,
+            "canary": canary,
+        })
         logger.info(f"[{cycle_id}] Initial cycle: {len(created_ids)} campaigns created")
         return cycle_id
 
@@ -218,13 +276,15 @@ class CampaignManager:
         return self.claude.generate_campaign_variants(survivors, count)
 
     def _create_campaigns(self, variants: list[dict]) -> list[str]:
-        """변형 캠페인들을 플랫폼에 생성"""
+        """변형 캠페인들을 플랫폼에 생성. 예산 clamp + 연속 실패 시 중단"""
         created = []
+        consecutive_failures = 0
         for v in variants:
+            budget = self._clamp_budget(v.get("daily_budget", self.min_budget))
             try:
                 campaign_id = self.platform.create_campaign(
                     name=v.get("name", f"OneMessage Auto {uuid.uuid4().hex[:6]}"),
-                    daily_budget=v.get("daily_budget", 5.0),
+                    daily_budget=budget,
                     targeting={
                         "countries": v.get("countries", ["US", "KR"]),
                         "keywords": v.get("keywords", []),
@@ -242,8 +302,15 @@ class CampaignManager:
                 )
                 if campaign_id:
                     created.append(campaign_id)
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures += 1
             except Exception as e:
+                consecutive_failures += 1
                 logger.error(f"Failed to create campaign '{v.get('name', '?')}': {e}")
+            if consecutive_failures >= 3:
+                logger.error(f"연속 {consecutive_failures}회 실패 — 생성 중단 (누적 방지)")
+                break
         return created
 
 

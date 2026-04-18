@@ -39,11 +39,15 @@ class MetaAds(AdPlatform):
             raise
 
     def is_configured(self) -> bool:
-        return bool(
+        base = bool(
             settings.META_APP_ID
             and settings.META_ACCESS_TOKEN
             and settings.META_AD_ACCOUNT_ID
         )
+        if settings.DRY_RUN:
+            return base
+        # 실계정 모드는 PAGE_ID 필수
+        return base and bool(settings.META_PAGE_ID)
 
     def get_campaigns(self) -> list[Campaign]:
         self._init_api()
@@ -179,7 +183,14 @@ class MetaAds(AdPlatform):
         from facebook_business.adobjects.ad import Ad as FBAd
         from facebook_business.adobjects.adcreative import AdCreative
 
-        # 1. Campaign
+        # 실집행 전 필수 값 검증
+        page_id = targeting.get("page_id") or settings.META_PAGE_ID
+        if not page_id:
+            raise RuntimeError("META_PAGE_ID 미설정: AdCreative 생성 불가")
+        # Meta 최소 일 예산 = $1 (100 cents). 음수/0 방지
+        daily_budget_cents = max(100, int(float(daily_budget) * 100))
+
+        # 1. Campaign (PAUSED로 생성)
         campaign = self._account.create_campaign(params={
             FBCampaign.Field.name: name,
             FBCampaign.Field.objective: "OUTCOME_TRAFFIC",
@@ -187,14 +198,14 @@ class MetaAds(AdPlatform):
             FBCampaign.Field.special_ad_categories: [],
         })
         campaign_id = campaign["id"]
-        logger.info(f"Meta: campaign created {campaign_id}")
+        logger.info(f"Meta: campaign created {campaign_id} (PAUSED, ${daily_budget_cents/100:.2f}/day)")
 
         # 2. AdSet
         countries = targeting.get("countries", ["US"])
         ad_set = self._account.create_ad_set(params={
             FBAdSet.Field.name: f"{name} - AdSet",
             FBAdSet.Field.campaign_id: campaign_id,
-            FBAdSet.Field.daily_budget: int(daily_budget * 100),
+            FBAdSet.Field.daily_budget: daily_budget_cents,
             FBAdSet.Field.billing_event: "IMPRESSIONS",
             FBAdSet.Field.optimization_goal: "LINK_CLICKS",
             FBAdSet.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
@@ -212,7 +223,7 @@ class MetaAds(AdPlatform):
         creative = self._account.create_ad_creative(params={
             AdCreative.Field.name: f"{name} - Creative",
             AdCreative.Field.object_story_spec: {
-                "page_id": targeting.get("page_id", ""),
+                "page_id": page_id,
                 "link_data": {
                     "link": creatives.get("link", "https://onemsg.net"),
                     "message": creatives.get("body", ""),
@@ -300,4 +311,5 @@ class MetaAds(AdPlatform):
         campaign = FBCampaign(campaign_id)
         campaign.update({FBCampaign.Field.status: "ACTIVE"})
         campaign.remote_update()
+        logger.warning(f"Meta: campaign {campaign_id} ACTIVATED (live spend begins)")
         return True

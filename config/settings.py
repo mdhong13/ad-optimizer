@@ -33,6 +33,7 @@ class Settings:
     META_APP_SECRET: str = os.getenv("META_APP_SECRET", "")
     META_ACCESS_TOKEN: str = os.getenv("META_ACCESS_TOKEN", "")
     META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "act_659784790884319")
+    META_PAGE_ID: str = os.getenv("META_PAGE_ID", "")  # AdCreative object_story_spec.page_id
 
     # --- Google Ads ---
     GOOGLE_ADS_DEVELOPER_TOKEN: str = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "")
@@ -91,6 +92,15 @@ class Settings:
     CAMPAIGNS_PER_CYCLE: int = int(os.getenv("CAMPAIGNS_PER_CYCLE", "20"))
     CAMPAIGNS_SURVIVE: int = int(os.getenv("CAMPAIGNS_SURVIVE", "2"))
     BUDGET_CHANGE_LIMIT_PCT: int = int(os.getenv("BUDGET_CHANGE_LIMIT_PCT", "30"))
+
+    # --- 실계정 안전장치 (DRY_RUN=false일 때 효력) ---
+    DAILY_BUDGET_CAP_USD: float = float(os.getenv("DAILY_BUDGET_CAP_USD", "30"))          # 전일 집행액이 이걸 넘으면 사이클 중단
+    MAX_DAILY_BUDGET_PER_CAMPAIGN_USD: float = float(os.getenv("MAX_DAILY_BUDGET_PER_CAMPAIGN_USD", "3"))
+    MIN_DAILY_BUDGET_PER_CAMPAIGN_USD: float = float(os.getenv("MIN_DAILY_BUDGET_PER_CAMPAIGN_USD", "1"))
+    MAX_ACTIVE_CAMPAIGNS: int = int(os.getenv("MAX_ACTIVE_CAMPAIGNS", "25"))
+    AUTO_ACTIVATE: bool = os.getenv("AUTO_ACTIVATE", "false").lower() == "true"           # false면 PAUSED로 생성, 사람이 Meta UI에서 활성화
+    CANARY_MODE: bool = os.getenv("CANARY_MODE", "true").lower() == "true"                # true면 첫 사이클을 CANARY_COUNT개만
+    CANARY_COUNT: int = int(os.getenv("CANARY_COUNT", "3"))
 
     @property
     def is_production(self) -> bool:
