@@ -8,6 +8,9 @@ from storage.db import (
     get_recent_performance,
     aggregate_campaign_performance,
     get_total_spend,
+    get_cycle_by_id,
+    get_campaign_timeseries,
+    get_campaign_summary,
 )
 from config.settings import settings
 
@@ -164,3 +167,52 @@ async def api_cycles(limit: int = 10):
 @router.get("/api/performance")
 async def api_campaign_performance(days: int = 7, platform: str = None):
     return get_recent_performance(platform=platform, days=days)
+
+
+@router.get("/cycle/{cycle_id}")
+async def cycle_detail(cycle_id: str, request: Request):
+    cycle = get_cycle_by_id(cycle_id)
+    if not cycle:
+        raise HTTPException(status_code=404, detail=f"Cycle not found: {cycle_id}")
+
+    survivors_set = set(cycle.get("survivors", []))
+    campaigns_raw = cycle.get("campaigns", [])
+    new_campaigns = cycle.get("new_campaigns", [])
+
+    # 각 캠페인의 누적 성과 병합
+    perf_agg = aggregate_campaign_performance(days=30)
+    evaluated = []
+    for c in campaigns_raw:
+        cid = c.get("campaign_id", "")
+        stats = perf_agg.get(cid, {})
+        evaluated.append({
+            "campaign_id": cid,
+            "campaign_name": c.get("name", "") or stats.get("campaign_name", ""),
+            "score": c.get("score", 0),
+            "survived": cid in survivors_set,
+            "impressions": stats.get("impressions", 0),
+            "clicks": stats.get("clicks", 0),
+            "spend": stats.get("spend", 0.0),
+            "conversions": stats.get("conversions", 0),
+            "ctr": stats.get("ctr", 0.0),
+            "cpc": stats.get("cpc", 0.0),
+        })
+    evaluated.sort(key=lambda x: x["score"], reverse=True)
+
+    return templates.TemplateResponse(request, "cycle_detail.html", {
+        "cycle": cycle,
+        "evaluated": evaluated,
+        "new_campaigns": new_campaigns,
+        "survivors_count": len(survivors_set),
+    })
+
+
+@router.get("/detail/{campaign_id}")
+async def campaign_detail(campaign_id: str, request: Request):
+    summary = get_campaign_summary(campaign_id, days=30)
+    timeseries = get_campaign_timeseries(campaign_id, days=30)
+    return templates.TemplateResponse(request, "campaign_detail.html", {
+        "campaign_id": campaign_id,
+        "summary": summary,
+        "timeseries": timeseries,
+    })

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}캠페인 {{ campaign_id }} — OneMessage Ad Optimizer{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px;">
+  <a href="/campaigns" style="font-size:13px;">← 캠페인 목록</a>
+</div>
+
+<h1>
+  {% if summary.campaign_name %}{{ summary.campaign_name }}{% else %}캠페인 상세{% endif %}
+</h1>
+<div style="font-family:monospace; font-size:12px; color:#718096; margin-bottom:20px;">
+  {{ campaign_id }} · {{ summary.get('platform', 'unknown') }}
+</div>
+
+<!-- 누적 지표 (30일) -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="label">집행액 (30일)</div>
+    <div class="value">${{ "%.2f"|format(summary.get('spend', 0)) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">노출</div>
+    <div class="value">{{ "{:,}".format(summary.get('impressions', 0)) }}</div>
+    <div class="sub">CTR {{ "%.2f"|format(summary.get('ctr', 0) * 100) }}%</div>
+  </div>
+  <div class="stat">
+    <div class="label">클릭</div>
+    <div class="value">{{ "{:,}".format(summary.get('clicks', 0)) }}</div>
+    <div class="sub">CPC ${{ "%.3f"|format(summary.get('cpc', 0)) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">전환</div>
+    <div class="value">{{ "{:,}".format(summary.get('conversions', 0)) }}</div>
+    <div class="sub">ROAS {{ "%.2f"|format(summary.get('roas', 0)) }}x</div>
+  </div>
+  <div class="stat">
+    <div class="label">수집 기간</div>
+    <div class="value" style="font-size:13px;">{{ summary.get('first_date', '-') }}</div>
+    <div class="sub">~ {{ summary.get('last_date', '-') }}</div>
+  </div>
+</div>
+
+<!-- 시계열 그래프 -->
+<div class="card">
+  <h2>일별 성과 추이</h2>
+  {% if timeseries %}
+  <div style="height:320px; position:relative;">
+    <canvas id="chart-spend-clicks"></canvas>
+  </div>
+  <div style="height:280px; margin-top:24px; position:relative;">
+    <canvas id="chart-impressions"></canvas>
+  </div>
+  {% else %}
+  <div class="empty">
+    성과 데이터가 없습니다.<br>
+    <span style="font-size:12px;">수집 스케줄러가 실행되면 데이터가 쌓입니다.</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 일별 상세 테이블 -->
+{% if timeseries %}
+<div class="card">
+  <h2>일별 상세</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>날짜</th>
+        <th>집행액</th>
+        <th>노출</th>
+        <th>클릭</th>
+        <th>CTR</th>
+        <th>CPC</th>
+        <th>전환</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in timeseries|reverse %}
+      <tr>
+        <td style="font-family:monospace; font-size:12px;">{{ d.date }}</td>
+        <td>${{ "%.2f"|format(d.spend) }}</td>
+        <td>{{ "{:,}".format(d.impressions) }}</td>
+        <td>{{ "{:,}".format(d.clicks) }}</td>
+        <td>{{ "%.2f"|format(d.ctr * 100) }}%</td>
+        <td>${{ "%.3f"|format(d.cpc) }}</td>
+        <td>{{ d.conversions }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if timeseries %}
+<script>
+const timeseries = {{ timeseries|tojson }};
+const labels = timeseries.map(d => d.date);
+
+const chartOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#a0aec0' } },
+    tooltip: { mode: 'index', intersect: false },
+  },
+  scales: {
+    x: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } },
+    y: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } },
+    y1: { position: 'right', ticks: { color: '#718096' }, grid: { drawOnChartArea: false } },
+  },
+};
+
+new Chart(document.getElementById('chart-spend-clicks'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: '집행액 ($)',
+        data: timeseries.map(d => d.spend),
+        borderColor: '#f6ad55',
+        backgroundColor: 'rgba(246,173,85,0.1)',
+        yAxisID: 'y',
+        tension: 0.3,
+      },
+      {
+        label: '클릭',
+        data: timeseries.map(d => d.clicks),
+        borderColor: '#63b3ed',
+        backgroundColor: 'rgba(99,179,237,0.1)',
+        yAxisID: 'y1',
+        tension: 0.3,
+      },
+    ],
+  },
+  options: chartOpts,
+});
+
+new Chart(document.getElementById('chart-impressions'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: '노출',
+      data: timeseries.map(d => d.impressions),
+      backgroundColor: 'rgba(104,211,145,0.5)',
+      borderColor: '#68d391',
+      borderWidth: 1,
+    }],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#a0aec0' } } },
+    scales: {
+      x: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } },
+      y: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } },
+    },
+  },
+});
+</script>
+{% endif %}
+{% endblock %}

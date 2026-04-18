@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}사이클 {{ cycle.cycle_id }} — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:16px;">
+  <a href="/campaigns" style="font-size:13px;">← 캠페인 목록</a>
+</div>
+
+<h1>사이클 상세 — <span style="font-family:monospace; color:#63b3ed;">{{ cycle.cycle_id }}</span></h1>
+
+<!-- 사이클 메타 -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="label">플랫폼</div>
+    <div class="value" style="font-size:18px;">{{ cycle.platform }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">상태</div>
+    <div class="value" style="font-size:16px;">
+      <span class="badge {% if cycle.status == 'completed' %}badge-green{% elif cycle.status == 'running' %}badge-yellow{% else %}badge-gray{% endif %}">
+        {{ cycle.status }}
+      </span>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="label">총 캠페인</div>
+    <div class="value">{{ cycle.get('total_campaigns', 0) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">생존</div>
+    <div class="value" style="color:#68d391;">{{ survivors_count }}</div>
+    <div class="sub">상위 {{ cycle.get('survive_count', 0) }}개 기준</div>
+  </div>
+  <div class="stat">
+    <div class="label">신규 생성</div>
+    <div class="value" style="color:#f6ad55;">{{ new_campaigns|length }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">시작 시각</div>
+    <div class="value" style="font-size:14px; font-family:monospace;">{{ (cycle.get('created_at', '')|string)[:19] }}</div>
+  </div>
+</div>
+
+<!-- 평가된 캠페인 (점수순) -->
+<div class="card">
+  <h2>평가된 캠페인 ({{ evaluated|length }}개)</h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:10px;">
+    AI 점수 기준 내림차순 · 상위 {{ cycle.get('survive_count', 0) }}개 생존
+  </div>
+  {% if evaluated %}
+  <table>
+    <thead>
+      <tr>
+        <th>점수</th>
+        <th>결과</th>
+        <th>캠페인</th>
+        <th>집행액</th>
+        <th>노출</th>
+        <th>클릭</th>
+        <th>CTR</th>
+        <th>CPC</th>
+        <th>전환</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in evaluated %}
+      <tr>
+        <td><strong style="color:{% if c.score >= 70 %}#68d391{% elif c.score >= 40 %}#f6ad55{% else %}#fc8181{% endif %};">{{ "%.1f"|format(c.score) }}</strong></td>
+        <td>
+          {% if c.survived %}
+          <span class="badge badge-green">생존</span>
+          {% else %}
+          <span class="badge badge-red">탈락</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="/campaigns/detail/{{ c.campaign_id }}" style="font-family:monospace; font-size:12px;">
+            {{ c.campaign_name or c.campaign_id[:20] }}
+          </a>
+        </td>
+        <td>${{ "%.2f"|format(c.spend) }}</td>
+        <td>{{ "{:,}".format(c.impressions) }}</td>
+        <td>{{ "{:,}".format(c.clicks) }}</td>
+        <td>{{ "%.2f"|format(c.ctr * 100) }}%</td>
+        <td>${{ "%.3f"|format(c.cpc) }}</td>
+        <td>{{ c.conversions }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">평가 데이터가 없습니다.</div>
+  {% endif %}
+</div>
+
+<!-- 신규 생성된 캠페인 -->
+<div class="card">
+  <h2>신규 생성 캠페인 ({{ new_campaigns|length }}개)</h2>
+  {% if new_campaigns %}
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for cid in new_campaigns %}
+    <a href="/campaigns/detail/{{ cid }}" class="badge badge-blue" style="font-family:monospace; font-size:12px; padding:6px 12px;">
+      {{ cid[:20] }}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">이 사이클에서 생성된 신규 캠페인이 없습니다.</div>
+  {% endif %}
+</div>
+{% endblock %}

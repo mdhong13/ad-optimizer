@@ -111,7 +111,9 @@
       {% for c in live_campaigns %}
       <tr>
         <td><span class="badge {% if c.platform == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ c.platform }}</span></td>
-        <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.campaign_name }}">{{ c.campaign_name }}</td>
+        <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.campaign_name }}">
+          <a href="/campaigns/detail/{{ c.campaign_id }}">{{ c.campaign_name }}</a>
+        </td>
         <td>
           <span class="badge {% if c.status == 'ACTIVE' %}badge-green{% elif c.status == 'PAUSED' %}badge-yellow{% else %}badge-gray{% endif %}">
             {{ c.status }}
@@ -146,7 +148,9 @@
     <tbody>
       {% for c in cycles %}
       <tr>
-        <td style="font-size:11px; font-family:monospace;">{{ c.get('cycle_id', '')[:12] }}</td>
+        <td style="font-size:11px; font-family:monospace;">
+          <a href="/campaigns/cycle/{{ c.get('cycle_id', '') }}">{{ c.get('cycle_id', '')[:12] }}</a>
+        </td>
         <td><span class="badge {% if c.get('platform') == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ c.get('platform', '') }}</span></td>
         <td>
           <span class="badge {% if c.get('status') == 'completed' %}badge-green{% elif c.get('status') == 'running' %}badge-yellow{% else %}badge-gray{% endif %}">
@@ -177,7 +181,11 @@
       {% for r in performance %}
       <tr>
         <td><span class="badge {% if r.platform == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ r.platform }}</span></td>
-        <td>{{ r.get('campaign_name', r.get('campaign_id', ''))[:30] }}</td>
+        <td>
+          <a href="/campaigns/detail/{{ r.get('campaign_id', '') }}">
+            {{ r.get('campaign_name', r.get('campaign_id', ''))[:30] }}
+          </a>
+        </td>
         <td>{{ r.date }}</td>
         <td>${{ "%.2f"|format(r.spend) }}</td>
         <td>{{ "{:,}".format(r.clicks) }}</td>

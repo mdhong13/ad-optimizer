@@ -210,6 +210,90 @@ def get_latest_cycle(platform: str = None) -> dict:
     )
 
 
+def get_cycle_by_id(cycle_id: str) -> dict:
+    return get_collection("campaign_cycles").find_one(
+        {"cycle_id": cycle_id}, {"_id": 0}
+    )
+
+
+def get_campaign_timeseries(campaign_id: str, days: int = 30) -> list:
+    """캠페인의 일별 성과 시계열"""
+    from datetime import timedelta
+    cutoff = (_now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    pipeline = [
+        {"$match": {"campaign_id": campaign_id, "date": {"$gte": cutoff}}},
+        {"$group": {
+            "_id": "$date",
+            "impressions": {"$sum": "$impressions"},
+            "clicks": {"$sum": "$clicks"},
+            "spend": {"$sum": "$spend"},
+            "conversions": {"$sum": "$conversions"},
+            "revenue": {"$sum": "$revenue"},
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    result = []
+    for row in get_collection("performance_snapshots").aggregate(pipeline):
+        impressions = row.get("impressions", 0)
+        clicks = row.get("clicks", 0)
+        spend = row.get("spend", 0.0)
+        result.append({
+            "date": row["_id"],
+            "impressions": impressions,
+            "clicks": clicks,
+            "spend": spend,
+            "conversions": row.get("conversions", 0),
+            "revenue": row.get("revenue", 0.0),
+            "ctr": (clicks / impressions) if impressions else 0.0,
+            "cpc": (spend / clicks) if clicks else 0.0,
+        })
+    return result
+
+
+def get_campaign_summary(campaign_id: str, days: int = 30) -> dict:
+    """캠페인 누적 지표 요약"""
+    from datetime import timedelta
+    cutoff = (_now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    pipeline = [
+        {"$match": {"campaign_id": campaign_id, "date": {"$gte": cutoff}}},
+        {"$group": {
+            "_id": "$campaign_id",
+            "campaign_name": {"$last": "$campaign_name"},
+            "platform": {"$last": "$platform"},
+            "impressions": {"$sum": "$impressions"},
+            "clicks": {"$sum": "$clicks"},
+            "spend": {"$sum": "$spend"},
+            "conversions": {"$sum": "$conversions"},
+            "revenue": {"$sum": "$revenue"},
+            "first_date": {"$min": "$date"},
+            "last_date": {"$max": "$date"},
+        }},
+    ]
+    docs = list(get_collection("performance_snapshots").aggregate(pipeline))
+    if not docs:
+        return {}
+    d = docs[0]
+    impressions = d.get("impressions", 0)
+    clicks = d.get("clicks", 0)
+    spend = d.get("spend", 0.0)
+    revenue = d.get("revenue", 0.0)
+    return {
+        "campaign_id": d["_id"],
+        "campaign_name": d.get("campaign_name", ""),
+        "platform": d.get("platform", ""),
+        "impressions": impressions,
+        "clicks": clicks,
+        "spend": spend,
+        "conversions": d.get("conversions", 0),
+        "revenue": revenue,
+        "ctr": (clicks / impressions) if impressions else 0.0,
+        "cpc": (spend / clicks) if clicks else 0.0,
+        "roas": (revenue / spend) if spend else 0.0,
+        "first_date": d.get("first_date", ""),
+        "last_date": d.get("last_date", ""),
+    }
+
+
 # --- Characters ---
 
 def upsert_character(doc: dict) -> None:
