@@ -67,6 +67,86 @@ def get_recent_performance(platform: str = None, days: int = 7) -> list:
     return list(cursor)
 
 
+def aggregate_campaign_performance(platform: str = None, days: int = 7) -> dict:
+    """campaign_id별 누적 성과 집계 (impressions, clicks, spend, conversions)"""
+    from datetime import timedelta
+    cutoff = (_now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    match = {"date": {"$gte": cutoff}}
+    if platform:
+        match["platform"] = platform
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$campaign_id",
+            "campaign_name": {"$last": "$campaign_name"},
+            "platform": {"$last": "$platform"},
+            "impressions": {"$sum": "$impressions"},
+            "clicks": {"$sum": "$clicks"},
+            "spend": {"$sum": "$spend"},
+            "conversions": {"$sum": "$conversions"},
+            "revenue": {"$sum": "$revenue"},
+            "last_date": {"$max": "$date"},
+        }},
+    ]
+    result = {}
+    for row in get_collection("performance_snapshots").aggregate(pipeline):
+        cid = row["_id"]
+        impressions = row.get("impressions", 0)
+        clicks = row.get("clicks", 0)
+        spend = row.get("spend", 0.0)
+        result[cid] = {
+            "campaign_name": row.get("campaign_name", ""),
+            "platform": row.get("platform", ""),
+            "impressions": impressions,
+            "clicks": clicks,
+            "spend": spend,
+            "conversions": row.get("conversions", 0),
+            "revenue": row.get("revenue", 0.0),
+            "ctr": (clicks / impressions) if impressions else 0.0,
+            "cpc": (spend / clicks) if clicks else 0.0,
+            "last_date": row.get("last_date", ""),
+        }
+    return result
+
+
+def get_total_spend(platform: str = None, days: int = 30) -> dict:
+    """전체 누적 집행액 및 핵심 지표"""
+    from datetime import timedelta
+    cutoff = (_now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    match = {"date": {"$gte": cutoff}}
+    if platform:
+        match["platform"] = platform
+    pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": None,
+            "impressions": {"$sum": "$impressions"},
+            "clicks": {"$sum": "$clicks"},
+            "spend": {"$sum": "$spend"},
+            "conversions": {"$sum": "$conversions"},
+            "revenue": {"$sum": "$revenue"},
+        }},
+    ]
+    docs = list(get_collection("performance_snapshots").aggregate(pipeline))
+    if not docs:
+        return {"impressions": 0, "clicks": 0, "spend": 0.0, "conversions": 0, "revenue": 0.0, "ctr": 0.0, "cpc": 0.0, "roas": 0.0}
+    d = docs[0]
+    impressions = d.get("impressions", 0)
+    clicks = d.get("clicks", 0)
+    spend = d.get("spend", 0.0)
+    revenue = d.get("revenue", 0.0)
+    return {
+        "impressions": impressions,
+        "clicks": clicks,
+        "spend": spend,
+        "conversions": d.get("conversions", 0),
+        "revenue": revenue,
+        "ctr": (clicks / impressions) if impressions else 0.0,
+        "cpc": (spend / clicks) if clicks else 0.0,
+        "roas": (revenue / spend) if spend else 0.0,
+    }
+
+
 # --- Agent Decisions ---
 
 def insert_decision(doc: dict) -> str:

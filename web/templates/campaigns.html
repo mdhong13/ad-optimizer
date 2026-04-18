@@ -4,19 +4,32 @@
 {% block content %}
 <h1>캠페인 최적화</h1>
 
-<!-- 플랫폼별 요약 -->
+<!-- 누적 성과 카드 (30일) -->
 <div class="stat-grid">
-  {% for plat, count in platform_summary.items() %}
   <div class="stat">
-    <div class="label">{{ plat }}</div>
-    <div class="value">{{ count }}</div>
-    <div class="sub">활성 캠페인</div>
+    <div class="label">총 집행액 (30일)</div>
+    <div class="value">${{ "%.2f"|format(totals.spend) }}</div>
+    <div class="sub">누적 광고비</div>
   </div>
-  {% endfor %}
   <div class="stat">
-    <div class="label">사이클 주기</div>
-    <div class="value">8h</div>
-    <div class="sub">20→2 진화</div>
+    <div class="label">노출</div>
+    <div class="value">{{ "{:,}".format(totals.impressions) }}</div>
+    <div class="sub">CTR {{ "%.2f"|format(totals.ctr * 100) }}%</div>
+  </div>
+  <div class="stat">
+    <div class="label">클릭</div>
+    <div class="value">{{ "{:,}".format(totals.clicks) }}</div>
+    <div class="sub">CPC ${{ "%.3f"|format(totals.cpc) }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">전환</div>
+    <div class="value">{{ "{:,}".format(totals.conversions) }}</div>
+    <div class="sub">ROAS {{ "%.2f"|format(totals.roas) }}x</div>
+  </div>
+  <div class="stat">
+    <div class="label">활성 캠페인</div>
+    <div class="value">{{ live_campaigns|length }}</div>
+    <div class="sub">사이클 주기 8h · 20→2</div>
   </div>
 </div>
 
@@ -68,6 +81,56 @@
       <div><span style="color:#718096;">생존:</span> {{ latest_cycle.get('survivors_count', 0) }}개</div>
       <div><span style="color:#718096;">생성:</span> {{ latest_cycle.get('new_campaigns_count', 0) }}개</div>
     </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 활성 캠페인 목록 -->
+<div class="card">
+  <h2>현재 활성 캠페인</h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:8px;">
+    플랫폼 API에서 실시간 조회 + DB 성과(30일) 병합
+  </div>
+  {% if live_campaigns %}
+  <table>
+    <thead>
+      <tr>
+        <th>플랫폼</th>
+        <th>캠페인명</th>
+        <th>상태</th>
+        <th>일예산</th>
+        <th>집행액</th>
+        <th>노출</th>
+        <th>클릭</th>
+        <th>CTR</th>
+        <th>CPC</th>
+        <th>전환</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in live_campaigns %}
+      <tr>
+        <td><span class="badge {% if c.platform == 'meta' %}badge-blue{% else %}badge-green{% endif %}">{{ c.platform }}</span></td>
+        <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.campaign_name }}">{{ c.campaign_name }}</td>
+        <td>
+          <span class="badge {% if c.status == 'ACTIVE' %}badge-green{% elif c.status == 'PAUSED' %}badge-yellow{% else %}badge-gray{% endif %}">
+            {{ c.status }}
+          </span>
+        </td>
+        <td>${{ "%.2f"|format(c.daily_budget) }}</td>
+        <td>${{ "%.2f"|format(c.spend) }}</td>
+        <td>{{ "{:,}".format(c.impressions) }}</td>
+        <td>{{ "{:,}".format(c.clicks) }}</td>
+        <td>{{ "%.2f"|format(c.ctr * 100) }}%</td>
+        <td>${{ "%.3f"|format(c.cpc) }}</td>
+        <td>{{ c.conversions }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    활성 캠페인이 없습니다. 사이클을 실행하여 캠페인을 생성하거나, 플랫폼 API 설정을 확인하세요.
   </div>
   {% endif %}
 </div>

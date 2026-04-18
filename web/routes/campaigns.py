@@ -2,7 +2,13 @@ from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from storage.db import get_latest_cycle, get_collection, get_recent_performance
+from storage.db import (
+    get_latest_cycle,
+    get_collection,
+    get_recent_performance,
+    aggregate_campaign_performance,
+    get_total_spend,
+)
 from config.settings import settings
 
 router = APIRouter(prefix="/campaigns")
@@ -36,6 +42,30 @@ PLATFORM_CONFIG = {
 }
 
 
+def _fetch_live_campaigns(platform_key: str) -> list[dict]:
+    """플랫폼 API에서 활성 캠페인 목록을 실시간 조회 (실패 시 빈 리스트)"""
+    try:
+        if platform_key == "meta":
+            from platforms.meta import MetaAds
+            p = MetaAds()
+            if not p.is_configured():
+                return []
+            return [
+                {
+                    "campaign_id": c.campaign_id,
+                    "campaign_name": c.campaign_name,
+                    "status": c.status,
+                    "daily_budget": c.daily_budget,
+                    "platform": c.platform,
+                }
+                for c in p.get_campaigns()
+            ]
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Live campaign fetch failed ({platform_key}): {e}")
+    return []
+
+
 @router.get("")
 async def campaigns_page(request: Request):
     # 최근 사이클
@@ -50,7 +80,7 @@ async def campaigns_page(request: Request):
     # 최근 성과
     performance = get_recent_performance(days=3)
 
-    # 플랫폼별 캠페인 수
+    # 플랫폼별 캠페인 수 (DB 성과 기준)
     platform_counts = {}
     for p in performance:
         plat = p.get("platform", "unknown")
@@ -60,6 +90,28 @@ async def campaigns_page(request: Request):
         platform_counts[plat].add(cid)
     platform_summary = {k: len(v) for k, v in platform_counts.items()}
 
+    # 활성 캠페인 (플랫폼 API 실시간 조회) + DB 성과 집계 병합
+    perf_agg = aggregate_campaign_performance(days=30)
+    live_campaigns = []
+    for key, cfg in PLATFORM_CONFIG.items():
+        if not cfg["enabled"]:
+            continue
+        for c in _fetch_live_campaigns(key):
+            stats = perf_agg.get(c["campaign_id"], {})
+            live_campaigns.append({
+                **c,
+                "impressions": stats.get("impressions", 0),
+                "clicks": stats.get("clicks", 0),
+                "spend": stats.get("spend", 0.0),
+                "conversions": stats.get("conversions", 0),
+                "revenue": stats.get("revenue", 0.0),
+                "ctr": stats.get("ctr", 0.0),
+                "cpc": stats.get("cpc", 0.0),
+            })
+
+    # 전체 누적 집행액/성과
+    totals = get_total_spend(days=30)
+
     return templates.TemplateResponse(request, "campaigns.html", {
         "latest_cycle": latest_cycle,
         "cycles": cycles,
@@ -67,6 +119,8 @@ async def campaigns_page(request: Request):
         "platform_summary": platform_summary,
         "platforms": PLATFORM_CONFIG,
         "dry_run": settings.DRY_RUN,
+        "live_campaigns": live_campaigns,
+        "totals": totals,
     })
 
 

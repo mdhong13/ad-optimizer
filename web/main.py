@@ -1,10 +1,19 @@
 """
 FastAPI 웹 대시보드 진입점
 """
+import logging
+import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    stream=sys.stdout,
+    force=True,
+)
 
 from storage.db import init_db
 from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings
