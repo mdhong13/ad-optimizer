@@ -36,6 +36,19 @@ class CampaignManager:
         cycle_id = f"cycle_{uuid.uuid4().hex[:8]}"
         logger.info(f"[{cycle_id}] Starting optimization cycle on {self.platform.platform_name}")
 
+        # 사이클 문서 선행 생성 → 진행률 추적
+        cycle_doc = campaign_cycle(
+            cycle_id=cycle_id,
+            platform=self.platform.platform_name,
+            total=self.total,
+            survive=0,
+        )
+        cycle_doc["status"] = "running"
+        cycle_doc["step"] = "fetch"
+        cycle_doc["step_label"] = "캠페인 목록 조회"
+        cycle_doc["progress_pct"] = 5
+        db.insert_cycle(cycle_doc)
+
         # 1. 현재 캠페인 성과 수집
         campaigns = self.platform.get_campaigns()
         if not campaigns:
@@ -43,33 +56,46 @@ class CampaignManager:
             return self._initial_cycle(cycle_id)
 
         # 2. 성과 데이터 수집
+        db.update_cycle(cycle_id, {
+            "step": "collect", "step_label": "성과 데이터 수집", "progress_pct": 20,
+        })
         performance = self._collect_performance(campaigns)
 
         # 3. Claude로 점수 매기기
+        db.update_cycle(cycle_id, {
+            "step": "evaluate", "step_label": "Claude 평가 중", "progress_pct": 40,
+        })
         survivors, losers = self._evaluate(performance)
 
-        # 4. 사이클 DB 저장
-        cycle_doc = campaign_cycle(
-            cycle_id=cycle_id,
-            platform=self.platform.platform_name,
-            total=len(campaigns),
-            survive=len(survivors),
-        )
-        cycle_doc["campaigns"] = [
-            {"campaign_id": p["campaign_id"], "name": p.get("campaign_name", ""), "score": p.get("score", 0)}
-            for p in performance
-        ]
-        cycle_doc["survivors"] = [s["campaign_id"] for s in survivors]
-        db.insert_cycle(cycle_doc)
+        # 4. 사이클 DB 업데이트
+        db.update_cycle(cycle_id, {
+            "total": len(campaigns),
+            "survive": len(survivors),
+            "campaigns": [
+                {"campaign_id": p["campaign_id"], "name": p.get("campaign_name", ""), "score": p.get("score", 0)}
+                for p in performance
+            ],
+            "survivors": [s["campaign_id"] for s in survivors],
+        })
 
         # 5. 하위 캠페인 삭제
+        db.update_cycle(cycle_id, {
+            "step": "kill", "step_label": f"하위 {len(losers)}개 삭제", "progress_pct": 55,
+        })
         for loser in losers:
             self.platform.delete_campaign(loser["campaign_id"], dry_run=self.dry_run)
             logger.info(f"[{cycle_id}] Killed: {loser.get('campaign_name', loser['campaign_id'])} (score: {loser.get('score', 0)})")
 
         # 6. 상위 캠페인 기반 새 캠페인 생성
         new_count = self.total - len(survivors)
+        db.update_cycle(cycle_id, {
+            "step": "generate", "step_label": f"변형 {new_count}개 생성", "progress_pct": 70,
+        })
         new_campaigns = self._generate_variants(survivors, new_count)
+
+        db.update_cycle(cycle_id, {
+            "step": "create", "step_label": f"플랫폼에 {len(new_campaigns)}개 등록", "progress_pct": 85,
+        })
         created_ids = self._create_campaigns(new_campaigns)
 
         # 7. 새 캠페인 활성화
@@ -79,6 +105,9 @@ class CampaignManager:
         # 8. 사이클 완료
         db.update_cycle(cycle_id, {
             "status": "completed",
+            "step": "done",
+            "step_label": "완료",
+            "progress_pct": 100,
             "new_campaigns": created_ids,
         })
 

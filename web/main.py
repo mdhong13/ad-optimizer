@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 from storage.db import init_db
-from web import live_logs
+from web import live_logs, scheduler_bg
 from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings
 
 live_logs.install_handler()
@@ -46,8 +46,19 @@ async def startup():
     import asyncio
     live_logs.set_loop(asyncio.get_running_loop())
     init_db()
+    scheduler_bg.start()
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    scheduler_bg.shutdown()
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "app": "OneMessage Ad Optimizer", "version": "2.0.0"}
+
+
+@app.get("/api/scheduler/status")
+async def scheduler_status():
+    return scheduler_bg.status()

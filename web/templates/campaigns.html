@@ -4,6 +4,36 @@
 {% block content %}
 <h1>캠페인 최적화</h1>
 
+<!-- DRY_RUN 전역 상태 배너 -->
+<div style="padding:10px 14px; margin-bottom:16px; border-radius:6px;
+  {% if dry_run %}background:#fffaf0; border-left:4px solid #dd6b20; color:#7b3f00;
+  {% else %}background:#fff5f5; border-left:4px solid #c53030; color:#742a2a;{% endif %}
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+  <div style="font-size:13px;">
+    {% if dry_run %}
+      <b>DRY_RUN ON</b> — 캠페인/삭제/예산 변경이 실제 플랫폼에 반영되지 않습니다 (시뮬레이션)
+    {% else %}
+      <b>LIVE</b> — 실제 광고비가 집행됩니다
+    {% endif %}
+  </div>
+  <div style="font-size:11px;">환경변수 <code>DRY_RUN</code>로 전환 (Railway Variables)</div>
+</div>
+
+<!-- 사이클 진행률 (실행 중일 때만 표시) -->
+<div id="cycle-progress-card" class="card" style="display:none; background:#ebf8ff; border-left:4px solid #3182ce;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <div>
+      <b id="cp-title">사이클 진행 중</b>
+      <span style="font-size:11px; color:#4a5568; margin-left:8px;" id="cp-cycle-id"></span>
+    </div>
+    <div style="font-size:12px; color:#2c5282;" id="cp-step-label">—</div>
+  </div>
+  <div style="background:#bee3f8; border-radius:3px; height:10px; overflow:hidden;">
+    <div id="cp-bar" style="background:#3182ce; height:100%; width:0%; transition:width .4s;"></div>
+  </div>
+  <div style="font-size:11px; color:#4a5568; margin-top:6px;" id="cp-meta"></div>
+</div>
+
 <!-- 누적 성과 카드 (30일) -->
 <div class="stat-grid">
   <div class="stat">
@@ -297,5 +327,34 @@ function connectSSE() {
 
 logViewer.innerHTML = '';
 connectSSE();
+
+// --- 사이클 진행률 폴링 ---
+const cpCard = document.getElementById('cycle-progress-card');
+const cpBar = document.getElementById('cp-bar');
+const cpTitle = document.getElementById('cp-title');
+const cpStepLabel = document.getElementById('cp-step-label');
+const cpCycleId = document.getElementById('cp-cycle-id');
+const cpMeta = document.getElementById('cp-meta');
+
+async function pollProgress() {
+  try {
+    const r = await fetch('/campaigns/api/active-cycle');
+    if (!r.ok) { cpCard.style.display = 'none'; return; }
+    const c = await r.json();
+    if (!c || !c.cycle_id) { cpCard.style.display = 'none'; return; }
+    cpCard.style.display = 'block';
+    const pct = Math.max(0, Math.min(100, c.progress_pct || 0));
+    cpBar.style.width = pct + '%';
+    cpTitle.textContent = (c.status === 'completed') ? '사이클 완료' : '사이클 진행 중';
+    cpStepLabel.textContent = (c.step_label || c.step || '-') + ' · ' + pct + '%';
+    cpCycleId.textContent = c.cycle_id + ' · ' + (c.platform || '');
+    cpMeta.textContent = '생존 ' + (c.survive || 0) + ' / 평가 ' + (c.total || 0);
+    if (c.status === 'completed') {
+      setTimeout(() => { cpCard.style.display = 'none'; }, 8000);
+    }
+  } catch {}
+}
+pollProgress();
+setInterval(pollProgress, 3000);
 </script>
 {% endblock %}
