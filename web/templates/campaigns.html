@@ -33,6 +33,23 @@
   </div>
 </div>
 
+<!-- 실시간 로그 스트림 -->
+<div class="card">
+  <h2 style="margin-top:0; display:flex; justify-content:space-between; align-items:center;">
+    <span>실시간 로그</span>
+    <span style="font-size:11px; font-weight:400;">
+      <label style="margin-right:12px;">
+        <input type="checkbox" id="log-filter-run-cycle" checked> run-cycle만
+      </label>
+      <button class="btn btn-gray" style="padding:4px 10px; font-size:11px;" onclick="clearLogs()">지우기</button>
+      <span id="sse-status" style="margin-left:10px; color:#4a5568;">●</span>
+    </span>
+  </h2>
+  <div id="log-viewer" style="background:#000; color:#c8d1e0; font-family:'Consolas','Courier New',monospace; font-size:12px; height:280px; overflow-y:auto; padding:10px; border-radius:4px; line-height:1.5;">
+    <div style="color:#4a5568;">로그 스트림 연결 대기 중...</div>
+  </div>
+</div>
+
 <!-- 플랫폼별 사이클 실행 -->
 <div class="card">
   <h2 style="margin-top:0;">플랫폼별 사이클 실행</h2>
@@ -213,7 +230,7 @@ async function runCycle(platform, platformName) {
     const r = await fetch('/campaigns/run-cycle/' + platform, {method:'POST'});
     const data = await r.json();
     if (r.ok) {
-      statusEl.textContent = '사이클 시작됨. 완료 후 새로고침하세요.';
+      statusEl.textContent = '사이클 시작됨. 아래 로그에서 진행상황 확인.';
       statusEl.style.color = '#48bb78';
     } else {
       statusEl.textContent = '에러: ' + (data.detail || '실패');
@@ -224,5 +241,61 @@ async function runCycle(platform, platformName) {
     statusEl.style.color = '#f56565';
   }
 }
+
+// --- 실시간 로그 (SSE) ---
+const logViewer = document.getElementById('log-viewer');
+const sseStatus = document.getElementById('sse-status');
+const filterRunCycle = document.getElementById('log-filter-run-cycle');
+
+const LEVEL_COLOR = {
+  DEBUG: '#718096',
+  INFO: '#c8d1e0',
+  WARNING: '#f6ad55',
+  ERROR: '#fc8181',
+  CRITICAL: '#fc8181',
+};
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+function appendLog(entry) {
+  if (filterRunCycle.checked) {
+    const hit = (entry.name || '').includes('run-cycle')
+      || (entry.message || '').includes('[cycle_')
+      || (entry.message || '').includes('[run-cycle')
+      || (entry.name || '').startsWith('campaign')
+      || (entry.name || '').startsWith('scheduler')
+      || (entry.name || '').startsWith('platforms')
+      || (entry.name || '').startsWith('agent');
+    if (!hit) return;
+  }
+  const line = document.createElement('div');
+  const color = LEVEL_COLOR[entry.level] || '#c8d1e0';
+  line.innerHTML = '<span style="color:#4a5568;">' + esc(entry.iso || '')
+    + '</span> <span style="color:' + color + ';">' + esc(entry.level || '')
+    + '</span> <span style="color:#63b3ed;">' + esc(entry.name || '')
+    + '</span> ' + esc(entry.message || '');
+  logViewer.appendChild(line);
+  while (logViewer.children.length > 500) logViewer.removeChild(logViewer.firstChild);
+  logViewer.scrollTop = logViewer.scrollHeight;
+}
+
+function clearLogs() { logViewer.innerHTML = ''; }
+
+function connectSSE() {
+  const es = new EventSource('/campaigns/api/live-logs');
+  es.onopen = () => { sseStatus.style.color = '#48bb78'; sseStatus.textContent = '● 연결됨'; };
+  es.onmessage = (e) => { try { appendLog(JSON.parse(e.data)); } catch {} };
+  es.onerror = () => {
+    sseStatus.style.color = '#fc8181';
+    sseStatus.textContent = '● 끊김, 3s 후 재연결';
+    es.close();
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+logViewer.innerHTML = '';
+connectSSE();
 </script>
 {% endblock %}

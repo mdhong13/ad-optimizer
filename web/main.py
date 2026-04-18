@@ -16,7 +16,10 @@ logging.basicConfig(
 )
 
 from storage.db import init_db
+from web import live_logs
 from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings
+
+live_logs.install_handler()
 
 app = FastAPI(title="OneMessage Ad Optimizer", version="2.0.0")
 
@@ -40,6 +43,8 @@ app.include_router(settings.router)
 
 @app.on_event("startup")
 async def startup():
+    import asyncio
+    live_logs.set_loop(asyncio.get_running_loop())
     init_db()
 
 

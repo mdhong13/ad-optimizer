@@ -1,6 +1,11 @@
+import asyncio
+import json
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+
+from web import live_logs
 
 from storage.db import (
     get_latest_cycle,
@@ -139,21 +144,52 @@ async def run_cycle(platform: str, background_tasks: BackgroundTasks):
     task_name = cfg["task"]
 
     def _run():
-        import sys
+        import logging as _log
         import traceback
+        logger = _log.getLogger(f"run-cycle.{platform}")
         try:
-            print(f"[run-cycle/{platform}] START", flush=True)
+            logger.info(f"[run-cycle/{platform}] START")
             import scheduler.tasks as t
             func = getattr(t, task_name)
             func()
-            print(f"[run-cycle/{platform}] DONE", flush=True)
+            logger.info(f"[run-cycle/{platform}] DONE")
         except Exception as e:
-            print(f"[run-cycle/{platform}] FAILED: {e}", flush=True)
-            traceback.print_exc(file=sys.stdout)
-            sys.stdout.flush()
+            logger.error(f"[run-cycle/{platform}] FAILED: {e}")
+            logger.error(traceback.format_exc())
 
     background_tasks.add_task(_run)
     return {"triggered": True, "task": task_name, "platform": platform, "platform_name": cfg["name"]}
+
+
+@router.get("/api/live-logs")
+async def api_live_logs(request: Request):
+    """Server-Sent Events로 실시간 로그 스트리밍"""
+    async def gen():
+        # 초기 최근 로그 버퍼 전송
+        for entry in live_logs.recent(80):
+            yield f"data: {json.dumps(entry)}\n\n"
+        q = live_logs.subscribe()
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    entry = await asyncio.wait_for(q.get(), timeout=15)
+                    yield f"data: {json.dumps(entry)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            live_logs.unsubscribe(q)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/api/cycles")
