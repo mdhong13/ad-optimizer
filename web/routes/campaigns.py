@@ -82,9 +82,18 @@ async def run_cycle(platform: str, background_tasks: BackgroundTasks):
     task_name = cfg["task"]
 
     def _run():
-        import scheduler.tasks as t
-        func = getattr(t, task_name)
-        func()
+        import sys
+        import traceback
+        try:
+            print(f"[run-cycle/{platform}] START", flush=True)
+            import scheduler.tasks as t
+            func = getattr(t, task_name)
+            func()
+            print(f"[run-cycle/{platform}] DONE", flush=True)
+        except Exception as e:
+            print(f"[run-cycle/{platform}] FAILED: {e}", flush=True)
+            traceback.print_exc(file=sys.stdout)
+            sys.stdout.flush()
 
     background_tasks.add_task(_run)
     return {"triggered": True, "task": task_name, "platform": platform, "platform_name": cfg["name"]}
