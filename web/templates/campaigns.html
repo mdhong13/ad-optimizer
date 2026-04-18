@@ -20,7 +20,7 @@
 </div>
 
 <!-- 사이클 진행률 (실행 중일 때만 표시) -->
-<div id="cycle-progress-card" class="card" style="display:none; background:#ebf8ff; border-left:4px solid #3182ce;">
+<div id="cycle-progress-card" class="card" hidden style="background:#ebf8ff; border-left:4px solid #3182ce;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
     <div>
       <b id="cp-title">사이클 진행 중</b>
@@ -328,30 +328,32 @@ function connectSSE() {
 logViewer.innerHTML = '';
 connectSSE();
 
-// --- 사이클 진행률 폴링 ---
+// --- 사이클 진행률 폴링 (running일 때만 표시, 변경 시에만 DOM 업데이트) ---
 const cpCard = document.getElementById('cycle-progress-card');
 const cpBar = document.getElementById('cp-bar');
-const cpTitle = document.getElementById('cp-title');
 const cpStepLabel = document.getElementById('cp-step-label');
 const cpCycleId = document.getElementById('cp-cycle-id');
 const cpMeta = document.getElementById('cp-meta');
+let cpLastKey = '';
 
 async function pollProgress() {
   try {
     const r = await fetch('/campaigns/api/active-cycle');
-    if (!r.ok) { cpCard.style.display = 'none'; return; }
-    const c = await r.json();
-    if (!c || !c.cycle_id) { cpCard.style.display = 'none'; return; }
-    cpCard.style.display = 'block';
+    const c = r.ok ? await r.json() : {};
+    if (!c || !c.cycle_id) {
+      if (!cpCard.hidden) cpCard.hidden = true;
+      cpLastKey = '';
+      return;
+    }
     const pct = Math.max(0, Math.min(100, c.progress_pct || 0));
+    const key = c.cycle_id + ':' + (c.step || '') + ':' + pct;
+    if (key === cpLastKey) return;
+    cpLastKey = key;
+    if (cpCard.hidden) cpCard.hidden = false;
     cpBar.style.width = pct + '%';
-    cpTitle.textContent = (c.status === 'completed') ? '사이클 완료' : '사이클 진행 중';
     cpStepLabel.textContent = (c.step_label || c.step || '-') + ' · ' + pct + '%';
     cpCycleId.textContent = c.cycle_id + ' · ' + (c.platform || '');
     cpMeta.textContent = '생존 ' + (c.survive || 0) + ' / 평가 ' + (c.total || 0);
-    if (c.status === 'completed') {
-      setTimeout(() => { cpCard.style.display = 'none'; }, 8000);
-    }
   } catch {}
 }
 pollProgress();

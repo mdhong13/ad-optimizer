@@ -202,14 +202,9 @@ async def api_cycles(limit: int = 10):
 
 @router.get("/api/active-cycle")
 async def api_active_cycle():
-    """실행 중(running) 혹은 최근 8분 내 완료된 사이클 반환"""
-    from datetime import datetime, timezone, timedelta
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=8)
+    """실행 중(running)인 사이클만 반환"""
     doc = get_collection("campaign_cycles").find_one(
-        {"$or": [
-            {"status": "running"},
-            {"status": "completed", "updated_at": {"$gte": cutoff}},
-        ]},
+        {"status": "running"},
         {"_id": 0},
         sort=[("created_at", -1)],
     )
