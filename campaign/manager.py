@@ -25,8 +25,8 @@ class CampaignManager:
         self.survive = settings.CAMPAIGNS_SURVIVE
         self.dry_run = settings.DRY_RUN
         self.auto_activate = settings.AUTO_ACTIVATE
-        self.max_budget = settings.MAX_DAILY_BUDGET_PER_CAMPAIGN_USD
-        self.min_budget = settings.MIN_DAILY_BUDGET_PER_CAMPAIGN_USD
+        self.max_budget = settings.MAX_DAILY_BUDGET_PER_CAMPAIGN
+        self.min_budget = settings.MIN_DAILY_BUDGET_PER_CAMPAIGN
 
     def _preflight(self, campaigns: list) -> tuple[bool, str]:
         """실계정 모드에서 사이클 진입 전 안전 체크. (ok, reason) 반환"""
@@ -38,8 +38,8 @@ class CampaignManager:
         try:
             totals_1d = db.get_total_spend(days=1)
             spent = float(totals_1d.get("spend", 0))
-            if spent >= settings.DAILY_BUDGET_CAP_USD:
-                return False, f"24h spend=${spent:.2f} >= cap=${settings.DAILY_BUDGET_CAP_USD:.2f}"
+            if spent >= settings.DAILY_BUDGET_CAP:
+                return False, f"24h spend={spent:.2f} >= cap={settings.DAILY_BUDGET_CAP:.2f}"
         except Exception as e:
             logger.warning(f"Preflight spend check failed: {e}")
         return True, "ok"

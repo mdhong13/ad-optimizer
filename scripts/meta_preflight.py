@@ -9,6 +9,12 @@ import logging
 import sys
 from datetime import date, timedelta
 
+# Windows cp949 터미널에서 유니코드(—, ←) 출력 가능하도록 UTF-8 강제
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
@@ -112,15 +118,16 @@ def main():
     except Exception as e:
         print(f"  [ERROR] insights 조회 실패: {e}")
 
-    # 안전장치 요약
-    print("\n--- 안전장치 (현재 값) ---")
-    print(f"  DRY_RUN                           : {settings.DRY_RUN}")
-    print(f"  AUTO_ACTIVATE                     : {settings.AUTO_ACTIVATE}")
-    print(f"  CANARY_MODE                       : {settings.CANARY_MODE} (count={settings.CANARY_COUNT})")
-    print(f"  DAILY_BUDGET_CAP_USD              : ${settings.DAILY_BUDGET_CAP_USD:.2f}")
-    print(f"  MAX_DAILY_BUDGET_PER_CAMPAIGN_USD : ${settings.MAX_DAILY_BUDGET_PER_CAMPAIGN_USD:.2f}")
-    print(f"  MAX_ACTIVE_CAMPAIGNS              : {settings.MAX_ACTIVE_CAMPAIGNS}")
-    print(f"  CAMPAIGNS_PER_CYCLE               : {settings.CAMPAIGNS_PER_CYCLE}")
+    # 안전장치 요약 (계정 통화 major unit 기준)
+    print("\n--- 안전장치 (현재 값, 계정 통화 major unit) ---")
+    print(f"  DRY_RUN                       : {settings.DRY_RUN}")
+    print(f"  AUTO_ACTIVATE                 : {settings.AUTO_ACTIVATE}")
+    print(f"  CANARY_MODE                   : {settings.CANARY_MODE} (count={settings.CANARY_COUNT})")
+    print(f"  DAILY_BUDGET_CAP              : {settings.DAILY_BUDGET_CAP:,.0f}")
+    print(f"  MAX_DAILY_BUDGET_PER_CAMPAIGN : {settings.MAX_DAILY_BUDGET_PER_CAMPAIGN:,.0f}")
+    print(f"  MIN_DAILY_BUDGET_PER_CAMPAIGN : {settings.MIN_DAILY_BUDGET_PER_CAMPAIGN:,.0f}")
+    print(f"  MAX_ACTIVE_CAMPAIGNS          : {settings.MAX_ACTIVE_CAMPAIGNS}")
+    print(f"  CAMPAIGNS_PER_CYCLE           : {settings.CAMPAIGNS_PER_CYCLE}")
     print()
 
 

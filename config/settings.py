@@ -94,9 +94,11 @@ class Settings:
     BUDGET_CHANGE_LIMIT_PCT: int = int(os.getenv("BUDGET_CHANGE_LIMIT_PCT", "30"))
 
     # --- 실계정 안전장치 (DRY_RUN=false일 때 효력) ---
-    DAILY_BUDGET_CAP_USD: float = float(os.getenv("DAILY_BUDGET_CAP_USD", "30"))          # 전일 집행액이 이걸 넘으면 사이클 중단
-    MAX_DAILY_BUDGET_PER_CAMPAIGN_USD: float = float(os.getenv("MAX_DAILY_BUDGET_PER_CAMPAIGN_USD", "3"))
-    MIN_DAILY_BUDGET_PER_CAMPAIGN_USD: float = float(os.getenv("MIN_DAILY_BUDGET_PER_CAMPAIGN_USD", "1"))
+    # 예산 값은 "광고 계정 통화의 major unit" 기준 (KRW면 원, USD면 달러).
+    # KRW 기본값: 일 40,000원 상한 / 캠페인당 4,000원 상한
+    DAILY_BUDGET_CAP: float = float(os.getenv("DAILY_BUDGET_CAP", "40000"))
+    MAX_DAILY_BUDGET_PER_CAMPAIGN: float = float(os.getenv("MAX_DAILY_BUDGET_PER_CAMPAIGN", "4000"))
+    MIN_DAILY_BUDGET_PER_CAMPAIGN: float = float(os.getenv("MIN_DAILY_BUDGET_PER_CAMPAIGN", "1500"))
     MAX_ACTIVE_CAMPAIGNS: int = int(os.getenv("MAX_ACTIVE_CAMPAIGNS", "25"))
     AUTO_ACTIVATE: bool = os.getenv("AUTO_ACTIVATE", "false").lower() == "true"           # false면 PAUSED로 생성, 사람이 Meta UI에서 활성화
     CANARY_MODE: bool = os.getenv("CANARY_MODE", "true").lower() == "true"                # true면 첫 사이클을 CANARY_COUNT개만
