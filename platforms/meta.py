@@ -216,48 +216,61 @@ class MetaAds(AdPlatform):
         campaign_id = campaign["id"]
         logger.info(f"Meta: campaign created {campaign_id} (PAUSED, ${daily_budget_cents/100:.2f}/day)")
 
-        # 2. AdSet
-        countries = targeting.get("countries", ["US"])
-        ad_set = self._account.create_ad_set(params={
-            FBAdSet.Field.name: f"{name} - AdSet",
-            FBAdSet.Field.campaign_id: campaign_id,
-            FBAdSet.Field.daily_budget: daily_budget_cents,
-            FBAdSet.Field.billing_event: "IMPRESSIONS",
-            FBAdSet.Field.optimization_goal: "LINK_CLICKS",
-            FBAdSet.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-            FBAdSet.Field.targeting: {
-                "geo_locations": {"countries": countries},
-                "age_min": targeting.get("age_min", 25),
-                "age_max": targeting.get("age_max", 55),
-            },
-            FBAdSet.Field.status: "PAUSED",
-        })
-        ad_set_id = ad_set["id"]
-        logger.info(f"Meta: adset created {ad_set_id}")
-
-        # 3. Creative + Ad
-        creative = self._account.create_ad_creative(params={
-            AdCreative.Field.name: f"{name} - Creative",
-            AdCreative.Field.object_story_spec: {
-                "page_id": page_id,
-                "link_data": {
-                    "link": creatives.get("link", "https://onemsg.net"),
-                    "message": creatives.get("body", ""),
-                    "name": creatives.get("title", ""),
-                    "image_url": creatives.get("image_url", ""),
+        # 광고세트/광고 생성 실패 시 고아 캠페인 방지 — 캠페인 삭제 롤백
+        try:
+            # 2. AdSet
+            # targeting_automation.advantage_audience=0 → Meta v25 필수 플래그
+            countries = targeting.get("countries", ["US"])
+            ad_set = self._account.create_ad_set(params={
+                FBAdSet.Field.name: f"{name} - AdSet",
+                FBAdSet.Field.campaign_id: campaign_id,
+                FBAdSet.Field.daily_budget: daily_budget_cents,
+                FBAdSet.Field.billing_event: "IMPRESSIONS",
+                FBAdSet.Field.optimization_goal: "LINK_CLICKS",
+                FBAdSet.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+                FBAdSet.Field.destination_type: "WEBSITE",
+                FBAdSet.Field.targeting: {
+                    "geo_locations": {"countries": countries},
+                    "age_min": targeting.get("age_min", 25),
+                    "age_max": targeting.get("age_max", 55),
+                    "targeting_automation": {"advantage_audience": 0},
                 },
-            },
-        })
+                FBAdSet.Field.status: "PAUSED",
+            })
+            ad_set_id = ad_set["id"]
+            logger.info(f"Meta: adset created {ad_set_id}")
 
-        ad = self._account.create_ad(params={
-            FBAd.Field.name: f"{name} - Ad",
-            FBAd.Field.adset_id: ad_set_id,
-            FBAd.Field.creative: {"creative_id": creative["id"]},
-            FBAd.Field.status: "PAUSED",
-        })
-        logger.info(f"Meta: ad created {ad['id']}")
+            # 3. Creative + Ad
+            creative = self._account.create_ad_creative(params={
+                AdCreative.Field.name: f"{name} - Creative",
+                AdCreative.Field.object_story_spec: {
+                    "page_id": page_id,
+                    "link_data": {
+                        "link": creatives.get("link", "https://onemsg.net"),
+                        "message": creatives.get("body", ""),
+                        "name": creatives.get("title", ""),
+                        "image_url": creatives.get("image_url", ""),
+                    },
+                },
+            })
 
-        return campaign_id
+            ad = self._account.create_ad(params={
+                FBAd.Field.name: f"{name} - Ad",
+                FBAd.Field.adset_id: ad_set_id,
+                FBAd.Field.creative: {"creative_id": creative["id"]},
+                FBAd.Field.status: "PAUSED",
+            })
+            logger.info(f"Meta: ad created {ad['id']}")
+
+            return campaign_id
+        except Exception as e:
+            logger.error(f"Meta: adset/ad creation failed, rolling back campaign {campaign_id}: {e}")
+            try:
+                FBCampaign(campaign_id).api_delete()
+                logger.info(f"Meta: rollback — campaign {campaign_id} deleted")
+            except Exception as rollback_err:
+                logger.error(f"Meta: rollback failed for {campaign_id}: {rollback_err}")
+            raise
 
     def delete_campaign(self, campaign_id: str, dry_run: bool = True) -> bool:
         if dry_run:
