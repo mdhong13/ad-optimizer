@@ -31,7 +31,7 @@ if sys.platform == "win32":
 
 logger = logging.getLogger(__name__)
 
-IMAGES_DIR = Path("D:/0_Dotcell/ad-optimizer/assets/generated/meta")
+IMAGES_DIR = Path(__file__).resolve().parent.parent / "assets" / "generated" / "meta"
 PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dotcell.onemessage"
 
 # kr_canary_copy.md 에서 추출한 9 변형
