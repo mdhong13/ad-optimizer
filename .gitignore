@@ -20,6 +20,10 @@ assets/generated/**/*.jpeg
 assets/generated/**/*.mp4
 assets/generated/**/*.mov
 assets/generated/**/*.webm
+# 단, KR Canary 오버레이 9장은 커밋 (Railway 배포에서 필요)
+!assets/generated/meta/c?a_feed_34_overlay.png
+!assets/generated/meta/c?b_feed_34_overlay.png
+!assets/generated/meta/c?c_feed_34_overlay.png
 
 # 로컬 임시 파일
 /python
