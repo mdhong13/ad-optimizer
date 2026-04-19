@@ -175,6 +175,65 @@ class MetaAds(AdPlatform):
                 return float(a.get("value", 0))
         return 0.0
 
+    # 광고 이미지 에셋 폴더 (플랫폼별 표준 경로)
+    # 규칙: assets/generated/{platform}/ 에서 랜덤 선택
+    _ASSETS_DIR = "assets/generated/meta"
+
+    def _resolve_and_upload_image(self, image_path: Optional[str], image_url: Optional[str]) -> Optional[str]:
+        """이미지 소스를 결정해서 /adimages 업로드 후 image_hash 반환.
+
+        우선순위:
+          1) image_path (로컬 파일) — 바로 업로드
+          2) image_url (원격 URL) — 다운로드 후 업로드
+          3) assets/generated/meta/ 폴더에서 랜덤 선택
+        """
+        import os
+        import random
+        import tempfile
+
+        local_path = None
+
+        # 1) 명시적 로컬 경로
+        if image_path and os.path.exists(image_path):
+            local_path = image_path
+        # 2) 원격 URL
+        elif image_url:
+            try:
+                import requests as _req
+                img_bytes = _req.get(image_url, timeout=15).content
+                tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+                tmp.write(img_bytes)
+                tmp.close()
+                local_path = tmp.name
+            except Exception as e:
+                logger.warning(f"Meta: image download failed: {e}")
+        # 3) 에셋 폴더 랜덤 폴백
+        if not local_path:
+            from pathlib import Path
+            assets = Path(__file__).resolve().parent.parent / self._ASSETS_DIR
+            if assets.is_dir():
+                candidates = [p for p in assets.iterdir()
+                              if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg", ".png")]
+                if candidates:
+                    local_path = str(random.choice(candidates))
+                    logger.info(f"Meta: using asset image {os.path.basename(local_path)}")
+
+        if not local_path:
+            logger.warning("Meta: no image available — creative will have no image")
+            return None
+
+        try:
+            img = self._account.create_ad_image(params={"filename": local_path})
+            image_hash = img.get("hash")
+            if not image_hash and img.get("images"):
+                image_hash = list(img["images"].values())[0].get("hash")
+            if image_hash:
+                logger.info(f"Meta: image uploaded, hash={image_hash[:10]}...")
+                return image_hash
+        except Exception as e:
+            logger.warning(f"Meta: image upload failed, skipping: {e}")
+        return None
+
     def create_campaign(
         self,
         name: str,
@@ -251,24 +310,16 @@ class MetaAds(AdPlatform):
             if creatives.get("title"):
                 link_data["name"] = creatives["title"]
 
-            img_url = creatives.get("image_url", "")
-            if img_url:
-                try:
-                    import requests as _req
-                    img_bytes = _req.get(img_url, timeout=15).content
-                    import base64, tempfile, os
-                    from facebook_business.adobjects.adimage import AdImage
-                    tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-                    tmp.write(img_bytes)
-                    tmp.close()
-                    img = self._account.create_ad_image(params={"filename": tmp.name})
-                    os.unlink(tmp.name)
-                    image_hash = img.get("hash") or list(img.get("images", {}).values())[0].get("hash")
-                    if image_hash:
-                        link_data["image_hash"] = image_hash
-                        logger.info(f"Meta: image uploaded, hash={image_hash[:10]}...")
-                except Exception as img_err:
-                    logger.warning(f"Meta: image upload failed, skipping: {img_err}")
+            # 이미지 소스 우선순위:
+            #   1) creatives["image_path"] 로컬 파일 경로
+            #   2) creatives["image_url"] 원격 URL
+            #   3) assets/generated/meta/ 폴더에서 랜덤 선택
+            image_hash = self._resolve_and_upload_image(
+                creatives.get("image_path"),
+                creatives.get("image_url"),
+            )
+            if image_hash:
+                link_data["image_hash"] = image_hash
 
             creative = self._account.create_ad_creative(params={
                 AdCreative.Field.name: f"{name} - Creative",
