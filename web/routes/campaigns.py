@@ -16,6 +16,8 @@ from storage.db import (
     get_cycle_by_id,
     get_campaign_timeseries,
     get_campaign_summary,
+    get_active_meta_account,
+    set_active_meta_account,
 )
 from config.settings import settings
 
@@ -50,12 +52,12 @@ PLATFORM_CONFIG = {
 }
 
 
-def _fetch_live_campaigns(platform_key: str) -> list[dict]:
+def _fetch_live_campaigns(platform_key: str, meta_account_id: str = None) -> list[dict]:
     """플랫폼 API에서 활성 캠페인 목록을 실시간 조회 (실패 시 빈 리스트)"""
     try:
         if platform_key == "meta":
             from platforms.meta import MetaAds
-            p = MetaAds()
+            p = MetaAds(account_id=meta_account_id)
             if not p.is_configured():
                 return []
             return [
@@ -98,13 +100,17 @@ async def campaigns_page(request: Request):
         platform_counts[plat].add(cid)
     platform_summary = {k: len(v) for k, v in platform_counts.items()}
 
+    # 활성 Meta 광고 계정
+    active_meta_id = get_active_meta_account()
+    meta_accounts = settings.meta_ad_accounts
+
     # 활성 캠페인 (플랫폼 API 실시간 조회) + DB 성과 집계 병합
     perf_agg = aggregate_campaign_performance(days=30)
     live_campaigns = []
     for key, cfg in PLATFORM_CONFIG.items():
         if not cfg["enabled"]:
             continue
-        for c in _fetch_live_campaigns(key):
+        for c in _fetch_live_campaigns(key, meta_account_id=active_meta_id):
             stats = perf_agg.get(c["campaign_id"], {})
             live_campaigns.append({
                 **c,
@@ -129,7 +135,27 @@ async def campaigns_page(request: Request):
         "dry_run": settings.DRY_RUN,
         "live_campaigns": live_campaigns,
         "totals": totals,
+        "meta_accounts": meta_accounts,
+        "active_meta_id": active_meta_id,
     })
+
+
+@router.get("/api/meta-accounts")
+async def api_meta_accounts():
+    return {
+        "accounts": settings.meta_ad_accounts,
+        "active": get_active_meta_account(),
+    }
+
+
+@router.post("/api/meta-accounts/active")
+async def api_set_active_meta_account(payload: dict):
+    account_id = (payload or {}).get("account_id", "")
+    try:
+        set_active_meta_account(account_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "active": account_id}
 
 
 @router.post("/run-cycle/{platform}")

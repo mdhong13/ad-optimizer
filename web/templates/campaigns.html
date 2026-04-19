@@ -19,6 +19,51 @@
   <div style="font-size:11px;">환경변수 <code>DRY_RUN</code>로 전환 (Railway Variables)</div>
 </div>
 
+<!-- Meta 광고 계정 선택 -->
+{% if meta_accounts and meta_accounts|length > 0 %}
+<div style="padding:8px 14px; margin-bottom:16px; border-radius:6px; background:#f7fafc; border:1px solid #e2e8f0;
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+  <div style="font-size:13px; color:#2d3748;">
+    <b>Meta 광고 계정</b>
+    <span style="font-size:11px; color:#718096; margin-left:6px;">모든 Meta 조회/실행에 사용</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <select id="meta-account-select" style="padding:6px 10px; border:1px solid #cbd5e0; border-radius:4px; font-size:13px;">
+      {% for a in meta_accounts %}
+      <option value="{{ a.id }}" {% if a.id == active_meta_id %}selected{% endif %}>{{ a.label }} ({{ a.id }})</option>
+      {% endfor %}
+    </select>
+    <span id="meta-account-status" style="font-size:11px; color:#718096;"></span>
+  </div>
+</div>
+<script>
+(function() {
+  const sel = document.getElementById('meta-account-select');
+  const status = document.getElementById('meta-account-status');
+  if (!sel) return;
+  sel.addEventListener('change', async () => {
+    const account_id = sel.value;
+    status.textContent = '변경 중...';
+    status.style.color = '#718096';
+    try {
+      const r = await fetch('/campaigns/api/meta-accounts/active', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({account_id}),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      status.textContent = '변경됨, 새로고침 중...';
+      status.style.color = '#2f855a';
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e) {
+      status.textContent = '실패: ' + e.message;
+      status.style.color = '#c53030';
+    }
+  });
+})();
+</script>
+{% endif %}
+
 <!-- 사이클 진행률 (실행 중일 때만 표시) -->
 <div id="cycle-progress-card" class="card" hidden style="background:#ebf8ff; border-left:4px solid #3182ce;">
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">

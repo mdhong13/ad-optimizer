@@ -34,6 +34,30 @@ class Settings:
     META_ACCESS_TOKEN: str = os.getenv("META_ACCESS_TOKEN", "")
     META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "act_659784790884319")
     META_PAGE_ID: str = os.getenv("META_PAGE_ID", "")  # AdCreative object_story_spec.page_id
+    # 복수 광고 계정. 형식: "act_xxx:MD홍,act_yyy:One MSG"
+    # 미설정 시 META_AD_ACCOUNT_ID 한 개로 폴백
+    META_AD_ACCOUNTS: str = os.getenv("META_AD_ACCOUNTS", "")
+
+    @staticmethod
+    def parse_ad_accounts(raw: str, fallback_id: str):
+        """'act_xxx:Label,act_yyy:Label2' → [{'id':..,'label':..}, ...]"""
+        if not raw:
+            return [{"id": fallback_id, "label": fallback_id}] if fallback_id else []
+        out = []
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if ":" in part:
+                aid, label = part.split(":", 1)
+                out.append({"id": aid.strip(), "label": label.strip()})
+            else:
+                out.append({"id": part, "label": part})
+        return out
+
+    @property
+    def meta_ad_accounts(self):
+        return self.parse_ad_accounts(self.META_AD_ACCOUNTS, self.META_AD_ACCOUNT_ID)
 
     # --- Google Ads ---
     GOOGLE_ADS_DEVELOPER_TOKEN: str = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN", "")

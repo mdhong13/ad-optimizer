@@ -47,6 +47,42 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# --- App Settings (활성 광고 계정 등) ---
+
+def get_app_setting(key: str, default=None):
+    doc = get_collection("app_settings").find_one({"key": key}, {"_id": 0})
+    return doc["value"] if doc else default
+
+
+def set_app_setting(key: str, value) -> None:
+    get_collection("app_settings").update_one(
+        {"key": key},
+        {"$set": {"key": key, "value": value, "updated_at": _now()}},
+        upsert=True,
+    )
+
+
+def get_active_meta_account() -> str:
+    """DB에 저장된 활성 Meta 광고 계정 ID. 없으면 settings 기본값."""
+    from config.settings import settings as _s
+    accounts = _s.meta_ad_accounts
+    if not accounts:
+        return _s.META_AD_ACCOUNT_ID
+    stored = get_app_setting("active_meta_account")
+    valid_ids = {a["id"] for a in accounts}
+    if stored and stored in valid_ids:
+        return stored
+    return accounts[0]["id"]
+
+
+def set_active_meta_account(account_id: str) -> None:
+    from config.settings import settings as _s
+    valid_ids = {a["id"] for a in _s.meta_ad_accounts}
+    if account_id not in valid_ids:
+        raise ValueError(f"Unknown Meta account: {account_id}")
+    set_app_setting("active_meta_account", account_id)
+
+
 # --- Performance Snapshots ---
 
 def insert_performance(doc: dict) -> str:

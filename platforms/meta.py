@@ -15,9 +15,23 @@ logger = logging.getLogger(__name__)
 class MetaAds(AdPlatform):
     platform_name = "meta"
 
-    def __init__(self):
+    def __init__(self, account_id: Optional[str] = None):
+        """account_id 미지정 시 DB 활성 계정 → settings 기본값 순서로 폴백."""
         self._api = None
         self._account = None
+        self._account_id = account_id or self._resolve_account_id()
+
+    @staticmethod
+    def _resolve_account_id() -> str:
+        try:
+            from storage.db import get_active_meta_account
+            return get_active_meta_account()
+        except Exception:
+            return settings.META_AD_ACCOUNT_ID
+
+    @property
+    def account_id(self) -> str:
+        return self._account_id
 
     def _init_api(self):
         if self._api:
@@ -31,9 +45,9 @@ class MetaAds(AdPlatform):
                 app_secret=settings.META_APP_SECRET,
                 access_token=settings.META_ACCESS_TOKEN,
             )
-            self._account = AdAccount(settings.META_AD_ACCOUNT_ID)
+            self._account = AdAccount(self._account_id)
             self._api = True
-            logger.info("Meta Ads API initialized")
+            logger.info(f"Meta Ads API initialized (account={self._account_id})")
         except Exception as e:
             logger.error(f"Meta API init failed: {e}")
             raise
@@ -42,7 +56,7 @@ class MetaAds(AdPlatform):
         base = bool(
             settings.META_APP_ID
             and settings.META_ACCESS_TOKEN
-            and settings.META_AD_ACCOUNT_ID
+            and self._account_id
         )
         if settings.DRY_RUN:
             return base
