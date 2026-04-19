@@ -205,11 +205,13 @@ class MetaAds(AdPlatform):
         daily_budget_cents = max(100, int(float(daily_budget) * 100))
 
         # 1. Campaign (PAUSED로 생성)
+        # is_adset_budget_sharing_enabled=False → 예산은 광고세트 레벨에서 관리
         campaign = self._account.create_campaign(params={
             FBCampaign.Field.name: name,
             FBCampaign.Field.objective: "OUTCOME_TRAFFIC",
             FBCampaign.Field.status: "PAUSED",
             FBCampaign.Field.special_ad_categories: [],
+            "is_adset_budget_sharing_enabled": False,
         })
         campaign_id = campaign["id"]
         logger.info(f"Meta: campaign created {campaign_id} (PAUSED, ${daily_budget_cents/100:.2f}/day)")
