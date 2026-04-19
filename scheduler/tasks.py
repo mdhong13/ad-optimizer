@@ -202,3 +202,14 @@ def refresh_meta_token():
         logger.info(f"Meta token refreshed: {result.stdout.strip()}")
     else:
         logger.error(f"Meta token refresh failed: {result.stderr}")
+
+
+def publish_fb_story_en():
+    """매일 09:00 ET: OneMessage FB Page 에 영문 스토리 1건 생성 + 게시"""
+    logger.info("Task: publish_fb_story_en started")
+    try:
+        from publisher.story_publisher import run
+        result = run(dry_run=False, draft=False)
+        logger.info(f"FB EN story published: {result}")
+    except Exception as e:
+        logger.error(f"FB EN story publish failed: {e}")

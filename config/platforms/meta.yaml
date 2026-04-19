@@ -1,0 +1,307 @@
+# Meta Ads (Facebook + Instagram + Audience Network + Messenger)
+# API 버전: v21.0 / Marketing API
+# 공식 문서: https://developers.facebook.com/docs/marketing-api
+# 이 파일은 `platforms/meta.py` 가 검증/참조하는 단일 소스. 헷갈리면 여기부터 보기.
+
+platform: meta
+api_version: v21.0
+default_currency_from_account: true  # 광고 계정 통화 사용 (KRW, USD 등)
+
+# ─────────────────────────────────────────────────────────────
+# 1. 캠페인 목표 (objective)
+# ─────────────────────────────────────────────────────────────
+objectives:
+  app_install:
+    api_value: OUTCOME_APP_PROMOTION
+    description: "앱 설치/재참여. Play Store / App Store 직링크 허용"
+    required_adset:
+      - promoted_object.application_id
+      - promoted_object.object_store_url
+    destination_type: APP
+    default_cta: INSTALL_MOBILE_APP
+    optimization_goals:
+      - LINK_CLICKS       # SDK 미연동 시 기본 (설치 이벤트 추적 불가)
+      - APP_INSTALLS      # SDK 연동 필요
+      - OFFSITE_CONVERSIONS  # Firebase 등 MMP 연동 필요
+
+  traffic:
+    api_value: OUTCOME_TRAFFIC
+    description: "웹사이트/랜딩 페이지 트래픽. 앱 URL 금지"
+    destination_type: WEBSITE
+    default_cta: LEARN_MORE
+    allowed_cta: [LEARN_MORE, DOWNLOAD, SIGN_UP, SHOP_NOW, GET_OFFER, SUBSCRIBE]
+    optimization_goals: [LINK_CLICKS, LANDING_PAGE_VIEWS, IMPRESSIONS, REACH]
+
+  engagement:
+    api_value: OUTCOME_ENGAGEMENT
+    description: "페이지 좋아요, 포스트 반응, 메시지, 동영상 조회"
+    optimization_goals: [POST_ENGAGEMENT, PAGE_LIKES, THRUPLAY, VIDEO_VIEWS]
+
+  leads:
+    api_value: OUTCOME_LEADS
+    description: "리드폼 / Messenger / Instant Form"
+    destination_type: [ON_AD, MESSENGER, WEBSITE]
+
+  sales:
+    api_value: OUTCOME_SALES
+    description: "온라인 구매 전환 (Pixel + 카탈로그 필요)"
+    requires: [pixel_id, conversion_event]
+
+  awareness:
+    api_value: OUTCOME_AWARENESS
+    description: "브랜드 인지도 (CPM 최적화)"
+    optimization_goals: [REACH, IMPRESSIONS, AD_RECALL_LIFT, THRUPLAY]
+
+# ─────────────────────────────────────────────────────────────
+# 2. 타겟팅 스펙 (AdSet.targeting 내부)
+# ─────────────────────────────────────────────────────────────
+targeting:
+  geo:
+    field: geo_locations
+    subfields:
+      countries:
+        type: list[ISO2]
+        example: ["KR", "US", "JP"]
+      regions:
+        type: list[{key: int}]
+        note: "state/province IDs from /search?type=adgeolocation"
+      cities:
+        type: list[{key: int, radius: int, distance_unit: str}]
+      zips:
+        type: list[{country: ISO2, primary_city_id: int}]
+      custom_locations:
+        type: list[{latitude, longitude, radius, distance_unit}]
+
+  age:
+    fields: [age_min, age_max]
+    range: [13, 65]
+    constraints:
+      - "65+ 타겟팅은 Meta 정책상 '65' 고정. 실제로는 60~65 로 범위 설정해 60대 도달"
+      - "특수 카테고리(고용/신용/주거)는 age_min=18 강제"
+
+  gender:
+    field: genders
+    allowed: [1, 2]   # 1=남성, 2=여성, [] 또는 생략=전체
+    note: "특수 카테고리에서는 사용 불가 (차별 방지)"
+
+  os:
+    field: user_os
+    allowed: [Android, iOS]
+    use_cases:
+      android_only: ["Android"]
+      ios_only: ["iOS"]
+      both: []  # 생략
+
+  device:
+    field: user_device
+    allowed:
+      mobile: [iPhone, iPad, iPod, "Android_Smartphone", "Android_Tablet"]
+      desktop: [desktop]
+    example: ["iPhone", "Android_Smartphone"]
+
+  placements:
+    field: publisher_platforms
+    allowed: [facebook, instagram, messenger, audience_network]
+    auto_placement: "필드 생략 시 Meta 자동 최적화 (Advantage+)"
+    sub_fields:
+      facebook_positions: [feed, right_hand_column, marketplace, video_feeds,
+                           story, search, instant_article, instream_video, reels]
+      instagram_positions: [stream, story, explore, reels, shop]
+      messenger_positions: [messenger_home, story, sponsored_messages]
+
+  interests:
+    field: flexible_spec[].interests
+    type: list[{id: str, name: str}]
+    lookup: "Graph API /search?type=adinterest&q=keyword"
+    note: "OR 로직: flexible_spec 배열 내부 요소끼리는 OR, 배열 간 AND"
+
+  behaviors:
+    field: flexible_spec[].behaviors
+    lookup: "Graph API /search?type=adTargetingCategory&class=behaviors"
+    examples:
+      - {id: "6002714895372", name: "Frequent international travelers"}
+
+  demographics:
+    field: flexible_spec[].demographics
+    subcategories: [education, family_statuses, income, life_events,
+                    parenting, relationship, work]
+
+  custom_audiences:
+    field: custom_audiences
+    type: list[{id: str}]
+    description: "저장된 오디언스 (고객 리스트/웹사이트 방문자/앱 유저)"
+
+  lookalike:
+    note: "별도로 커스텀 오디언스 생성 후 custom_audiences 에 포함"
+    similarity: "1% (유사도 높음) ~ 10% (도달 넓음)"
+
+  exclusions:
+    field: exclusions
+    subfields: [interests, behaviors, demographics, custom_audiences]
+    example: "기존 구매자 제외 → custom_audiences 에 넣고 이쪽에 복사"
+
+  advantage_audience:
+    field: targeting_automation.advantage_audience
+    values: [0, 1]
+    note: "0 = Meta v25 필수 플래그 (우리 코드 기본값)"
+
+  locales:
+    field: locales
+    type: list[int]
+    lookup: "Graph API /search?type=adlocale"
+    example: [6]   # 6 = English (US)
+
+# ─────────────────────────────────────────────────────────────
+# 3. 예산 & 입찰 (AdSet)
+# ─────────────────────────────────────────────────────────────
+pricing:
+  daily_budget_minimum_cents:
+    # Meta 공식: $1 = 100 cents. 통화별 차이 없음 (cent 단위로 통일)
+    default: 100
+  bid_strategies:
+    LOWEST_COST_WITHOUT_CAP:
+      name_kr: "최고 볼륨"
+      description: "Meta 자동 입찰. 학습 단계에 권장"
+      requires: []
+      when_to_use: "신규 캠페인 / 데이터 없음 / 첫 주"
+
+    COST_CAP:
+      name_kr: "비용 상한"
+      description: "액션당 평균 비용 상한 설정"
+      requires: [bid_amount]
+      unit: "cents (최적화 이벤트당)"
+      when_to_use: "CPA 목표 확실 / 데이터 50+ 전환 쌓임"
+
+    LOWEST_COST_WITH_BID_CAP:
+      name_kr: "입찰가 상한"
+      description: "경매당 최대 입찰가 하드캡"
+      requires: [bid_amount]
+      when_to_use: "특정 CPC 초과 절대 불가"
+
+    LOWEST_COST_WITH_MIN_ROAS:
+      name_kr: "최소 ROAS"
+      description: "Sales 목표에서 최소 ROAS 설정"
+      requires: [bid_amount, conversion_value_tracking]
+      when_to_use: "이커머스 + 전환값 추적"
+
+  billing_events:
+    IMPRESSIONS:
+      description: "노출당 과금 (가장 일반적)"
+    LINK_CLICKS:
+      description: "링크 클릭당 과금 — optimization_goal=LINK_CLICKS 일 때만"
+    APP_INSTALLS:
+      description: "설치당 과금 (SDK 필요)"
+
+  pacing:
+    # AdSet 에서 예산 소진 방식
+    standard: "기본 — 24시간 분산"
+    no_pacing: "빠른 소진 (추천 안 함)"
+
+# ─────────────────────────────────────────────────────────────
+# 4. 크리에이티브 (AdCreative.object_story_spec)
+# ─────────────────────────────────────────────────────────────
+creative:
+  link_data:
+    link: "랜딩 URL (앱 광고면 Play/App Store URL)"
+    message: "본문 (primary text). 135자 이하 권장"
+    name: "헤드라인 (최대 40자)"
+    description: "설명 (최대 30자)"
+    image_hash: "AdAccount.create_ad_image 후 반환되는 해시"
+    call_to_action:
+      type: "cta type (아래 표 참고)"
+      value:
+        link: "CTA 클릭 대상 URL"
+        application: "앱 광고면 app_id"
+
+  call_to_action_types:
+    LEARN_MORE: "더 알아보기"
+    DOWNLOAD: "다운로드"
+    SHOP_NOW: "쇼핑하기"
+    SIGN_UP: "가입하기"
+    GET_OFFER: "쿠폰 받기"
+    SUBSCRIBE: "구독하기"
+    INSTALL_MOBILE_APP: "설치하기 (OUTCOME_APP_PROMOTION 전용)"
+    USE_APP: "앱 실행"
+    LISTEN_MUSIC: "듣기"
+    WATCH_MORE: "더보기"
+    CONTACT_US: "문의하기"
+    APPLY_NOW: "지원하기"
+    BOOK_TRAVEL: "예약하기"
+    DONATE_NOW: "기부하기"
+
+  image_specs:
+    feed_1x1: {w: 1080, h: 1080}
+    feed_4x5: {w: 1080, h: 1350}
+    feed_3x4: {w: 1080, h: 1440}
+    story_9x16: {w: 1080, h: 1920}
+    formats: [jpg, png]
+    max_file_size_mb: 30
+
+# ─────────────────────────────────────────────────────────────
+# 5. 특수 카테고리 (Special Ad Category)
+# ─────────────────────────────────────────────────────────────
+special_ad_categories:
+  description: "미국 내 '고용/신용/주거/사회적 이슈' 광고는 강제 지정 → 타겟팅 제한됨"
+  values: [CREDIT, EMPLOYMENT, HOUSING, ISSUES_ELECTIONS_POLITICS, ONLINE_GAMBLING_AND_GAMING]
+  restrictions_when_set:
+    - "age/gender 타겟팅 금지"
+    - "ZIP code 타겟팅 금지"
+    - "Lookalike audience 제한"
+  our_default: []   # 빈 배열 = 일반 광고
+
+# ─────────────────────────────────────────────────────────────
+# 6. 상태 관리
+# ─────────────────────────────────────────────────────────────
+status_flow:
+  creation_default: PAUSED   # 우리 정책 — 검토 후 활성화
+  lifecycle: [PAUSED, ACTIVE, ARCHIVED, DELETED]
+  ad_review_status: [PENDING_REVIEW, APPROVED, DISAPPROVED, PENDING_BILLING_INFO]
+
+# ─────────────────────────────────────────────────────────────
+# 7. OneMessage 프로젝트 고정값
+# ─────────────────────────────────────────────────────────────
+onemessage_defaults:
+  kr_canary:
+    objective: app_install
+    daily_budget_krw: 1500       # MIN_DAILY_BUDGET_PER_CAMPAIGN
+    optimization_goal: LINK_CLICKS
+    bid_strategy: LOWEST_COST_WITHOUT_CAP
+    billing_event: IMPRESSIONS
+    targeting:
+      countries: [KR]
+      user_os: [Android]
+      age_min: 30     # 변형별로 30~60 범위 조정
+      age_max: 65
+    promoted_object:
+      application_id: "26414252244902498"   # ad-optimizer 개발자 앱
+      object_store_url: "https://play.google.com/store/apps/details?id=com.dotcell.onemessage"
+    cta: INSTALL_MOBILE_APP
+
+# ─────────────────────────────────────────────────────────────
+# 8. 함정/주의사항 (실제 겪은 에러 모음)
+# ─────────────────────────────────────────────────────────────
+gotchas:
+  - code: 1815791
+    message: "앱 광고에 이용할 수 없는 크리에이티브 CTA"
+    cause: "OUTCOME_TRAFFIC + Play Store URL → Meta가 앱 광고로 인식, LEARN_MORE 거부"
+    fix: "objective를 OUTCOME_APP_PROMOTION 으로 변경하거나 랜딩페이지 우회"
+
+  - code: app_url_only_on_install
+    message: "앱 설치 목표만 앱 URL을 지원합니다"
+    cause: "OUTCOME_TRAFFIC 에서 play.google.com 직링크 사용"
+    fix: "OUTCOME_APP_PROMOTION 사용 (개발자 앱에 Android 플랫폼 등록 필요)"
+
+  - code: advantage_audience_required
+    message: "targeting_automation.advantage_audience 누락"
+    cause: "v25 API 필수 플래그"
+    fix: "targeting 에 {advantage_audience: 0} 명시"
+
+  - code: geo_65_plus
+    message: "65+ 타겟팅 불가"
+    cause: "Meta 정책 — 65 이상 세분화 제공 안 함"
+    fix: "age_min=60, age_max=65 로 대체"
+
+  - code: link_without_cta
+    message: "AdCreative.call_to_action 필수"
+    cause: "link_data 에 call_to_action 필드 누락"
+    fix: "모든 링크 광고에 call_to_action 지정 (기본: LEARN_MORE)"

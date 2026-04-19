@@ -14,6 +14,7 @@ from scheduler.tasks import (
     check_market_events,
     generate_report,
     refresh_meta_token,
+    publish_fb_story_en,
 )
 from storage.db import init_db
 
@@ -54,6 +55,13 @@ SCHEDULES = [
         "trigger": CronTrigger(day_of_week="mon", hour=3), # 매주 월 03:00
         "id": "refresh_meta_token",
         "name": "Meta 토큰 갱신",
+    },
+    {
+        "func": publish_fb_story_en,
+        # 22:30 KST = 08:30 EST / 09:30 EDT (미국 FB 엔게이지먼트 피크)
+        "trigger": CronTrigger(hour=22, minute=30),
+        "id": "publish_fb_story_en",
+        "name": "OneMessage FB EN 일일 스토리 포스트",
     },
 ]
 
