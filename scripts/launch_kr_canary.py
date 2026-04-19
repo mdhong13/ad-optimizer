@@ -32,9 +32,13 @@ if sys.platform == "win32":
 logger = logging.getLogger(__name__)
 
 IMAGES_DIR = Path(__file__).resolve().parent.parent / "assets" / "generated" / "meta"
-# Meta OUTCOME_TRAFFIC는 Play Store 직링크 거부 (앱 설치 목표만 허용).
-# onemsg.net 랜딩에서 Play Store 이동 버튼으로 우회.
-LANDING_URL = "https://onemsg.net"
+# OUTCOME_APP_PROMOTION 목표 사용 → Play Store 직링크 허용.
+# (ad-optimizer 개발자 앱에 Android 플랫폼 등록 완료: 2026-04-19)
+PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dotcell.onemessage"
+APP_PROMOTION = {
+    "application_id": "26414252244902498",  # Meta 개발자 앱 ID (ad-optimizer)
+    "object_store_url": PLAY_STORE_URL,
+}
 
 # kr_canary_copy.md 에서 추출한 9 변형
 COPY = {
@@ -169,10 +173,11 @@ def launch(variants=None, daily_budget=None, dry_run=None):
         creatives = {
             "title": c["headline"],
             "body": c["primary"],
-            "link": LANDING_URL,
+            "link": PLAY_STORE_URL,
             "image_path": image_path,
-            # 랜딩페이지 → DOWNLOAD CTA ('앱 다운로드' 버튼). 랜딩에서 Play Store 이동
-            "cta_type": "DOWNLOAD",
+            # OUTCOME_APP_PROMOTION → '설치하기' 버튼. Play Store 직링크
+            "cta_type": "INSTALL_MOBILE_APP",
+            "app_promotion": APP_PROMOTION,
         }
 
         try:

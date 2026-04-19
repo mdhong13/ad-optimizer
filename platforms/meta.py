@@ -263,17 +263,23 @@ class MetaAds(AdPlatform):
         # Meta 최소 일 예산 = $1 (100 cents). 음수/0 방지
         daily_budget_cents = max(100, int(float(daily_budget) * 100))
 
+        # creatives["app_promotion"]={application_id, object_store_url} 이면
+        # OUTCOME_APP_PROMOTION 모드 (Play Store/App Store 직링크 허용).
+        # 그 외에는 OUTCOME_TRAFFIC (웹사이트 트래픽).
+        app_promo = creatives.get("app_promotion")
+        objective = "OUTCOME_APP_PROMOTION" if app_promo else "OUTCOME_TRAFFIC"
+
         # 1. Campaign (PAUSED로 생성)
         # is_adset_budget_sharing_enabled=False → 예산은 광고세트 레벨에서 관리
         campaign = self._account.create_campaign(params={
             FBCampaign.Field.name: name,
-            FBCampaign.Field.objective: "OUTCOME_TRAFFIC",
+            FBCampaign.Field.objective: objective,
             FBCampaign.Field.status: "PAUSED",
             FBCampaign.Field.special_ad_categories: [],
             "is_adset_budget_sharing_enabled": False,
         })
         campaign_id = campaign["id"]
-        logger.info(f"Meta: campaign created {campaign_id} (PAUSED, ${daily_budget_cents/100:.2f}/day)")
+        logger.info(f"Meta: campaign created {campaign_id} (PAUSED, {objective}, ${daily_budget_cents/100:.2f}/day)")
 
         # 광고세트/광고 생성 실패 시 고아 캠페인 방지 — 캠페인 삭제 롤백
         try:
@@ -293,7 +299,7 @@ class MetaAds(AdPlatform):
                 targeting_spec["user_device"] = targeting["user_device"]
             if targeting.get("publisher_platforms"):
                 targeting_spec["publisher_platforms"] = targeting["publisher_platforms"]
-            ad_set = self._account.create_ad_set(params={
+            adset_params = {
                 FBAdSet.Field.name: f"{name} - AdSet",
                 FBAdSet.Field.campaign_id: campaign_id,
                 FBAdSet.Field.daily_budget: daily_budget_cents,
@@ -303,7 +309,17 @@ class MetaAds(AdPlatform):
                 FBAdSet.Field.destination_type: "WEBSITE",
                 FBAdSet.Field.targeting: targeting_spec,
                 FBAdSet.Field.status: "PAUSED",
-            })
+            }
+            # OUTCOME_APP_PROMOTION: promoted_object 필수 (application_id + store_url).
+            # SDK 미연동이므로 optimization_goal은 LINK_CLICKS 유지 (설치 추적 불가).
+            # destination_type=APP 으로 변경해 Play Store 직링크 허용.
+            if app_promo:
+                adset_params[FBAdSet.Field.destination_type] = "APP"
+                adset_params[FBAdSet.Field.promoted_object] = {
+                    "application_id": app_promo["application_id"],
+                    "object_store_url": app_promo["object_store_url"],
+                }
+            ad_set = self._account.create_ad_set(params=adset_params)
             ad_set_id = ad_set["id"]
             logger.info(f"Meta: adset created {ad_set_id}")
 
@@ -317,12 +333,17 @@ class MetaAds(AdPlatform):
                 link_data["message"] = creatives["body"]
             if creatives.get("title"):
                 link_data["name"] = creatives["title"]
-            # Meta는 AdCreative에 call_to_action 필수. OUTCOME_TRAFFIC은
-            # LEARN_MORE/DOWNLOAD/SIGN_UP/SHOP_NOW 등 링크용 CTA만 허용.
-            # creatives["cta_type"] 미지정 시 LEARN_MORE 기본.
+            # Meta는 AdCreative에 call_to_action 필수.
+            # OUTCOME_TRAFFIC: LEARN_MORE/DOWNLOAD/SIGN_UP/SHOP_NOW 등 링크용.
+            # OUTCOME_APP_PROMOTION: INSTALL_MOBILE_APP (자동 "설치하기" 버튼).
+            default_cta = "INSTALL_MOBILE_APP" if app_promo else "LEARN_MORE"
+            cta_value = {"link": link_data["link"]}
+            if app_promo:
+                # 앱 광고는 application_id 도 넘겨야 CTA가 앱 스토어로 연결
+                cta_value["application"] = app_promo["application_id"]
             link_data["call_to_action"] = {
-                "type": creatives.get("cta_type", "LEARN_MORE"),
-                "value": {"link": link_data["link"]},
+                "type": creatives.get("cta_type", default_cta),
+                "value": cta_value,
             }
 
             # 이미지 소스 우선순위:
