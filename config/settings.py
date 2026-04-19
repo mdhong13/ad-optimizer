@@ -34,6 +34,9 @@ class Settings:
     META_ACCESS_TOKEN: str = os.getenv("META_ACCESS_TOKEN", "")
     META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "act_659784790884319")
     META_PAGE_ID: str = os.getenv("META_PAGE_ID", "")  # AdCreative object_story_spec.page_id
+    # Meta Pixel — 랜딩 페이지에 삽입해 PageView/Click/Conversion 추적.
+    # Events Manager 에서 생성 후 15자리 ID 입력. 없으면 랜딩 JS 비활성화.
+    META_PIXEL_ID: str = os.getenv("META_PIXEL_ID", "")
     # 복수 광고 계정. 형식: "act_xxx:MD홍,act_yyy:One MSG"
     # 미설정 시 META_AD_ACCOUNT_ID 한 개로 폴백
     META_AD_ACCOUNTS: str = os.getenv("META_AD_ACCOUNTS", "")

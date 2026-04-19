@@ -272,6 +272,26 @@
   {% endif %}
 </div>
 
+<!-- Meta 트리 뷰: Campaign → AdSet → Ad -->
+<div class="card">
+  <h2 style="display:flex; justify-content:space-between; align-items:center;">
+    <span>Meta 트리 뷰 (Campaign → AdSet → Ad)</span>
+    <span>
+      <select id="tree-days" style="padding:4px 8px; border:1px solid #cbd5e0; border-radius:4px; font-size:12px;">
+        <option value="7" selected>최근 7일</option>
+        <option value="14">최근 14일</option>
+        <option value="28">최근 28일</option>
+      </select>
+      <button id="tree-refresh" style="padding:4px 10px; font-size:12px;">새로고침</button>
+    </span>
+  </h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:8px;">
+    행 클릭으로 펼치기/접기. 메트릭은 선택 기간 누적 (노출/클릭/CTR/CPC/지출).
+  </div>
+  <div id="tree-status" style="font-size:11px; color:#4a5568; margin-bottom:8px;">로딩 중...</div>
+  <div id="tree-root"></div>
+</div>
+
 <!-- 사이클 이력 -->
 <div class="card">
   <h2>최근 사이클 이력</h2>
@@ -483,5 +503,104 @@ async function pollProgress() {
 }
 pollProgress();
 setInterval(pollProgress, 3000);
+
+// ====== Meta Campaign→AdSet→Ad 트리 뷰 ======
+const treeRoot = document.getElementById('tree-root');
+const treeStatus = document.getElementById('tree-status');
+const treeDays = document.getElementById('tree-days');
+const treeRefresh = document.getElementById('tree-refresh');
+
+function fmt(n) { return (n || 0).toLocaleString(); }
+function fmtMoney(n) { return '$' + (n || 0).toFixed(2); }
+function statusBadge(s) {
+  const cls = s === 'ACTIVE' ? 'badge-green' : s === 'PAUSED' ? 'badge-yellow' : 'badge-gray';
+  return `<span class="badge ${cls}">${s || '-'}</span>`;
+}
+function metricsHtml(r) {
+  return `<span style="font-size:11px; color:#4a5568; margin-left:8px;">
+    노출 ${fmt(r.impressions)} · 클릭 ${fmt(r.clicks)} · CTR ${(r.ctr||0).toFixed(2)}% · CPC $${(r.cpc||0).toFixed(3)} · 지출 ${fmtMoney(r.spend)}
+  </span>`;
+}
+
+function renderTree(data) {
+  if (data.error) {
+    treeStatus.innerHTML = '<span style="color:#c53030;">오류: ' + data.error + '</span>';
+    treeRoot.innerHTML = '';
+    return;
+  }
+  const campaigns = data.campaigns || [];
+  treeStatus.textContent = `계정 ${data.account_id || '-'} · 캠페인 ${campaigns.length}개 · 최근 ${data.days}일`;
+  if (!campaigns.length) {
+    treeRoot.innerHTML = '<div class="empty">활성 캠페인이 없습니다.</div>';
+    return;
+  }
+  let html = '';
+  campaigns.forEach((c, ci) => {
+    const cId = 'c-' + ci;
+    html += `<div style="border:1px solid #e2e8f0; border-radius:4px; margin-bottom:6px;">
+      <div onclick="toggleNode('${cId}')" style="padding:8px 12px; cursor:pointer; background:#f7fafc; display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <span class="tree-caret" id="caret-${cId}">▶</span>
+          <b style="margin-left:6px;">${c.name}</b>
+          ${statusBadge(c.status)}
+          <span style="font-size:11px; color:#718096; margin-left:6px;">${c.objective || ''}</span>
+        </div>
+        <div>${metricsHtml(c)}</div>
+      </div>
+      <div id="body-${cId}" hidden style="padding:4px 12px 8px 28px;">`;
+    (c.adsets || []).forEach((s, si) => {
+      const sId = cId + '-s' + si;
+      html += `<div style="border-left:2px solid #cbd5e0; padding-left:10px; margin:6px 0;">
+        <div onclick="toggleNode('${sId}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span class="tree-caret" id="caret-${sId}">▶</span>
+            <span style="margin-left:6px;">${s.name}</span>
+            ${statusBadge(s.status)}
+            <span style="font-size:11px; color:#718096; margin-left:6px;">${s.optimization_goal || ''} · 일$${s.daily_budget.toFixed(2)}</span>
+          </div>
+          <div>${metricsHtml(s)}</div>
+        </div>
+        <div id="body-${sId}" hidden style="padding:4px 0 4px 24px;">`;
+      (s.ads || []).forEach(a => {
+        html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px dashed #edf2f7;">
+          <div>
+            <span style="font-size:12px;">${a.name}</span>
+            ${statusBadge(a.effective_status || a.status)}
+          </div>
+          <div>${metricsHtml(a)}</div>
+        </div>`;
+      });
+      if (!(s.ads || []).length) html += '<div class="empty" style="padding:6px;">광고 없음</div>';
+      html += `</div></div>`;
+    });
+    if (!(c.adsets || []).length) html += '<div class="empty" style="padding:6px;">광고 세트 없음</div>';
+    html += `</div></div>`;
+  });
+  treeRoot.innerHTML = html;
+}
+
+function toggleNode(id) {
+  const body = document.getElementById('body-' + id);
+  const caret = document.getElementById('caret-' + id);
+  if (!body) return;
+  body.hidden = !body.hidden;
+  if (caret) caret.textContent = body.hidden ? '▶' : '▼';
+}
+
+async function loadTree() {
+  treeStatus.textContent = '로딩 중...';
+  treeRoot.innerHTML = '';
+  try {
+    const days = treeDays.value || '7';
+    const r = await fetch('/campaigns/api/tree?days=' + days);
+    const data = await r.json();
+    renderTree(data);
+  } catch (e) {
+    treeStatus.innerHTML = '<span style="color:#c53030;">로딩 실패: ' + e.message + '</span>';
+  }
+}
+treeRefresh.addEventListener('click', loadTree);
+treeDays.addEventListener('change', loadTree);
+loadTree();
 </script>
 {% endblock %}

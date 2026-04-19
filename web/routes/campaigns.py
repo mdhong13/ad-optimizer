@@ -283,6 +283,158 @@ async def api_campaign_performance(days: int = 7, platform: str = None):
     return get_recent_performance(platform=platform, days=days)
 
 
+@router.get("/api/tree")
+async def api_campaign_tree(meta_account_id: str = None, days: int = 7):
+    """Meta 활성 계정의 Campaign→AdSet→Ad 트리 + 최근 N일 Ad-level 인사이트."""
+    import logging
+    log = logging.getLogger(__name__)
+    account_id = meta_account_id or get_active_meta_account()
+
+    try:
+        from platforms.meta import MetaAds
+        p = MetaAds(account_id=account_id)
+        if not p.is_configured():
+            return {"account_id": account_id, "campaigns": [], "error": "Meta 미구성"}
+        p._init_api()
+
+        from facebook_business.adobjects.campaign import Campaign as FBCampaign
+        from facebook_business.adobjects.adset import AdSet as FBAdSet
+        from facebook_business.adobjects.ad import Ad as FBAd
+        from facebook_business.adobjects.adsinsights import AdsInsights
+
+        # 1. Ad-level 인사이트 한 방에 (날짜 집계)
+        insights_by_ad: dict[str, dict] = {}
+        try:
+            insights = p._account.get_insights(
+                fields=[
+                    AdsInsights.Field.ad_id,
+                    AdsInsights.Field.impressions,
+                    AdsInsights.Field.clicks,
+                    AdsInsights.Field.spend,
+                    AdsInsights.Field.ctr,
+                    AdsInsights.Field.cpc,
+                    AdsInsights.Field.actions,
+                ],
+                params={
+                    "level": "ad",
+                    "date_preset": f"last_{days}d" if days in (7, 14, 28, 30, 90) else "last_7d",
+                },
+            )
+            for row in insights:
+                aid = row.get("ad_id", "")
+                if not aid:
+                    continue
+                link_clicks = 0
+                for a in row.get("actions", []) or []:
+                    if a.get("action_type") == "link_click":
+                        link_clicks = int(float(a.get("value", 0)))
+                        break
+                insights_by_ad[aid] = {
+                    "impressions": int(row.get("impressions", 0)),
+                    "clicks": int(row.get("clicks", 0)),
+                    "link_clicks": link_clicks,
+                    "spend": float(row.get("spend", 0)),
+                    "ctr": float(row.get("ctr", 0)),
+                    "cpc": float(row.get("cpc", 0)),
+                }
+        except Exception as e:
+            log.warning(f"tree: insights fetch failed: {e}")
+
+        # 2. 계층 구조 조회
+        fb_campaigns = p._account.get_campaigns(
+            fields=[FBCampaign.Field.id, FBCampaign.Field.name, FBCampaign.Field.status,
+                    FBCampaign.Field.objective, FBCampaign.Field.daily_budget],
+            params={"effective_status": ["ACTIVE", "PAUSED"], "limit": 50},
+        )
+
+        tree = []
+        for c in fb_campaigns:
+            cid = c["id"]
+            fb = FBCampaign(cid)
+            adsets_out = []
+            try:
+                fb_adsets = fb.get_ad_sets(fields=[
+                    FBAdSet.Field.id, FBAdSet.Field.name, FBAdSet.Field.status,
+                    FBAdSet.Field.daily_budget, FBAdSet.Field.optimization_goal,
+                ])
+            except Exception as e:
+                log.warning(f"tree: adsets fetch failed for {cid}: {e}")
+                fb_adsets = []
+
+            for s in fb_adsets:
+                sid = s["id"]
+                ads_out = []
+                try:
+                    fb_ads = FBAdSet(sid).get_ads(fields=[
+                        FBAd.Field.id, FBAd.Field.name, FBAd.Field.status,
+                        FBAd.Field.effective_status,
+                    ])
+                except Exception as e:
+                    log.warning(f"tree: ads fetch failed for {sid}: {e}")
+                    fb_ads = []
+
+                for a in fb_ads:
+                    aid = a["id"]
+                    stats = insights_by_ad.get(aid, {})
+                    ads_out.append({
+                        "ad_id": aid,
+                        "name": a.get("name", ""),
+                        "status": a.get("status", ""),
+                        "effective_status": a.get("effective_status", ""),
+                        "impressions": stats.get("impressions", 0),
+                        "clicks": stats.get("clicks", 0),
+                        "link_clicks": stats.get("link_clicks", 0),
+                        "spend": stats.get("spend", 0.0),
+                        "ctr": stats.get("ctr", 0.0),
+                        "cpc": stats.get("cpc", 0.0),
+                    })
+
+                # AdSet 합계
+                totals = _sum_rows(ads_out)
+                adsets_out.append({
+                    "adset_id": sid,
+                    "name": s.get("name", ""),
+                    "status": s.get("status", ""),
+                    "daily_budget": float(s.get("daily_budget", 0)) / 100,
+                    "optimization_goal": s.get("optimization_goal", ""),
+                    "ads": ads_out,
+                    **totals,
+                })
+
+            c_totals = _sum_rows(adsets_out)
+            tree.append({
+                "campaign_id": cid,
+                "name": c.get("name", ""),
+                "status": c.get("status", ""),
+                "objective": c.get("objective", ""),
+                "daily_budget": float(c.get("daily_budget", 0)) / 100,
+                "adsets": adsets_out,
+                **c_totals,
+            })
+
+        return {
+            "account_id": account_id,
+            "days": days,
+            "campaigns": tree,
+        }
+    except Exception as e:
+        log.error(f"tree: failed: {e}")
+        return {"account_id": account_id, "campaigns": [], "error": str(e)}
+
+
+def _sum_rows(rows: list[dict]) -> dict:
+    imp = sum(r.get("impressions", 0) for r in rows)
+    clk = sum(r.get("clicks", 0) for r in rows)
+    spd = sum(r.get("spend", 0.0) for r in rows)
+    return {
+        "impressions": imp,
+        "clicks": clk,
+        "spend": round(spd, 2),
+        "ctr": round((clk / imp * 100) if imp else 0, 2),
+        "cpc": round((spd / clk) if clk else 0, 2),
+    }
+
+
 @router.get("/cycle/{cycle_id}")
 async def cycle_detail(cycle_id: str, request: Request):
     cycle = get_cycle_by_id(cycle_id)

@@ -238,6 +238,21 @@ creative:
     max_file_size_mb: 30
 
 # ─────────────────────────────────────────────────────────────
+# 4b. 추적 (Meta Pixel / CAPI)
+# ─────────────────────────────────────────────────────────────
+tracking:
+  pixel:
+    env_var: META_PIXEL_ID
+    where: "onemsg.net <head> 안 fbevents.js"
+    standard_events: [PageView, ViewContent, Lead, CompleteRegistration,
+                      Subscribe, InitiateCheckout, Purchase]
+    custom_event_on_promoted_object:
+      pixel_id: "{env:META_PIXEL_ID}"
+      custom_event_type: LEAD     # Sales/Leads 목표에서 최적화 기준
+    setup_guide: docs/guides/meta_pixel_setup.md
+  note: "앱 설치(OUTCOME_APP_PROMOTION)는 Pixel 대신 SDK/MMP 필요"
+
+# ─────────────────────────────────────────────────────────────
 # 5. 특수 카테고리 (Special Ad Category)
 # ─────────────────────────────────────────────────────────────
 special_ad_categories:
