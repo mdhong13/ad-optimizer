@@ -194,6 +194,31 @@ async def launch_kr_canary(payload: dict, background_tasks: BackgroundTasks):
     }
 
 
+@router.post("/canary/us-awareness")
+async def launch_us_awareness(payload: dict, background_tasks: BackgroundTasks):
+    """US 크립토 지갑 보유자 대상 영상 인지도 캠페인 1개 생성."""
+    budget = (payload or {}).get("budget") or 10.0
+    live = bool((payload or {}).get("live", False))
+    video = (payload or {}).get("video") or None
+    dry_run = False if live else settings.DRY_RUN
+
+    def _run():
+        import logging as _log
+        import traceback
+        logger = _log.getLogger("canary.us-awareness")
+        try:
+            logger.info(f"[canary/us-awareness] START budget=${budget} live={live} dry_run={dry_run}")
+            from scripts.launch_us_awareness import launch
+            result = launch(daily_budget_usd=float(budget), dry_run=dry_run, video_path=video)
+            logger.info(f"[canary/us-awareness] DONE {result['status']} → {result['campaign_id']}")
+        except Exception as e:
+            logger.error(f"[canary/us-awareness] FAILED: {e}")
+            logger.error(traceback.format_exc())
+
+    background_tasks.add_task(_run)
+    return {"triggered": True, "budget_usd": budget, "dry_run": dry_run}
+
+
 @router.post("/run-cycle/{platform}")
 async def run_cycle(platform: str, background_tasks: BackgroundTasks):
     """플랫폼별 캠페인 최적화 사이클 수동 실행"""

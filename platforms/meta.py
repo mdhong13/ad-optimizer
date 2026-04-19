@@ -234,6 +234,28 @@ class MetaAds(AdPlatform):
             logger.warning(f"Meta: image upload failed, skipping: {e}")
         return None
 
+    def _upload_video(self, video_path: str) -> str:
+        """/advideos 업로드 → video_id 반환.
+
+        Meta 영상 스펙: MP4/MOV, H.264, 최대 4GB, 최대 240분.
+        권장 비율: 4:5 (피드), 9:16 (Reels/Stories), 1:1 (범용), 16:9 (가로).
+        """
+        import os
+        from facebook_business.adobjects.advideo import AdVideo
+
+        if not os.path.exists(video_path):
+            raise RuntimeError(f"Meta: video not found: {video_path}")
+
+        logger.info(f"Meta: uploading video {os.path.basename(video_path)} ({os.path.getsize(video_path)/1e6:.1f}MB)")
+        video = AdVideo(parent_id=self._account_id)
+        video[AdVideo.Field.filepath] = video_path
+        video.remote_create()
+        video_id = video.get("id")
+        if not video_id:
+            raise RuntimeError(f"Meta: video upload returned no id: {video}")
+        logger.info(f"Meta: video uploaded id={video_id}")
+        return video_id
+
     def create_campaign(
         self,
         name: str,
@@ -265,9 +287,16 @@ class MetaAds(AdPlatform):
 
         # creatives["app_promotion"]={application_id, object_store_url} 이면
         # OUTCOME_APP_PROMOTION 모드 (Play Store/App Store 직링크 허용).
+        # creatives["objective"] 명시되면 그대로 사용 (예: OUTCOME_AWARENESS 영상).
         # 그 외에는 OUTCOME_TRAFFIC (웹사이트 트래픽).
         app_promo = creatives.get("app_promotion")
-        objective = "OUTCOME_APP_PROMOTION" if app_promo else "OUTCOME_TRAFFIC"
+        explicit_objective = creatives.get("objective")
+        if explicit_objective:
+            objective = explicit_objective
+        elif app_promo:
+            objective = "OUTCOME_APP_PROMOTION"
+        else:
+            objective = "OUTCOME_TRAFFIC"
 
         # 1. Campaign (PAUSED로 생성)
         # is_adset_budget_sharing_enabled=False → 예산은 광고세트 레벨에서 관리
@@ -299,17 +328,34 @@ class MetaAds(AdPlatform):
                 targeting_spec["user_device"] = targeting["user_device"]
             if targeting.get("publisher_platforms"):
                 targeting_spec["publisher_platforms"] = targeting["publisher_platforms"]
+            # locales: 언어 ID (예: 6 = English US, 1 = English UK)
+            if targeting.get("locales"):
+                targeting_spec["locales"] = targeting["locales"]
+            # flexible_spec: 관심사/행동 OR 그룹. [{"interests": [...]}] 형식
+            if targeting.get("flexible_spec"):
+                targeting_spec["flexible_spec"] = targeting["flexible_spec"]
+            # 목표별 AdSet 최적화 기본값.
+            #   OUTCOME_AWARENESS → REACH (최대 노출)
+            #   OUTCOME_APP_PROMOTION → LINK_CLICKS (SDK 미연동 시)
+            #   OUTCOME_TRAFFIC → LINK_CLICKS
+            if objective == "OUTCOME_AWARENESS":
+                default_goal = "REACH"
+                default_dest = "UNDEFINED"
+            else:
+                default_goal = "LINK_CLICKS"
+                default_dest = "WEBSITE"
             adset_params = {
                 FBAdSet.Field.name: f"{name} - AdSet",
                 FBAdSet.Field.campaign_id: campaign_id,
                 FBAdSet.Field.daily_budget: daily_budget_cents,
                 FBAdSet.Field.billing_event: "IMPRESSIONS",
-                FBAdSet.Field.optimization_goal: "LINK_CLICKS",
+                FBAdSet.Field.optimization_goal: creatives.get("optimization_goal", default_goal),
                 FBAdSet.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
-                FBAdSet.Field.destination_type: "WEBSITE",
                 FBAdSet.Field.targeting: targeting_spec,
                 FBAdSet.Field.status: "PAUSED",
             }
+            if default_dest != "UNDEFINED":
+                adset_params[FBAdSet.Field.destination_type] = default_dest
             # OUTCOME_APP_PROMOTION: promoted_object 필수 (application_id + store_url).
             # SDK 미연동이므로 optimization_goal은 LINK_CLICKS 유지 (설치 추적 불가).
             # destination_type=APP 으로 변경해 Play Store 직링크 허용.
@@ -357,12 +403,26 @@ class MetaAds(AdPlatform):
             if image_hash:
                 link_data["image_hash"] = image_hash
 
+            # 영상 모드: creatives["video_path"] 있으면 /advideos 업로드 후
+            # object_story_spec.video_data 로 생성 (link_data 대체).
+            video_path = creatives.get("video_path")
+            if video_path:
+                video_id = self._upload_video(video_path)
+                video_data = {
+                    "video_id": video_id,
+                    "message": creatives.get("body", ""),
+                    "title": creatives.get("title", ""),
+                    "call_to_action": link_data["call_to_action"],
+                }
+                if image_hash:
+                    video_data["image_hash"] = image_hash  # 썸네일
+                story_spec = {"page_id": page_id, "video_data": video_data}
+            else:
+                story_spec = {"page_id": page_id, "link_data": link_data}
+
             creative = self._account.create_ad_creative(params={
                 AdCreative.Field.name: f"{name} - Creative",
-                AdCreative.Field.object_story_spec: {
-                    "page_id": page_id,
-                    "link_data": link_data,
-                },
+                AdCreative.Field.object_story_spec: story_spec,
             })
 
             ad = self._account.create_ad(params={
