@@ -32,7 +32,9 @@ if sys.platform == "win32":
 logger = logging.getLogger(__name__)
 
 IMAGES_DIR = Path(__file__).resolve().parent.parent / "assets" / "generated" / "meta"
-PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dotcell.onemessage"
+# Meta OUTCOME_TRAFFIC는 Play Store 직링크 거부 (앱 설치 목표만 허용).
+# onemsg.net 랜딩에서 Play Store 이동 버튼으로 우회.
+LANDING_URL = "https://onemsg.net"
 
 # kr_canary_copy.md 에서 추출한 9 변형
 COPY = {
@@ -167,9 +169,9 @@ def launch(variants=None, daily_budget=None, dry_run=None):
         creatives = {
             "title": c["headline"],
             "body": c["primary"],
-            "link": PLAY_STORE_URL,
+            "link": LANDING_URL,
             "image_path": image_path,
-            # Play Store 랜딩 → DOWNLOAD CTA ('앱 다운로드' 버튼 명확 노출)
+            # 랜딩페이지 → DOWNLOAD CTA ('앱 다운로드' 버튼). 랜딩에서 Play Store 이동
             "cta_type": "DOWNLOAD",
         }
 
