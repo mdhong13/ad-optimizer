@@ -6,8 +6,12 @@ import json
 import httpx
 import os
 import sys
+from pathlib import Path
 
-GEMINI_API_KEY = "AIzaSyDA2VBL8x5Zb6OKcWE5HsaayNef50WMn48"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from config.settings import settings
+
+GEMINI_API_KEY = settings.GEMINI_API_KEY
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
 
 PRODUCT_CONTEXT = """

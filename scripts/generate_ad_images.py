@@ -2,12 +2,18 @@
 OneMessage 광고용 이미지 생성 - Gemini Imagen 4.0
 Google Ads: 1200x1200 (1:1), 1200x628 (1.91:1)
 """
+import sys
+from pathlib import Path
+
 import httpx
 import base64
 import os
 import json
 
-GEMINI_API_KEY = "AIzaSyDA2VBL8x5Zb6OKcWE5HsaayNef50WMn48"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from config.settings import settings
+
+GEMINI_API_KEY = settings.GEMINI_API_KEY
 OUTPUT_DIR = "D:/0_Dotcell/ad-optimizer/assets/generated/google"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

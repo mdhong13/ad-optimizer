@@ -12,3 +12,14 @@ dist/
 build/
 .DS_Store
 google-ads.yaml
+
+# 생성된 광고 에셋 (대용량 바이너리, 재생성 가능)
+assets/generated/**/*.png
+assets/generated/**/*.jpg
+assets/generated/**/*.jpeg
+assets/generated/**/*.mp4
+assets/generated/**/*.mov
+assets/generated/**/*.webm
+
+# 로컬 임시 파일
+/python

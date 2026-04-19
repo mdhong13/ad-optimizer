@@ -158,6 +158,42 @@ async def api_set_active_meta_account(payload: dict):
     return {"ok": True, "active": account_id}
 
 
+@router.post("/canary/kr")
+async def launch_kr_canary(payload: dict, background_tasks: BackgroundTasks):
+    """
+    KR Meta Canary 3개 즉시 생성 (AI 생성 우회, 준비된 카피+이미지 사용).
+    payload: {"variants": ["C1-A","C2-A","C3-A"], "budget": 1500, "live": false}
+    """
+    variants = (payload or {}).get("variants") or ["C1-A", "C2-A", "C3-A"]
+    budget = (payload or {}).get("budget")
+    live = bool((payload or {}).get("live", False))
+    dry_run = False if live else settings.DRY_RUN
+
+    def _run():
+        import logging as _log
+        import traceback
+        logger = _log.getLogger("canary.kr")
+        try:
+            logger.info(f"[canary/kr] START variants={variants} budget={budget} dry_run={dry_run}")
+            from scripts.launch_kr_canary import launch
+            results = launch(variants=variants, daily_budget=budget, dry_run=dry_run)
+            ok = sum(1 for r in results if r["status"] in ("created", "dry_run"))
+            logger.info(f"[canary/kr] DONE {ok}/{len(results)} success")
+            for r in results:
+                logger.info(f"  [{r['variant_id']}] {r['status']} {r.get('error') or r['campaign_id']}")
+        except Exception as e:
+            logger.error(f"[canary/kr] FAILED: {e}")
+            logger.error(traceback.format_exc())
+
+    background_tasks.add_task(_run)
+    return {
+        "triggered": True,
+        "variants": variants,
+        "budget_krw": budget or settings.MIN_DAILY_BUDGET_PER_CAMPAIGN,
+        "dry_run": dry_run,
+    }
+
+
 @router.post("/run-cycle/{platform}")
 async def run_cycle(platform: str, background_tasks: BackgroundTasks):
     """플랫폼별 캠페인 최적화 사이클 수동 실행"""
