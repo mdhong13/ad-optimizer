@@ -280,6 +280,19 @@ class MetaAds(AdPlatform):
             # 2. AdSet
             # targeting_automation.advantage_audience=0 → Meta v25 필수 플래그
             countries = targeting.get("countries", ["US"])
+            targeting_spec = {
+                "geo_locations": {"countries": countries},
+                "age_min": targeting.get("age_min", 25),
+                "age_max": targeting.get("age_max", 55),
+                "targeting_automation": {"advantage_audience": 0},
+            }
+            # OS/디바이스 제한 (예: Play Store 링크 → Android 전용)
+            if targeting.get("user_os"):
+                targeting_spec["user_os"] = targeting["user_os"]
+            if targeting.get("user_device"):
+                targeting_spec["user_device"] = targeting["user_device"]
+            if targeting.get("publisher_platforms"):
+                targeting_spec["publisher_platforms"] = targeting["publisher_platforms"]
             ad_set = self._account.create_ad_set(params={
                 FBAdSet.Field.name: f"{name} - AdSet",
                 FBAdSet.Field.campaign_id: campaign_id,
@@ -288,12 +301,7 @@ class MetaAds(AdPlatform):
                 FBAdSet.Field.optimization_goal: "LINK_CLICKS",
                 FBAdSet.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
                 FBAdSet.Field.destination_type: "WEBSITE",
-                FBAdSet.Field.targeting: {
-                    "geo_locations": {"countries": countries},
-                    "age_min": targeting.get("age_min", 25),
-                    "age_max": targeting.get("age_max", 55),
-                    "targeting_automation": {"advantage_audience": 0},
-                },
+                FBAdSet.Field.targeting: targeting_spec,
                 FBAdSet.Field.status: "PAUSED",
             })
             ad_set_id = ad_set["id"]
@@ -309,6 +317,13 @@ class MetaAds(AdPlatform):
                 link_data["message"] = creatives["body"]
             if creatives.get("title"):
                 link_data["name"] = creatives["title"]
+            # Meta는 AdCreative에 call_to_action 필수. OUTCOME_TRAFFIC은
+            # LEARN_MORE/DOWNLOAD/SIGN_UP/SHOP_NOW 등 링크용 CTA만 허용.
+            # creatives["cta_type"] 미지정 시 LEARN_MORE 기본.
+            link_data["call_to_action"] = {
+                "type": creatives.get("cta_type", "LEARN_MORE"),
+                "value": {"link": link_data["link"]},
+            }
 
             # 이미지 소스 우선순위:
             #   1) creatives["image_path"] 로컬 파일 경로

@@ -161,12 +161,16 @@ def launch(variants=None, daily_budget=None, dry_run=None):
             "countries": ["KR"],
             "age_min": c["age_min"],
             "age_max": c["age_max"],
+            # Play Store 링크 → Android 사용자만 (iPhone 제외)
+            "user_os": ["Android"],
         }
         creatives = {
             "title": c["headline"],
             "body": c["primary"],
             "link": PLAY_STORE_URL,
             "image_path": image_path,
+            # Play Store 랜딩 → DOWNLOAD CTA ('앱 다운로드' 버튼 명확 노출)
+            "cta_type": "DOWNLOAD",
         }
 
         try:
