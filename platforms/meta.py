@@ -241,16 +241,40 @@ class MetaAds(AdPlatform):
             logger.info(f"Meta: adset created {ad_set_id}")
 
             # 3. Creative + Ad
+            # Meta v25: link_data의 image_url 필드 폐지됨 → image_hash 사용
+            # 이미지가 있으면 /adimages 업로드 후 해시 참조, 없으면 링크만으로 생성
+            link_data = {
+                "link": creatives.get("link", "https://onemsg.net"),
+            }
+            if creatives.get("body"):
+                link_data["message"] = creatives["body"]
+            if creatives.get("title"):
+                link_data["name"] = creatives["title"]
+
+            img_url = creatives.get("image_url", "")
+            if img_url:
+                try:
+                    import requests as _req
+                    img_bytes = _req.get(img_url, timeout=15).content
+                    import base64, tempfile, os
+                    from facebook_business.adobjects.adimage import AdImage
+                    tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+                    tmp.write(img_bytes)
+                    tmp.close()
+                    img = self._account.create_ad_image(params={"filename": tmp.name})
+                    os.unlink(tmp.name)
+                    image_hash = img.get("hash") or list(img.get("images", {}).values())[0].get("hash")
+                    if image_hash:
+                        link_data["image_hash"] = image_hash
+                        logger.info(f"Meta: image uploaded, hash={image_hash[:10]}...")
+                except Exception as img_err:
+                    logger.warning(f"Meta: image upload failed, skipping: {img_err}")
+
             creative = self._account.create_ad_creative(params={
                 AdCreative.Field.name: f"{name} - Creative",
                 AdCreative.Field.object_story_spec: {
                     "page_id": page_id,
-                    "link_data": {
-                        "link": creatives.get("link", "https://onemsg.net"),
-                        "message": creatives.get("body", ""),
-                        "name": creatives.get("title", ""),
-                        "image_url": creatives.get("image_url", ""),
-                    },
+                    "link_data": link_data,
                 },
             })
 
