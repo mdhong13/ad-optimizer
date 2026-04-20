@@ -17,7 +17,7 @@ logging.basicConfig(
 
 from storage.db import init_db
 from web import live_logs, scheduler_bg
-from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings
+from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings, creative
 
 live_logs.install_handler()
 
@@ -25,11 +25,16 @@ app = FastAPI(title="OneMessage Ad Optimizer", version="2.0.0")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Static files (CSS, JS, PWA)
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Generated assets (creative outputs, etc.)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 app.include_router(dashboard.router)
 app.include_router(campaigns.router)
@@ -39,6 +44,7 @@ app.include_router(events.router)
 app.include_router(viral.router)
 app.include_router(publisher.router)
 app.include_router(settings.router)
+app.include_router(creative.router)
 
 
 @app.on_event("startup")

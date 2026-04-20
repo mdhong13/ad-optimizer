@@ -1,0 +1,121 @@
+"""
+크리에이티브 생성 라우트 — 카피 / 이미지 / 영상.
+
+- GET  /creative/copy|image|video  페이지 렌더
+- POST /creative/copy/generate      LLM 호출 (동기)
+- POST /creative/image/generate     Nano Banana 등 (동기)
+- POST /creative/video/start        Veo 비동기 작업 시작
+- GET  /creative/video/status       Veo 작업 폴링
+"""
+from __future__ import annotations
+import logging
+from pathlib import Path
+
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.templating import Jinja2Templates
+
+from creative import copy_gen, image_gen, video_gen
+from creative.models import (
+    COPY_PROVIDERS, COPY_DEFAULT_ID,
+    IMAGE_MODELS, IMAGE_DEFAULT_ID,
+    VIDEO_MODELS, VIDEO_DEFAULT_ID,
+)
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/creative")
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+
+
+# ---------- Pages ----------
+
+@router.get("")
+async def creative_root(request: Request):
+    return templates.TemplateResponse(request, "creative_copy.html", {
+        "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
+    })
+
+
+@router.get("/copy")
+async def page_copy(request: Request):
+    return templates.TemplateResponse(request, "creative_copy.html", {
+        "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
+    })
+
+
+@router.get("/image")
+async def page_image(request: Request):
+    return templates.TemplateResponse(request, "creative_image.html", {
+        "models": IMAGE_MODELS, "default_model": IMAGE_DEFAULT_ID,
+    })
+
+
+@router.get("/video")
+async def page_video(request: Request):
+    return templates.TemplateResponse(request, "creative_video.html", {
+        "models": VIDEO_MODELS, "default_model": VIDEO_DEFAULT_ID,
+    })
+
+
+# ---------- API: Copy ----------
+
+@router.post("/copy/generate")
+async def api_copy_generate(payload: dict):
+    brief = payload.get("brief") or {}
+    provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    try:
+        result = await copy_gen.generate_copy(brief, provider_id)
+    except Exception as e:
+        log.exception("[creative.copy] generate failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+# ---------- API: Image ----------
+
+@router.post("/image/generate")
+async def api_image_generate(payload: dict):
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt 필수")
+    model_id = payload.get("model_id") or IMAGE_DEFAULT_ID
+    aspect_ratio = payload.get("aspect_ratio") or "4:5"
+    n = int(payload.get("n") or 1)
+    try:
+        results = await image_gen.generate_image(prompt, model_id, aspect_ratio, n)
+    except Exception as e:
+        log.exception("[creative.image] generate failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"images": results}
+
+
+# ---------- API: Video ----------
+
+@router.post("/video/start")
+async def api_video_start(payload: dict):
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt 필수")
+    model_id = payload.get("model_id") or VIDEO_DEFAULT_ID
+    aspect_ratio = payload.get("aspect_ratio") or "9:16"
+    duration = int(payload.get("duration_seconds") or 8)
+    try:
+        job = await video_gen.start_video_job(prompt, model_id, aspect_ratio, duration)
+    except Exception as e:
+        log.exception("[creative.video] start failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return job
+
+
+@router.get("/video/status")
+async def api_video_status(op: str):
+    if not op:
+        raise HTTPException(status_code=400, detail="op(operation_name) 필수")
+    try:
+        status = await video_gen.poll_video_job(op)
+    except Exception as e:
+        log.exception("[creative.video] poll failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return status
+
+

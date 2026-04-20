@@ -22,6 +22,16 @@
     nav a { color: #a0aec0; font-size: 14px; padding: 4px 8px; border-radius: 4px; }
     nav a:hover, nav a.active { color: #e2e8f0; background: #2d3748; text-decoration: none; }
 
+    /* Dropdown */
+    .nav-dd { position: relative; display: inline-block; }
+    .nav-dd > .nav-dd-label { cursor: pointer; color: #a0aec0; font-size: 14px; padding: 4px 8px; border-radius: 4px; user-select: none; }
+    .nav-dd > .nav-dd-label::after { content: " ▾"; font-size: 10px; opacity: 0.6; }
+    .nav-dd:hover > .nav-dd-label, .nav-dd > .nav-dd-label.active { color: #e2e8f0; background: #2d3748; }
+    .nav-dd-menu { display: none; position: absolute; top: 100%; left: 0; background: #1a1f2e; border: 1px solid #2d3748; border-radius: 6px; min-width: 180px; z-index: 100; padding: 4px 0; margin-top: 2px; }
+    .nav-dd:hover .nav-dd-menu { display: block; }
+    .nav-dd-menu a { display: block; padding: 8px 14px; border-radius: 0; font-size: 13px; }
+    .nav-dd-menu a:hover { background: #2d3748; }
+
     /* Layout */
     .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
     h1 { font-size: 22px; font-weight: 700; margin-bottom: 20px; }
@@ -73,6 +83,14 @@
     <span class="brand">One<span>Message</span> Optimizer</span>
     <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>대시보드</a>
     <a href="/campaigns" {% if '/campaigns' in request.url.path %}class="active"{% endif %}>캠페인</a>
+    <span class="nav-dd">
+      <span class="nav-dd-label {% if '/creative' in request.url.path %}active{% endif %}">크리에이티브</span>
+      <span class="nav-dd-menu">
+        <a href="/creative/copy" {% if '/creative/copy' in request.url.path %}class="active"{% endif %}>카피 생성</a>
+        <a href="/creative/image" {% if '/creative/image' in request.url.path %}class="active"{% endif %}>이미지 생성</a>
+        <a href="/creative/video" {% if '/creative/video' in request.url.path %}class="active"{% endif %}>영상 생성</a>
+      </span>
+    </span>
     <a href="/viral" {% if '/viral' in request.url.path %}class="active"{% endif %}>바이럴</a>
     <a href="/publisher" {% if '/publisher' in request.url.path %}class="active"{% endif %}>배포</a>
     <a href="/events" {% if '/events' in request.url.path %}class="active"{% endif %}>시장</a>

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}영상 생성 — OneMessage Ad Optimizer{% endblock %}
+
+{% block head %}
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .form-row { display: flex; flex-direction: column; gap: 4px; }
+  .form-row label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-row input, .form-row select, .form-row textarea {
+    background: #0f1117; color: #e2e8f0; border: 1px solid #2d3748; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  .form-row textarea { min-height: 140px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .job-row { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  .job-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
+  .op-name { font-family: ui-monospace, monospace; color: #a0aec0; font-size: 11px; word-break: break-all; }
+  .video-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 10px; }
+  .video-wrap video { width: 100%; border-radius: 6px; background: #000; }
+  .hint { font-size: 11px; color: #4a5568; margin-top: 4px; }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid #2d3748; border-top-color: #63b3ed; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>영상 생성 (Veo 3.1)</h1>
+
+<div class="card">
+  <h2>프롬프트</h2>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>Model</label>
+      <select id="model_id">
+        {% for m in models %}
+          <option value="{{ m.id }}" {% if m.id == default_model %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Aspect Ratio</label>
+      <select id="aspect_ratio">
+        <option value="9:16">9:16 (Reels / Shorts)</option>
+        <option value="16:9">16:9 (YouTube / Display)</option>
+        <option value="1:1">1:1</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Duration (초, 5~15)</label>
+      <input id="duration" type="number" min="5" max="15" value="8">
+    </div>
+  </div>
+  <div class="form-row" style="margin-top:14px;">
+    <label>Prompt (English 권장)</label>
+    <textarea id="prompt" placeholder="8 seconds. Opening (0-3s): over-the-shoulder shot of a 50-something Korean man's hands slowly opening a worn envelope on a wooden desk, warm morning light. Middle (3-6s): the camera glides to reveal a note with hand-drawn family names, fingers tracing them. Closing (6-8s): locked-off static wide of the desk with light catching dust motes, lower-right clear for logo overlay. Photorealistic cinematic, film grain, shallow depth of field. No text, no dialogue, no music described."></textarea>
+    <div class="hint">작업 시작 후 10초 간격으로 자동 폴링. Veo는 보통 1~5분 소요.</div>
+  </div>
+  <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+    <button class="btn btn-blue" id="gen-btn" onclick="startJob()">영상 생성 시작</button>
+    <span id="status" style="font-size:12px; color:#718096;"></span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>작업 목록</h2>
+  <div id="jobs"></div>
+  <div id="empty" class="empty">아직 시작된 작업이 없습니다.</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function v(id) { return document.getElementById(id).value; }
+function setStatus(msg, color) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.color = color || "#718096";
+}
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+}
+
+const JOBS_KEY = "creative_video_jobs_v1";
+let jobs = [];
+
+function loadJobs() {
+  try { jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || "[]"); } catch { jobs = []; }
+  renderJobs();
+  // 미완료 작업 재개
+  jobs.forEach(j => { if (!j.done) pollLoop(j); });
+}
+function saveJobs() { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); }
+
+function renderJobs() {
+  const box = document.getElementById("jobs");
+  document.getElementById("empty").style.display = jobs.length ? "none" : "block";
+  box.innerHTML = jobs.map((j, i) => {
+    const videos = (j.video_urls || []).map(u => `<video controls preload="metadata" src="${esc(u)}"></video>`).join("");
+    const stateLabel = j.error
+      ? `<span style="color:#fc8181;">ERROR: ${esc(j.error)}</span>`
+      : j.done
+        ? `<span style="color:#68d391;">✓ 완료 (${(j.video_urls || []).length}개)</span>`
+        : `<span style="color:#63b3ed;"><span class="spin"></span>running · ${j.elapsed || 0}s</span>`;
+    return `
+      <div class="job-row">
+        <div class="job-head">
+          <div>
+            <strong>#${i + 1}</strong>
+            · ${esc(j.model || "")} · ${esc(j.aspect_ratio || "")} · ${esc(String(j.duration_seconds || ""))}s
+            · ${esc(j.submitted_at || "")}
+          </div>
+          <div>${stateLabel}</div>
+        </div>
+        <div style="font-size:12px; color:#a0aec0; margin-bottom:6px;">${esc((j.prompt || "").slice(0, 220))}${(j.prompt || "").length > 220 ? "…" : ""}</div>
+        <div class="op-name">op: ${esc(j.operation_name || "")}</div>
+        ${videos ? `<div class="video-wrap">${videos}</div>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
+async function startJob() {
+  const prompt = v("prompt").trim();
+  if (!prompt) { setStatus("프롬프트 필수", "#fc8181"); return; }
+  const payload = {
+    prompt,
+    model_id: v("model_id"),
+    aspect_ratio: v("aspect_ratio"),
+    duration_seconds: parseInt(v("duration"), 10) || 8,
+  };
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  setStatus("작업 시작 중…", "#63b3ed");
+  try {
+    const r = await fetch("/creative/video/start", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      setStatus("에러: " + (data.detail || r.statusText), "#fc8181");
+      return;
+    }
+    const job = { ...data, done: false, elapsed: 0, video_urls: [] };
+    jobs.unshift(job);
+    saveJobs();
+    renderJobs();
+    setStatus(`작업 시작됨: ${data.operation_name}`, "#68d391");
+    pollLoop(job);
+  } catch (e) {
+    setStatus("네트워크 에러: " + e.message, "#fc8181");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function pollLoop(job) {
+  const POLL = 10000;
+  const MAX = 15 * 60 * 1000;
+  const start = Date.now();
+  while (!job.done) {
+    if (Date.now() - start > MAX) {
+      job.done = true;
+      job.error = "client timeout (15min)";
+      saveJobs(); renderJobs(); return;
+    }
+    await new Promise(r => setTimeout(r, POLL));
+    job.elapsed = Math.round((Date.now() - start) / 1000);
+    try {
+      const r = await fetch(`/creative/video/status?op=${encodeURIComponent(job.operation_name)}`);
+      const s = await r.json();
+      if (!r.ok) { job.done = true; job.error = s.detail || r.statusText; saveJobs(); renderJobs(); return; }
+      if (s.done) {
+        job.done = true;
+        if (s.error) job.error = s.error;
+        job.video_urls = s.video_urls || [];
+        job.video_paths = s.video_paths || [];
+        saveJobs(); renderJobs(); return;
+      }
+      renderJobs();
+    } catch (e) {
+      // 네트워크 일시 에러 → 다음 폴링에서 재시도
+    }
+  }
+}
+
+loadJobs();
+</script>
+{% endblock %}

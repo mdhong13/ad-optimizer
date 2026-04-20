@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}이미지 생성 — OneMessage Ad Optimizer{% endblock %}
+
+{% block head %}
+<style>
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .form-row { display: flex; flex-direction: column; gap: 4px; }
+  .form-row label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+  .form-row input, .form-row select, .form-row textarea {
+    background: #0f1117; color: #e2e8f0; border: 1px solid #2d3748; border-radius: 6px;
+    padding: 8px 10px; font-size: 13px; font-family: inherit;
+  }
+  .form-row textarea { min-height: 120px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .gallery .thumb { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
+  .gallery .thumb img { width: 100%; display: block; background: #000; }
+  .gallery .meta { padding: 10px 12px; font-size: 11px; color: #718096; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .gallery .meta a { color: #63b3ed; }
+  .hint { font-size: 11px; color: #4a5568; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>이미지 생성</h1>
+
+<div class="card">
+  <h2>프롬프트</h2>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>Model (항상 최상위 기본값)</label>
+      <select id="model_id">
+        {% for m in models %}
+          <option value="{{ m.id }}" {% if m.id == default_model %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Aspect Ratio</label>
+      <select id="aspect_ratio">
+        <option value="4:5">4:5 (Meta Feed)</option>
+        <option value="1:1">1:1 (Square)</option>
+        <option value="9:16">9:16 (Reels / Stories)</option>
+        <option value="16:9">16:9 (Display / YouTube)</option>
+        <option value="3:4">3:4</option>
+        <option value="2:3">2:3</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Count (n)</label>
+      <input id="n" type="number" min="1" max="4" value="1">
+    </div>
+  </div>
+  <div class="form-row" style="margin-top:14px;">
+    <label>Prompt (English 권장)</label>
+    <textarea id="prompt" placeholder="Photorealistic cinematic ad scene. Warm morning light through a window, 50-something Korean man's hands holding a worn envelope on a wooden desk. Shallow depth of field, film grain, lower-right area intentionally clear for logo overlay. No text. No logo. No Bitcoin symbol. 4:5 composition."></textarea>
+    <div class="hint">system prompt(<code>prompts/image_brief.txt</code>)는 호출 시 적용 안됨 — 현재는 사용자 프롬프트 직접 전달. 아트 디렉션 가이드는 카피 생성과 조합하여 작성할 것.</div>
+  </div>
+  <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
+    <button class="btn btn-blue" id="gen-btn" onclick="generateImage()">이미지 생성</button>
+    <span id="status" style="font-size:12px; color:#718096;"></span>
+  </div>
+</div>
+
+<div id="results" style="display:none;">
+  <div class="card">
+    <h2>결과</h2>
+    <div class="gallery" id="gallery"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function v(id) { return document.getElementById(id).value; }
+function setStatus(msg, color) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.style.color = color || "#718096";
+}
+
+async function generateImage() {
+  const prompt = v("prompt").trim();
+  if (!prompt) { setStatus("프롬프트 필수", "#fc8181"); return; }
+  const payload = {
+    prompt,
+    model_id: v("model_id"),
+    aspect_ratio: v("aspect_ratio"),
+    n: parseInt(v("n"), 10) || 1,
+  };
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  setStatus("생성 중… Nano Banana Pro는 약 20~60초 소요", "#63b3ed");
+  try {
+    const r = await fetch("/creative/image/generate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      setStatus("에러: " + (data.detail || r.statusText), "#fc8181");
+      return;
+    }
+    renderGallery(data.images || []);
+    setStatus(`완료 (${(data.images || []).length}장)`, "#68d391");
+  } catch (e) {
+    setStatus("네트워크 에러: " + e.message, "#fc8181");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+}
+
+function renderGallery(images) {
+  document.getElementById("results").style.display = "block";
+  const box = document.getElementById("gallery");
+  if (!images.length) { box.innerHTML = '<div class="empty">결과 없음 — Gemini 응답에 image part 부재</div>'; return; }
+  box.innerHTML = images.map(img => `
+    <div class="thumb">
+      <a href="${esc(img.url)}" target="_blank"><img src="${esc(img.url)}" alt=""></a>
+      <div class="meta">
+        <span>${esc(img.model_id || "")} · ${esc(img.aspect_ratio || "")}</span>
+        <a href="${esc(img.url)}" download>다운로드</a>
+      </div>
+    </div>
+  `).join("");
+}
+</script>
+{% endblock %}
