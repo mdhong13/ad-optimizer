@@ -443,6 +443,189 @@ class MetaAds(AdPlatform):
                 logger.error(f"Meta: rollback failed for {campaign_id}: {rollback_err}")
             raise
 
+    def create_unified_campaign(
+        self,
+        campaign_name: str,
+        daily_budget: float,
+        variants: list,
+        dry_run: bool = True,
+    ) -> dict:
+        """1개 Campaign + N개 AdSet + N개 Ad (A/B 테스트 구조).
+
+        Campaign Budget Optimization(CBO) 모드 — 캠페인 레벨 일 예산이
+        AdSet 간 자동 배분. AdSet 개별 예산 설정 X.
+
+        variants: list of dict {
+            "adset_name": str,              # AdSet 이름
+            "targeting": dict,              # countries/age_min/max/user_os/locales/flexible_spec...
+            "creatives": dict,              # title/body/link/image_path/video_path/cta_type/app_promotion
+        }
+        반환: {campaign_id, adsets: [{adset_id, ad_id, variant_name}, ...]}
+        """
+        if dry_run:
+            logger.info(f"[DRY RUN] Meta unified: '{campaign_name}' ${daily_budget}/day, {len(variants)} variants")
+            for v in variants:
+                logger.info(f"  - {v['adset_name']}")
+            return {"campaign_id": "dry_run", "adsets": [
+                {"adset_id": "dry_run_as", "ad_id": "dry_run_ad", "variant_name": v["adset_name"]}
+                for v in variants
+            ]}
+
+        self._init_api()
+        from facebook_business.adobjects.campaign import Campaign as FBCampaign
+        from facebook_business.adobjects.adset import AdSet as FBAdSet
+        from facebook_business.adobjects.ad import Ad as FBAd
+        from facebook_business.adobjects.adcreative import AdCreative
+
+        page_id = settings.META_PAGE_ID
+        if not page_id:
+            raise RuntimeError("META_PAGE_ID 미설정")
+        daily_budget_cents = max(100, int(float(daily_budget) * 100))
+
+        # 첫 번째 variant 의 creatives 로 objective 결정 (모두 동일해야 함)
+        first = variants[0]["creatives"]
+        app_promo = first.get("app_promotion")
+        explicit_obj = first.get("objective")
+        if explicit_obj:
+            objective = explicit_obj
+        elif app_promo:
+            objective = "OUTCOME_APP_PROMOTION"
+        else:
+            objective = "OUTCOME_TRAFFIC"
+
+        # 1. Campaign (CBO 모드 — 캠페인 레벨 daily_budget)
+        campaign = self._account.create_campaign(params={
+            FBCampaign.Field.name: campaign_name,
+            FBCampaign.Field.objective: objective,
+            FBCampaign.Field.status: "PAUSED",
+            FBCampaign.Field.special_ad_categories: [],
+            FBCampaign.Field.daily_budget: daily_budget_cents,  # CBO
+            FBCampaign.Field.bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+        })
+        campaign_id = campaign["id"]
+        logger.info(f"Meta unified: campaign {campaign_id} created ({objective}, CBO ${daily_budget}/day)")
+
+        created = []
+        try:
+            for v in variants:
+                adset_id, ad_id = self._create_adset_and_ad(
+                    campaign_id=campaign_id,
+                    objective=objective,
+                    page_id=page_id,
+                    adset_name=v["adset_name"],
+                    targeting=v["targeting"],
+                    creatives=v["creatives"],
+                )
+                created.append({
+                    "adset_id": adset_id,
+                    "ad_id": ad_id,
+                    "variant_name": v["adset_name"],
+                })
+            return {"campaign_id": campaign_id, "adsets": created}
+        except Exception as e:
+            logger.error(f"Meta unified: failed, rolling back campaign {campaign_id}: {e}")
+            try:
+                FBCampaign(campaign_id).api_delete()
+                logger.info(f"Meta unified: rolled back {campaign_id}")
+            except Exception as rb:
+                logger.error(f"Meta unified: rollback failed: {rb}")
+            raise
+
+    def _create_adset_and_ad(self, campaign_id, objective, page_id,
+                              adset_name, targeting, creatives):
+        """create_campaign 의 AdSet+Ad 부분만 추출 — unified 모드에서 반복 호출."""
+        from facebook_business.adobjects.adset import AdSet as FBAdSet
+        from facebook_business.adobjects.ad import Ad as FBAd
+        from facebook_business.adobjects.adcreative import AdCreative
+
+        app_promo = creatives.get("app_promotion")
+
+        # 타겟팅
+        countries = targeting.get("countries", ["US"])
+        targeting_spec = {
+            "geo_locations": {"countries": countries},
+            "age_min": targeting.get("age_min", 25),
+            "age_max": targeting.get("age_max", 55),
+            "targeting_automation": {"advantage_audience": 0},
+        }
+        for k in ("user_os", "user_device", "publisher_platforms", "locales", "flexible_spec"):
+            if targeting.get(k):
+                targeting_spec[k] = targeting[k]
+
+        # AdSet (CBO: daily_budget 없음, campaign 레벨에서 제어)
+        if objective == "OUTCOME_AWARENESS":
+            default_goal = "REACH"; default_dest = None
+        else:
+            default_goal = "LINK_CLICKS"; default_dest = "WEBSITE"
+        adset_params = {
+            FBAdSet.Field.name: adset_name,
+            FBAdSet.Field.campaign_id: campaign_id,
+            FBAdSet.Field.billing_event: "IMPRESSIONS",
+            FBAdSet.Field.optimization_goal: creatives.get("optimization_goal", default_goal),
+            FBAdSet.Field.targeting: targeting_spec,
+            FBAdSet.Field.status: "PAUSED",
+        }
+        if default_dest:
+            adset_params[FBAdSet.Field.destination_type] = default_dest
+        if app_promo:
+            adset_params[FBAdSet.Field.destination_type] = "APP"
+            adset_params[FBAdSet.Field.promoted_object] = {
+                "application_id": app_promo["application_id"],
+                "object_store_url": app_promo["object_store_url"],
+            }
+        ad_set = self._account.create_ad_set(params=adset_params)
+        adset_id = ad_set["id"]
+        logger.info(f"Meta unified: adset {adset_id} ({adset_name})")
+
+        # Creative + Ad
+        link_data = {"link": creatives.get("link", "https://onemsg.net")}
+        if creatives.get("body"):
+            link_data["message"] = creatives["body"]
+        if creatives.get("title"):
+            link_data["name"] = creatives["title"]
+        default_cta = "INSTALL_MOBILE_APP" if app_promo else "LEARN_MORE"
+        cta_value = {"link": link_data["link"]}
+        if app_promo:
+            cta_value["application"] = app_promo["application_id"]
+        link_data["call_to_action"] = {
+            "type": creatives.get("cta_type", default_cta),
+            "value": cta_value,
+        }
+
+        image_hash = self._resolve_and_upload_image(
+            creatives.get("image_path"), creatives.get("image_url"),
+        )
+        if image_hash:
+            link_data["image_hash"] = image_hash
+
+        video_path = creatives.get("video_path")
+        if video_path:
+            video_id = self._upload_video(video_path)
+            video_data = {
+                "video_id": video_id,
+                "message": creatives.get("body", ""),
+                "title": creatives.get("title", ""),
+                "call_to_action": link_data["call_to_action"],
+            }
+            if image_hash:
+                video_data["image_hash"] = image_hash
+            story_spec = {"page_id": page_id, "video_data": video_data}
+        else:
+            story_spec = {"page_id": page_id, "link_data": link_data}
+
+        creative = self._account.create_ad_creative(params={
+            AdCreative.Field.name: f"{adset_name} - Creative",
+            AdCreative.Field.object_story_spec: story_spec,
+        })
+        ad = self._account.create_ad(params={
+            FBAd.Field.name: f"{adset_name} - Ad",
+            FBAd.Field.adset_id: adset_id,
+            FBAd.Field.creative: {"creative_id": creative["id"]},
+            FBAd.Field.status: "PAUSED",
+        })
+        logger.info(f"Meta unified: ad {ad['id']} created")
+        return adset_id, ad["id"]
+
     def delete_campaign(self, campaign_id: str, dry_run: bool = True) -> bool:
         if dry_run:
             logger.info(f"[DRY RUN] Meta: delete campaign {campaign_id}")

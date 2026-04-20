@@ -168,6 +168,48 @@
   <div id="kr-canary-status" style="font-size:12px; color:#4a5568;"></div>
 </div>
 
+<!-- KR Canary Unified (1 Campaign + 3 AdSet CBO) -->
+<div class="card" style="border:1px solid #5a3a3a; background:#1b0f0f;">
+  <h2 style="margin-top:0;">KR Canary Unified (1 캠페인 + 3 AdSet · CBO)</h2>
+  <div style="font-size:12px; color:#a0aec0; margin-bottom:10px;">
+    통합 구조. 1개 Campaign 에 AdSet 3개 → CBO 가 성과 좋은 AdSet 에 예산 자동 배분.
+    기존 분산된 3개 캠페인은 Meta UI 에서 수동 일시중지 권장.
+  </div>
+  <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px;">
+    <div>
+      <label style="display:block; font-size:11px; color:#718096; margin-bottom:4px;">AdSet 선택 (3개)</label>
+      <div style="display:flex; gap:14px; font-size:12px; color:#e2e8f0;">
+        {% for campaign in ['C1','C2','C3'] %}
+        <div>
+          <div style="color:#718096; font-size:10px; margin-bottom:2px;">
+            {% if campaign == 'C1' %}C1 자녀{% elif campaign == 'C2' %}C2 1인가구{% else %}C3 65+{% endif %}
+          </div>
+          {% for angle in ['A','B','C'] %}
+          <label style="margin-right:6px;">
+            <input type="radio" name="kr-unified-{{ campaign }}" value="{{ campaign }}-{{ angle }}" {% if angle == 'A' %}checked{% endif %}>
+            {{ angle }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div>
+      <label style="display:block; font-size:11px; color:#718096; margin-bottom:4px;">캠페인 일 예산 (KRW, 최대 50,000)</label>
+      <input type="number" id="kr-unified-budget" value="50000" min="5000" max="50000" step="5000"
+        style="padding:6px 10px; border:1px solid #2d3748; background:#0d1117; color:#e2e8f0; border-radius:4px; width:110px;">
+    </div>
+    <div>
+      <label style="display:block; font-size:11px; color:#718096; margin-bottom:4px;">&nbsp;</label>
+      <label style="font-size:12px; color:#e2e8f0;">
+        <input type="checkbox" id="kr-unified-live"> 실제 생성
+      </label>
+    </div>
+    <button class="btn btn-blue" onclick="launchKrUnified()">통합 캠페인 생성</button>
+  </div>
+  <div id="kr-unified-status" style="font-size:12px; color:#4a5568;"></div>
+</div>
+
 <!-- US Awareness Quick Launch (영상 인지도, 크립토 지갑 보유자) -->
 <div class="card" style="border:1px solid #3a3c5a; background:#0f101b;">
   <h2 style="margin-top:0;">US Meta Awareness (영상, 크립토 지갑 보유자)</h2>
@@ -353,9 +395,14 @@
 <div class="card">
   <h2>최근 캠페인 성과 (3일)</h2>
   {% if performance %}
+  {% set total_spend = performance|sum(attribute='spend') %}
+  {% set total_clicks = performance|sum(attribute='clicks') %}
+  {% set total_impr = performance|sum(attribute='impressions') %}
+  {% set total_ctr = (total_clicks / total_impr * 100) if total_impr else 0 %}
+  {% set total_cpc = (total_spend / total_clicks) if total_clicks else 0 %}
   <table>
     <thead>
-      <tr><th>플랫폼</th><th>캠페인</th><th>날짜</th><th>지출</th><th>클릭</th><th>노출</th><th>CTR</th><th>CPC</th><th>ROAS</th></tr>
+      <tr><th>플랫폼</th><th>캠페인</th><th>날짜</th><th>지출 (KRW)</th><th>클릭</th><th>노출</th><th>CTR</th><th>CPC (KRW)</th><th>ROAS</th></tr>
     </thead>
     <tbody>
       {% for r in performance %}
@@ -367,15 +414,28 @@
           </a>
         </td>
         <td>{{ r.date }}</td>
-        <td>${{ "%.2f"|format(r.spend) }}</td>
+        <td>{{ "{:,.0f}".format(r.spend) }}</td>
         <td>{{ "{:,}".format(r.clicks) }}</td>
         <td>{{ "{:,}".format(r.impressions) }}</td>
         <td>{{ "%.2f"|format(r.get('ctr', 0) * 100) }}%</td>
-        <td>${{ "%.3f"|format(r.get('cpc', 0)) }}</td>
-        <td>{{ "%.2f"|format(r.get('roas', 0)) }}x</td>
+        <td>{{ "{:,.0f}".format(r.get('cpc', 0)) }}</td>
+        <td title="SDK 미통합 — 설치/매출 추적 불가">
+          {% if r.get('roas', 0) > 0 %}{{ "%.2f"|format(r.roas) }}x{% else %}<span style="color:#718096;">N/A</span>{% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot>
+      <tr style="background:#1a202c; font-weight:bold; border-top:2px solid #4a5568;">
+        <td colspan="3" style="text-align:right;">합계 ({{ performance|length }}건):</td>
+        <td>{{ "{:,.0f}".format(total_spend) }}</td>
+        <td>{{ "{:,}".format(total_clicks) }}</td>
+        <td>{{ "{:,}".format(total_impr) }}</td>
+        <td>{{ "%.2f"|format(total_ctr) }}%</td>
+        <td>{{ "{:,.0f}".format(total_cpc) }}</td>
+        <td>—</td>
+      </tr>
+    </tfoot>
   </table>
   {% else %}
   <div class="empty">성과 데이터가 없습니다.</div>
@@ -411,6 +471,43 @@ async function launchKrCanary() {
     if (r.ok) {
       statusEl.textContent = '시작됨 (' + variants.join(', ') + ') · ' +
         (data.dry_run ? 'DRY_RUN' : 'LIVE') + ' · ' + data.budget_krw + '원/일/캠페인 — 로그에서 진행 확인.';
+      statusEl.style.color = '#48bb78';
+    } else {
+      statusEl.textContent = '에러: ' + (data.detail || '실패');
+      statusEl.style.color = '#f56565';
+    }
+  } catch (e) {
+    statusEl.textContent = '에러: ' + e.message;
+    statusEl.style.color = '#f56565';
+  }
+}
+
+async function launchKrUnified() {
+  const statusEl = document.getElementById('kr-unified-status');
+  const variants = ['C1','C2','C3'].map(c => {
+    const picked = document.querySelector('input[name="kr-unified-'+c+'"]:checked');
+    return picked ? picked.value : c+'-A';
+  });
+  const budget = parseInt(document.getElementById('kr-unified-budget').value) || 50000;
+  const live = document.getElementById('kr-unified-live').checked;
+  if (budget > 50000) {
+    if (!confirm('일 예산 ₩' + budget.toLocaleString() + ' — 사용자 상한 ₩50,000 초과. 그래도 진행?')) return;
+  }
+  const msg = live
+    ? '실제 생성? 1 캠페인 + AdSet 3개 (일 ₩' + budget.toLocaleString() + ') [DRY_RUN 무시]'
+    : 'DRY_RUN 시뮬레이션: ' + variants.join(', ');
+  if (!confirm(msg)) return;
+  statusEl.textContent = '생성 중... ' + variants.join(', ');
+  statusEl.style.color = '#d69e2e';
+  try {
+    const r = await fetch('/campaigns/canary/kr-unified', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({variants, budget, live}),
+    });
+    const data = await r.json();
+    if (r.ok) {
+      statusEl.textContent = '시작됨 (' + variants.join(', ') + ') · ' +
+        (data.dry_run ? 'DRY_RUN' : 'LIVE') + ' · ₩' + data.budget_krw.toLocaleString() + '/일 — 로그 확인';
       statusEl.style.color = '#48bb78';
     } else {
       statusEl.textContent = '에러: ' + (data.detail || '실패');

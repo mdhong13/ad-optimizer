@@ -194,6 +194,32 @@ async def launch_kr_canary(payload: dict, background_tasks: BackgroundTasks):
     }
 
 
+@router.post("/canary/kr-unified")
+async def launch_kr_canary_unified(payload: dict, background_tasks: BackgroundTasks):
+    """KR Canary 통합 — 1 Campaign + 3 AdSet (CBO), PAUSED."""
+    variants = (payload or {}).get("variants") or ["C1-A", "C2-A", "C3-A"]
+    budget = int((payload or {}).get("budget") or 50000)
+    live = bool((payload or {}).get("live", False))
+    dry_run = False if live else settings.DRY_RUN
+
+    def _run():
+        import logging as _log, traceback
+        logger = _log.getLogger("canary.kr-unified")
+        try:
+            logger.info(f"[canary/kr-unified] START variants={variants} budget=₩{budget:,} dry_run={dry_run}")
+            from scripts.launch_kr_canary_unified import launch
+            result = launch(variants=variants, daily_budget_krw=budget, dry_run=dry_run)
+            logger.info(f"[canary/kr-unified] DONE status={result['status']} campaign={result.get('campaign_id')}")
+            for a in result.get("adsets", []):
+                logger.info(f"  {a['variant_name']}: adset={a['adset_id']} ad={a['ad_id']}")
+        except Exception as e:
+            logger.error(f"[canary/kr-unified] FAILED: {e}")
+            logger.error(traceback.format_exc())
+
+    background_tasks.add_task(_run)
+    return {"triggered": True, "variants": variants, "budget_krw": budget, "dry_run": dry_run}
+
+
 @router.post("/canary/us-awareness")
 async def launch_us_awareness(payload: dict, background_tasks: BackgroundTasks):
     """US 크립토 지갑 보유자 대상 영상 인지도 캠페인 1개 생성."""

@@ -92,15 +92,26 @@ def insert_performance(doc: dict) -> str:
 
 
 def get_recent_performance(platform: str = None, days: int = 7) -> list:
+    """(campaign_id, date) 당 최신 스냅샷 1건만 반환 — 수집 중복 제거."""
     from datetime import timedelta
     cutoff = (_now() - timedelta(days=days)).strftime("%Y-%m-%d")
-    query = {"date": {"$gte": cutoff}}
+    match = {"date": {"$gte": cutoff}}
     if platform:
-        query["platform"] = platform
-    cursor = get_collection("performance_snapshots").find(
-        query, {"_id": 0}
-    ).sort("date", -1)
-    return list(cursor)
+        match["platform"] = platform
+    pipeline = [
+        {"$match": match},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": {"campaign_id": "$campaign_id", "date": "$date"},
+            "doc": {"$first": "$$ROOT"},
+        }},
+        {"$replaceRoot": {"newRoot": "$doc"}},
+        {"$sort": {"date": -1, "spend": -1}},
+    ]
+    rows = list(get_collection("performance_snapshots").aggregate(pipeline))
+    for r in rows:
+        r.pop("_id", None)
+    return rows
 
 
 def aggregate_campaign_performance(platform: str = None, days: int = 7) -> dict:
