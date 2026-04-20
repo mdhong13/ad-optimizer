@@ -25,25 +25,29 @@ def _system_prompt() -> str:
 
 
 def _user_message(brief: dict) -> str:
-    """사용자 입력(브리프) → LLM user turn 메시지 구성."""
+    """사용자 입력(브리프 + 스토리) → LLM user turn 메시지 구성."""
     campaign = brief.get("campaign", "unspecified")
     angle = brief.get("angle", "any")
     platform = brief.get("platform", "meta_feed")
     n_variants = int(brief.get("n_variants", 3))
     tone = brief.get("tone", "reassurance")
     audience = brief.get("audience", "general")
-    extra = brief.get("extra_instructions", "").strip()
+    # 'story' 가 메인 입력. 하위호환: 'extra_instructions' 도 허용.
+    story = (brief.get("story") or brief.get("extra_instructions") or "").strip()
 
-    lines = [
+    lines = []
+    if story:
+        lines.append("# Story / Scene (primary — all variants must express this scene's emotional beat, tone, and setting)")
+        lines.append(story)
+        lines.append("")
+    lines.extend([
         f"Campaign: {campaign}",
         f"Angle preference: {angle}",
         f"Platform: {platform}",
         f"Tone: {tone}",
         f"Audience: {audience}",
-        f"Generate {n_variants} variants. Each should test a DIFFERENT hypothesis (different angle, emotional beat, or number anchor). Return JSON only.",
-    ]
-    if extra:
-        lines.append(f"\nExtra instructions:\n{extra}")
+        f"Generate {n_variants} variants. All variants share the story above but test DIFFERENT headlines/hypotheses (different number anchors, emotional beats, or entry hooks). Return JSON only.",
+    ])
     return "\n".join(lines)
 
 

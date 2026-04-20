@@ -24,10 +24,25 @@
 {% endblock %}
 
 {% block content %}
-<h1>카피 생성</h1>
+<h1>스토리보드</h1>
+<div style="font-size:12px; color:#718096; margin-top:-12px; margin-bottom:20px;">
+  스토리 하나로 카피와 이미지/영상 프롬프트를 일관되게 생성. 브리프는 톤·앵글만 잡고, <strong>스토리</strong>가 모든 출력의 중심.
+</div>
 
+<!-- ========= 1. 스토리 ========= -->
 <div class="card">
-  <h2>브리프</h2>
+  <h2>스토리 (중심 입력)</h2>
+  <textarea id="story" style="min-height:180px; width:100%; background:#0f1117; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:12px; font-size:13px; font-family:inherit; resize:vertical;"
+    placeholder="예)
+50대 한국 가장. 작업실 책상에서 오래된 편지봉투를 꺼낸다. 봉투 안에는 가족 이름이 적힌 쪽지. 창밖 아침 햇살이 비스듬히 책상 위로 떨어진다. 손끝이 이름 하나하나를 짚는다. 말은 없다. 그가 떠난 뒤에도 이 편지는 전달될 것이다."></textarea>
+  <div style="margin-top:8px; font-size:11px; color:#4a5568;">
+    한/영 무관, 씬·감정·등장 물체·조명을 구체적으로. 이 스토리가 카피 생성과 프롬프트 생성 모두에 들어갑니다.
+  </div>
+</div>
+
+<!-- ========= 2. 카피 브리프 ========= -->
+<div class="card">
+  <h2>카피 브리프</h2>
   <div class="form-grid">
     <div class="form-row">
       <label>Provider / Model</label>
@@ -86,12 +101,8 @@
       <input id="n_variants" type="number" min="1" max="8" value="3">
     </div>
   </div>
-  <div class="form-row" style="margin-top:14px;">
-    <label>Extra instructions (선택)</label>
-    <textarea id="extra" placeholder="예: FTX 사태 angle 강조, 숫자앵커는 12시간 우선"></textarea>
-  </div>
   <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btn-blue" id="gen-btn" onclick="generateCopy()">카피 생성</button>
+    <button class="btn btn-blue" id="gen-btn" onclick="generateCopy()">카피 생성 (스토리 기반)</button>
     <span id="status" style="font-size:12px; color:#718096;"></span>
   </div>
 </div>
@@ -107,13 +118,13 @@
   </div>
 </div>
 
-<!-- ========= 영문 프롬프트 생성 ========= -->
+<!-- ========= 3. 영문 프롬프트 생성 ========= -->
 <div class="card" style="margin-top:28px;">
   <h2>이미지 / 영상 영문 프롬프트 생성</h2>
   <div style="font-size:12px; color:#718096; margin-bottom:12px;">
-    위 카피(또는 그 외 아이디어)를 보고 브리프를 자유 입력 →
+    위의 <strong>스토리</strong>를 그대로 입력으로 사용 →
     LLM이 <strong>매우 상세한 영문 프롬프트</strong>를 1~5개 생성.
-    결과의 "이미지/영상 생성으로 보내기" 버튼으로 바로 전달.
+    결과의 "이미지/영상 생성으로 보내기" 버튼으로 바로 전달 (같은 스토리 = 일관된 비주얼).
   </div>
   <div class="form-grid">
     <div class="form-row">
@@ -147,14 +158,8 @@
       </select>
     </div>
   </div>
-  <div class="form-row" style="margin-top:14px;">
-    <label>브리프 (자유 입력, 한/영 무관)</label>
-    <textarea id="pg_brief" style="min-height:110px;"
-      placeholder="예: KR Reassurance 캠페인 이미지. 50대 한국 남성의 손이 오래된 편지봉투를 책상 위에 올려놓음. 창밖 아침 햇살. Variant 2 카피(안심 톤)의 분위기 반영. 로고 자리는 우하단. 글자 overlay는 상단 1/3."></textarea>
-  </div>
-  <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btn-blue" id="pg-btn" onclick="generatePrompts()">프롬프트 생성</button>
-    <button class="btn btn-gray" onclick="fillFromCopy()" title="가장 최근에 생성한 카피의 첫 Variant 가설+앵커를 브리프에 붙여넣기">최근 카피 힌트 채우기</button>
+  <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" id="pg-btn" onclick="generatePrompts()">프롬프트 생성 (스토리 기반)</button>
     <span id="pg_status" style="font-size:12px; color:#718096;"></span>
   </div>
 
@@ -175,6 +180,8 @@ function setStatus(msg, color) {
 }
 
 async function generateCopy() {
+  const story = v("story").trim();
+  if (!story) { setStatus("먼저 스토리를 입력하세요", "#fc8181"); return; }
   const brief = {
     campaign: v("campaign"),
     angle: v("angle"),
@@ -182,7 +189,7 @@ async function generateCopy() {
     tone: v("tone"),
     audience: v("audience"),
     n_variants: parseInt(v("n_variants"), 10) || 3,
-    extra_instructions: v("extra"),
+    story: story,
   };
   const payload = { brief, provider_id: v("provider_id") };
   const btn = document.getElementById("gen-btn");
@@ -272,28 +279,12 @@ function pgSetStatus(msg, color) {
   el.style.color = color || "#718096";
 }
 
-function fillFromCopy() {
-  const variants = window._variants || [];
-  if (!variants.length) { pgSetStatus("먼저 카피를 생성하세요", "#fc8181"); return; }
-  const v = variants[0];
-  const parts = [];
-  if (v.hypothesis || v.angle) parts.push(`가설/앵글: ${v.hypothesis || v.angle}`);
-  if (v.number_anchor) parts.push(`숫자 앵커: ${v.number_anchor}`);
-  if (v.ko && v.ko.headline) parts.push(`KR 헤드라인: ${v.ko.headline}`);
-  if (v.en && v.en.headline) parts.push(`EN headline: ${v.en.headline}`);
-  parts.push("");
-  parts.push("→ 위 분위기를 시각화할 수 있는 상세한 영문 이미지/영상 프롬프트를 생성해줘.");
-  const el = document.getElementById("pg_brief");
-  el.value = parts.join("\n");
-  el.focus();
-}
-
 async function generatePrompts() {
-  const brief = document.getElementById("pg_brief").value.trim();
-  if (!brief) { pgSetStatus("브리프 입력 필요", "#fc8181"); return; }
+  const story = document.getElementById("story").value.trim();
+  if (!story) { pgSetStatus("먼저 상단 스토리를 입력하세요", "#fc8181"); return; }
   const payload = {
     target: document.getElementById("pg_target").value,
-    brief_text: brief,
+    brief_text: story,
     aspect_ratio: document.getElementById("pg_aspect").value,
     n: parseInt(document.getElementById("pg_n").value, 10) || 2,
     provider_id: document.getElementById("pg_provider").value,
