@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}카피 생성 — OneMessage Ad Optimizer{% endblock %}
+{% block title %}스토리보드 — OneMessage Ad Optimizer{% endblock %}
 
 {% block head %}
 <style>
@@ -20,32 +20,30 @@
   .copy-btn { background: #2d3748; color: #a0aec0; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
   .copy-btn:hover { background: #4a5568; color: #e2e8f0; }
   pre.raw { background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; padding: 12px; font-size: 11px; color: #718096; overflow-x: auto; max-height: 260px; }
+  .section-divider { font-size: 11px; color: #4a5568; margin: 18px 0 10px; text-transform: uppercase; letter-spacing: 0.1em; border-top: 1px dashed #2d3748; padding-top: 14px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <h1>스토리보드</h1>
 <div style="font-size:12px; color:#718096; margin-top:-12px; margin-bottom:20px;">
-  스토리 하나로 카피와 이미지/영상 프롬프트를 일관되게 생성. 브리프는 톤·앵글만 잡고, <strong>스토리</strong>가 모든 출력의 중심.
+  스토리 하나로 카피와 이미지/영상 프롬프트를 <strong>한 번에</strong> 생성. 모든 출력이 같은 씬·감정을 공유.
 </div>
 
-<!-- ========= 1. 스토리 ========= -->
+<!-- ========= 통합 입력 카드 ========= -->
 <div class="card">
   <h2>스토리 (중심 입력)</h2>
   <textarea id="story" style="min-height:180px; width:100%; background:#0f1117; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:12px; font-size:13px; font-family:inherit; resize:vertical;"
     placeholder="예)
 50대 한국 가장. 작업실 책상에서 오래된 편지봉투를 꺼낸다. 봉투 안에는 가족 이름이 적힌 쪽지. 창밖 아침 햇살이 비스듬히 책상 위로 떨어진다. 손끝이 이름 하나하나를 짚는다. 말은 없다. 그가 떠난 뒤에도 이 편지는 전달될 것이다."></textarea>
   <div style="margin-top:8px; font-size:11px; color:#4a5568;">
-    한/영 무관, 씬·감정·등장 물체·조명을 구체적으로. 이 스토리가 카피 생성과 프롬프트 생성 모두에 들어갑니다.
+    한/영 무관, 씬·감정·등장 물체·조명을 구체적으로. 이 스토리가 카피와 프롬프트 모두에 들어갑니다.
   </div>
-</div>
 
-<!-- ========= 2. 카피 브리프 ========= -->
-<div class="card">
-  <h2>카피 브리프</h2>
+  <div class="section-divider">브리프 (카피 생성용)</div>
   <div class="form-grid">
     <div class="form-row">
-      <label>Provider / Model</label>
+      <label>Provider / Model (카피)</label>
       <select id="provider_id">
         {% for p in providers %}
           <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
@@ -97,35 +95,12 @@
       <input id="audience" type="text" placeholder="e.g. 40-60대 한국 가장 / US crypto holders">
     </div>
     <div class="form-row">
-      <label>Variants</label>
+      <label>Variants (카피 개수)</label>
       <input id="n_variants" type="number" min="1" max="8" value="3">
     </div>
   </div>
-  <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btn-blue" id="gen-btn" onclick="generateCopy()">카피 생성 (스토리 기반)</button>
-    <span id="status" style="font-size:12px; color:#718096;"></span>
-  </div>
-</div>
 
-<div id="results" style="display:none;">
-  <div class="card">
-    <h2>결과 <span id="meta-label" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
-    <div id="variants"></div>
-  </div>
-  <div class="card">
-    <h2>Raw JSON</h2>
-    <pre class="raw" id="raw-json"></pre>
-  </div>
-</div>
-
-<!-- ========= 3. 영문 프롬프트 생성 ========= -->
-<div class="card" style="margin-top:28px;">
-  <h2>이미지 / 영상 영문 프롬프트 생성</h2>
-  <div style="font-size:12px; color:#718096; margin-bottom:12px;">
-    위의 <strong>스토리</strong>를 그대로 입력으로 사용 →
-    LLM이 <strong>매우 상세한 영문 프롬프트</strong>를 1~5개 생성.
-    결과의 "이미지/영상 생성으로 보내기" 버튼으로 바로 전달 (같은 스토리 = 일관된 비주얼).
-  </div>
+  <div class="section-divider">프롬프트 옵션 (이미지·영상)</div>
   <div class="form-grid">
     <div class="form-row">
       <label>Target</label>
@@ -150,7 +125,7 @@
       <input id="pg_n" type="number" min="1" max="5" value="2">
     </div>
     <div class="form-row">
-      <label>Provider (텍스트 생성)</label>
+      <label>Provider (프롬프트)</label>
       <select id="pg_provider">
         {% for p in providers %}
           <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
@@ -158,13 +133,29 @@
       </select>
     </div>
   </div>
-  <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <button class="btn btn-blue" id="pg-btn" onclick="generatePrompts()">프롬프트 생성 (스토리 기반)</button>
-    <span id="pg_status" style="font-size:12px; color:#718096;"></span>
-  </div>
 
-  <div id="pg_results" style="display:none; margin-top:16px;">
-    <h2 style="margin-top:0;">생성된 프롬프트 <span id="pg_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
+  <div style="margin-top:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" id="gen-btn" onclick="generateAll()" style="font-weight:600;">카피 + 프롬프트 동시 생성</button>
+    <span id="status" style="font-size:12px; color:#718096;"></span>
+  </div>
+</div>
+
+<!-- ========= 카피 결과 ========= -->
+<div id="results" style="display:none;">
+  <div class="card">
+    <h2>카피 결과 <span id="meta-label" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
+    <div id="variants"></div>
+  </div>
+  <div class="card">
+    <h2>Raw JSON (카피)</h2>
+    <pre class="raw" id="raw-json"></pre>
+  </div>
+</div>
+
+<!-- ========= 프롬프트 결과 ========= -->
+<div id="pg_results" style="display:none;">
+  <div class="card">
+    <h2>프롬프트 결과 <span id="pg_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
     <div id="pg_list"></div>
   </div>
 </div>
@@ -178,10 +169,12 @@ function setStatus(msg, color) {
   el.textContent = msg;
   el.style.color = color || "#718096";
 }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+}
 
-async function generateCopy() {
-  const story = v("story").trim();
-  if (!story) { setStatus("먼저 스토리를 입력하세요", "#fc8181"); return; }
+// ========= 카피 생성 =========
+async function runCopy(story) {
   const brief = {
     campaign: v("campaign"),
     angle: v("angle"),
@@ -192,31 +185,62 @@ async function generateCopy() {
     story: story,
   };
   const payload = { brief, provider_id: v("provider_id") };
-  const btn = document.getElementById("gen-btn");
-  btn.disabled = true;
-  setStatus("생성 중… (보통 10~30초)", "#63b3ed");
-  try {
-    const r = await fetch("/creative/copy/generate", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      setStatus("에러: " + (data.detail || r.statusText), "#fc8181");
-      return;
-    }
-    renderResults(data);
-    setStatus("완료", "#68d391");
-  } catch (e) {
-    setStatus("네트워크 에러: " + e.message, "#fc8181");
-  } finally {
-    btn.disabled = false;
-  }
+  const r = await fetch("/creative/copy/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
 }
 
-function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+// ========= 프롬프트 생성 =========
+async function runPrompts(story) {
+  const payload = {
+    target: v("pg_target"),
+    brief_text: story,
+    aspect_ratio: v("pg_aspect"),
+    n: parseInt(v("pg_n"), 10) || 2,
+    provider_id: v("pg_provider"),
+  };
+  const r = await fetch("/creative/prompt/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return { data, target: payload.target, aspect: payload.aspect_ratio };
+}
+
+// ========= 통합 실행 =========
+async function generateAll() {
+  const story = v("story").trim();
+  if (!story) { setStatus("먼저 스토리를 입력하세요", "#fc8181"); return; }
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  setStatus("생성 중… 카피 + 프롬프트 병렬 (보통 15~40초)", "#63b3ed");
+
+  const [copyRes, pgRes] = await Promise.allSettled([runCopy(story), runPrompts(story)]);
+
+  const msgs = [];
+  if (copyRes.status === "fulfilled") {
+    renderResults(copyRes.value);
+    msgs.push(`✓ 카피 ${(copyRes.value.variants||[]).length}`);
+  } else {
+    msgs.push("✗ 카피: " + copyRes.reason.message);
+  }
+  if (pgRes.status === "fulfilled") {
+    renderPrompts(pgRes.value.data, pgRes.value.target, pgRes.value.aspect);
+    msgs.push(`✓ 프롬프트 ${(pgRes.value.data.prompts||[]).length}`);
+  } else {
+    msgs.push("✗ 프롬프트: " + pgRes.reason.message);
+  }
+
+  const bothOk = copyRes.status === "fulfilled" && pgRes.status === "fulfilled";
+  setStatus(msgs.join(" · "), bothOk ? "#68d391" : (copyRes.status === "fulfilled" || pgRes.status === "fulfilled" ? "#f6ad55" : "#fc8181"));
+  btn.disabled = false;
 }
 
 function renderResults(data) {
@@ -272,46 +296,8 @@ function copyVariant(i) {
   navigator.clipboard.writeText(text).then(() => setStatus(`Variant ${i+1} 복사됨`, "#68d391"));
 }
 
-// ========= 프롬프트 생성 =========
-function pgSetStatus(msg, color) {
-  const el = document.getElementById("pg_status");
-  el.textContent = msg;
-  el.style.color = color || "#718096";
-}
-
-async function generatePrompts() {
-  const story = document.getElementById("story").value.trim();
-  if (!story) { pgSetStatus("먼저 상단 스토리를 입력하세요", "#fc8181"); return; }
-  const payload = {
-    target: document.getElementById("pg_target").value,
-    brief_text: story,
-    aspect_ratio: document.getElementById("pg_aspect").value,
-    n: parseInt(document.getElementById("pg_n").value, 10) || 2,
-    provider_id: document.getElementById("pg_provider").value,
-  };
-  const btn = document.getElementById("pg-btn");
-  btn.disabled = true;
-  pgSetStatus("프롬프트 생성 중…", "#63b3ed");
-  try {
-    const r = await fetch("/creative/prompt/generate", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
-    const data = await r.json();
-    if (!r.ok) { pgSetStatus("에러: " + (data.detail || r.statusText), "#fc8181"); return; }
-    renderPrompts(data, payload.target, payload.aspect_ratio);
-    pgSetStatus(`완료 (${(data.prompts||[]).length}개)`, "#68d391");
-  } catch (e) {
-    pgSetStatus("네트워크 에러: " + e.message, "#fc8181");
-  } finally {
-    btn.disabled = false;
-  }
-}
-
 function renderPrompts(data, target, aspect) {
-  const box = document.getElementById("pg_results");
-  box.style.display = "block";
+  document.getElementById("pg_results").style.display = "block";
   const meta = data._meta || {};
   document.getElementById("pg_meta").textContent = `— ${target} · ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
   const prompts = data.prompts || [];
@@ -336,7 +322,7 @@ function renderPrompts(data, target, aspect) {
 function pgCopy(i) {
   const p = (window._pg_prompts || [])[i];
   if (!p) return;
-  navigator.clipboard.writeText(p).then(() => pgSetStatus(`Prompt ${i+1} 복사됨`, "#68d391"));
+  navigator.clipboard.writeText(p).then(() => setStatus(`Prompt ${i+1} 복사됨`, "#68d391"));
 }
 
 function pgSendTo(i, target, aspect) {
@@ -346,7 +332,7 @@ function pgSendTo(i, target, aspect) {
   localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
   const url = target === "video" ? "/creative/video" : "/creative/image";
   window.open(url, "_blank");
-  pgSetStatus(`Prompt ${i+1} → ${target} 페이지로 전송 (새 탭)`, "#68d391");
+  setStatus(`Prompt ${i+1} → ${target} 페이지로 전송 (새 탭)`, "#68d391");
 }
 </script>
 {% endblock %}
