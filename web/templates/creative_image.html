@@ -114,6 +114,25 @@ function esc(s) {
   return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 }
 
+// handoff: /creative/copy 에서 "→ 이미지 생성" 으로 전달된 프롬프트 자동 채움
+(function applyHandoff() {
+  try {
+    const raw = localStorage.getItem("creative_prompt_handoff");
+    if (!raw) return;
+    const h = JSON.parse(raw);
+    if (!h || !h.prompt) return;
+    // 5분 이내만 자동 적용
+    if (Date.now() - (h.ts || 0) > 5 * 60 * 1000) return;
+    document.getElementById("prompt").value = h.prompt;
+    if (h.aspect_ratio) {
+      const sel = document.getElementById("aspect_ratio");
+      for (const opt of sel.options) { if (opt.value === h.aspect_ratio) { sel.value = h.aspect_ratio; break; } }
+    }
+    localStorage.removeItem("creative_prompt_handoff");
+    setStatus("카피 페이지에서 전달된 프롬프트 자동 채움", "#68d391");
+  } catch (e) {}
+})();
+
 function renderGallery(images) {
   document.getElementById("results").style.display = "block";
   const box = document.getElementById("gallery");

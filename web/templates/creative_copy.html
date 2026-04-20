@@ -106,6 +106,63 @@
     <pre class="raw" id="raw-json"></pre>
   </div>
 </div>
+
+<!-- ========= 영문 프롬프트 생성 ========= -->
+<div class="card" style="margin-top:28px;">
+  <h2>이미지 / 영상 영문 프롬프트 생성</h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:12px;">
+    위 카피(또는 그 외 아이디어)를 보고 브리프를 자유 입력 →
+    LLM이 <strong>매우 상세한 영문 프롬프트</strong>를 1~5개 생성.
+    결과의 "이미지/영상 생성으로 보내기" 버튼으로 바로 전달.
+  </div>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>Target</label>
+      <select id="pg_target">
+        <option value="image" selected>이미지 프롬프트</option>
+        <option value="video">영상 프롬프트</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Aspect Ratio (참고)</label>
+      <select id="pg_aspect">
+        <option value="4:5">4:5 (Meta Feed)</option>
+        <option value="1:1">1:1</option>
+        <option value="9:16">9:16 (Reels / Shorts)</option>
+        <option value="16:9">16:9</option>
+        <option value="3:4">3:4</option>
+        <option value="2:3">2:3</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Prompt 개수 (n)</label>
+      <input id="pg_n" type="number" min="1" max="5" value="2">
+    </div>
+    <div class="form-row">
+      <label>Provider (텍스트 생성)</label>
+      <select id="pg_provider">
+        {% for p in providers %}
+          <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="form-row" style="margin-top:14px;">
+    <label>브리프 (자유 입력, 한/영 무관)</label>
+    <textarea id="pg_brief" style="min-height:110px;"
+      placeholder="예: KR Reassurance 캠페인 이미지. 50대 한국 남성의 손이 오래된 편지봉투를 책상 위에 올려놓음. 창밖 아침 햇살. Variant 2 카피(안심 톤)의 분위기 반영. 로고 자리는 우하단. 글자 overlay는 상단 1/3."></textarea>
+  </div>
+  <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
+    <button class="btn btn-blue" id="pg-btn" onclick="generatePrompts()">프롬프트 생성</button>
+    <button class="btn btn-gray" onclick="fillFromCopy()" title="가장 최근에 생성한 카피의 첫 Variant 가설+앵커를 브리프에 붙여넣기">최근 카피 힌트 채우기</button>
+    <span id="pg_status" style="font-size:12px; color:#718096;"></span>
+  </div>
+
+  <div id="pg_results" style="display:none; margin-top:16px;">
+    <h2 style="margin-top:0;">생성된 프롬프트 <span id="pg_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
+    <div id="pg_list"></div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -206,6 +263,99 @@ function copyVariant(i) {
   if (!v) return;
   const text = JSON.stringify(v, null, 2);
   navigator.clipboard.writeText(text).then(() => setStatus(`Variant ${i+1} 복사됨`, "#68d391"));
+}
+
+// ========= 프롬프트 생성 =========
+function pgSetStatus(msg, color) {
+  const el = document.getElementById("pg_status");
+  el.textContent = msg;
+  el.style.color = color || "#718096";
+}
+
+function fillFromCopy() {
+  const variants = window._variants || [];
+  if (!variants.length) { pgSetStatus("먼저 카피를 생성하세요", "#fc8181"); return; }
+  const v = variants[0];
+  const parts = [];
+  if (v.hypothesis || v.angle) parts.push(`가설/앵글: ${v.hypothesis || v.angle}`);
+  if (v.number_anchor) parts.push(`숫자 앵커: ${v.number_anchor}`);
+  if (v.ko && v.ko.headline) parts.push(`KR 헤드라인: ${v.ko.headline}`);
+  if (v.en && v.en.headline) parts.push(`EN headline: ${v.en.headline}`);
+  parts.push("");
+  parts.push("→ 위 분위기를 시각화할 수 있는 상세한 영문 이미지/영상 프롬프트를 생성해줘.");
+  const el = document.getElementById("pg_brief");
+  el.value = parts.join("\n");
+  el.focus();
+}
+
+async function generatePrompts() {
+  const brief = document.getElementById("pg_brief").value.trim();
+  if (!brief) { pgSetStatus("브리프 입력 필요", "#fc8181"); return; }
+  const payload = {
+    target: document.getElementById("pg_target").value,
+    brief_text: brief,
+    aspect_ratio: document.getElementById("pg_aspect").value,
+    n: parseInt(document.getElementById("pg_n").value, 10) || 2,
+    provider_id: document.getElementById("pg_provider").value,
+  };
+  const btn = document.getElementById("pg-btn");
+  btn.disabled = true;
+  pgSetStatus("프롬프트 생성 중…", "#63b3ed");
+  try {
+    const r = await fetch("/creative/prompt/generate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) { pgSetStatus("에러: " + (data.detail || r.statusText), "#fc8181"); return; }
+    renderPrompts(data, payload.target, payload.aspect_ratio);
+    pgSetStatus(`완료 (${(data.prompts||[]).length}개)`, "#68d391");
+  } catch (e) {
+    pgSetStatus("네트워크 에러: " + e.message, "#fc8181");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderPrompts(data, target, aspect) {
+  const box = document.getElementById("pg_results");
+  box.style.display = "block";
+  const meta = data._meta || {};
+  document.getElementById("pg_meta").textContent = `— ${target} · ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
+  const prompts = data.prompts || [];
+  const list = document.getElementById("pg_list");
+  if (!prompts.length) { list.innerHTML = '<div class="empty">프롬프트 없음 — 응답 JSON 확인</div>'; return; }
+  list.innerHTML = prompts.map((p, i) => `
+    <div class="variant-card">
+      <div class="variant-head">
+        <strong>Prompt ${i + 1}</strong>
+        <div style="display:flex; gap:6px;">
+          <button class="copy-btn" onclick='pgCopy(${i})'>복사</button>
+          <button class="copy-btn" onclick='pgSendTo(${i}, "image", "${aspect}")' style="background:#2b4c7e; color:#bee3f8;">→ 이미지 생성</button>
+          <button class="copy-btn" onclick='pgSendTo(${i}, "video", "${aspect}")' style="background:#276749; color:#c6f6d5;">→ 영상 생성</button>
+        </div>
+      </div>
+      <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; color:#cbd5e0;">${esc(p)}</div>
+    </div>
+  `).join("");
+  window._pg_prompts = prompts;
+}
+
+function pgCopy(i) {
+  const p = (window._pg_prompts || [])[i];
+  if (!p) return;
+  navigator.clipboard.writeText(p).then(() => pgSetStatus(`Prompt ${i+1} 복사됨`, "#68d391"));
+}
+
+function pgSendTo(i, target, aspect) {
+  const p = (window._pg_prompts || [])[i];
+  if (!p) return;
+  const handoff = { prompt: p, aspect_ratio: aspect, ts: Date.now() };
+  localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
+  const url = target === "video" ? "/creative/video" : "/creative/image";
+  window.open(url, "_blank");
+  pgSetStatus(`Prompt ${i+1} → ${target} 페이지로 전송 (새 탭)`, "#68d391");
 }
 </script>
 {% endblock %}

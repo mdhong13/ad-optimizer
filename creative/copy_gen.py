@@ -152,32 +152,41 @@ async def _call_local_vllm(system: str, user: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+async def call_llm_text(provider_id: str, system: str, user: str) -> dict:
+    """
+    텍스트-only LLM 호출 라우터 (JSON 강제 없음).
+    반환: {"text": str, "provider": ..., "model": ..., "provider_id": ...}
+    """
+    provider = find_copy_provider(provider_id)
+    log.info("[creative.llm] provider=%s model=%s", provider["provider"], provider["model"])
+    if provider["provider"] == "anthropic":
+        text = await _call_anthropic(provider["model"], system, user)
+    elif provider["provider"] == "openai":
+        text = await _call_openai(provider["model"], system, user)
+    elif provider["provider"] == "gemini":
+        text = await _call_gemini(provider["model"], system, user)
+    elif provider["provider"] == "local":
+        text = await _call_local_vllm(system, user)
+    else:
+        raise ValueError(f"Unknown provider: {provider['provider']}")
+    return {"text": text, "provider": provider["provider"], "model": provider["model"], "provider_id": provider["id"]}
+
+
 async def generate_copy(brief: dict, provider_id: str) -> dict:
     """
     브리프 → LLM 호출 → JSON 파싱.
 
     반환: {"variants": [...], "_meta": {"provider": ..., "model": ...}}
     """
-    provider = find_copy_provider(provider_id)
     system = _system_prompt()
     user = _user_message(brief)
-    log.info("[creative.copy] provider=%s model=%s", provider["provider"], provider["model"])
-
-    if provider["provider"] == "anthropic":
-        raw = await _call_anthropic(provider["model"], system, user)
-    elif provider["provider"] == "openai":
-        raw = await _call_openai(provider["model"], system, user)
-    elif provider["provider"] == "gemini":
-        raw = await _call_gemini(provider["model"], system, user)
-    elif provider["provider"] == "local":
-        raw = await _call_local_vllm(system, user)
-    else:
-        raise ValueError(f"Unknown provider: {provider['provider']}")
+    result = await call_llm_text(provider_id, system, user)
+    raw = result["text"]
 
     try:
         parsed = _extract_json(raw)
     except json.JSONDecodeError as e:
         log.error("[creative.copy] JSON parse failed: %s\nraw=%s", e, raw[:500])
         raise
-    parsed["_meta"] = {"provider": provider["provider"], "model": provider["model"], "provider_id": provider["id"]}
+    parsed["_meta"] = {"provider": result["provider"], "model": result["model"], "provider_id": result["provider_id"]}
     return parsed

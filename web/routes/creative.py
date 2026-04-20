@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
-from creative import copy_gen, image_gen, video_gen
+from creative import copy_gen, image_gen, video_gen, prompt_gen
 from creative.models import (
     COPY_PROVIDERS, COPY_DEFAULT_ID,
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
@@ -67,6 +67,27 @@ async def api_copy_generate(payload: dict):
         result = await copy_gen.generate_copy(brief, provider_id)
     except Exception as e:
         log.exception("[creative.copy] generate failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+# ---------- API: Prompt generation (detailed English prompts for image/video) ----------
+
+@router.post("/prompt/generate")
+async def api_prompt_generate(payload: dict):
+    target = (payload.get("target") or "").strip()
+    if target not in ("image", "video"):
+        raise HTTPException(status_code=400, detail="target은 'image' 또는 'video'")
+    brief_text = (payload.get("brief_text") or "").strip()
+    if not brief_text:
+        raise HTTPException(status_code=400, detail="brief_text 필수")
+    aspect_ratio = payload.get("aspect_ratio") or ""
+    n = int(payload.get("n") or 2)
+    provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    try:
+        result = await prompt_gen.generate_prompts(target, brief_text, aspect_ratio, n, provider_id)
+    except Exception as e:
+        log.exception("[creative.prompt] generate failed")
         raise HTTPException(status_code=500, detail=str(e))
     return result
 
