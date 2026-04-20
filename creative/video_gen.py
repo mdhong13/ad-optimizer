@@ -57,8 +57,9 @@ async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16"
     async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.post(url, json=payload)
         if r.status_code >= 400:
-            log.error("[creative.video] start failed %s: %s", r.status_code, r.text[:500])
-            r.raise_for_status()
+            body = r.text[:800]
+            log.error("[creative.video] start failed %s: %s", r.status_code, body)
+            raise RuntimeError(f"Veo {r.status_code}: {body}")
         data = r.json()
 
     op_name = data.get("name")
