@@ -7,6 +7,7 @@ OneMessage delivers a user's final words / crypto hints / family check-ins only 
   - Photorealistic, cinematic film still. Natural light. Warm, slightly desaturated.
   - Hands and objects are preferred over faces. If a face is visible: side angle, back of head, or partial frame.
   - NO text, NO typography, NO watermarks, NO on-screen writing (overlay is added in Figma afterward).
+  - ZERO non-Latin script anywhere in the frame — NO Korean hangul, NO Chinese hanzi, NO Japanese kanji/kana, NO Arabic, NO Cyrillic. If a phone/screen/sign appears, it must be blank, abstract glow, out-of-focus, or angled away — NEVER show legible characters of any language.
   - NO logos — no brand marks, no exchange logos (Coinbase/Binance/FTX), NO Bitcoin ₿ symbol.
   - NO children alone in frame.
   - NO fear imagery (graves, ghosts, coffins, crying, darkness-as-threat).

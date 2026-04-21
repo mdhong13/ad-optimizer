@@ -32,6 +32,7 @@ def _user_message(brief: dict) -> str:
     n_variants = int(brief.get("n_variants", 3))
     tone = brief.get("tone", "reassurance")
     audience = brief.get("audience", "general")
+    language = (brief.get("language") or "both").lower()  # "kr" | "en" | "both"
     # 'story' 가 메인 입력. 하위호환: 'extra_instructions' 도 허용.
     story = (brief.get("story") or brief.get("extra_instructions") or "").strip()
 
@@ -46,8 +47,25 @@ def _user_message(brief: dict) -> str:
         f"Platform: {platform}",
         f"Tone: {tone}",
         f"Audience: {audience}",
-        f"Generate {n_variants} variants. All variants share the story above but test DIFFERENT headlines/hypotheses (different number anchors, emotional beats, or entry hooks). Return JSON only.",
     ])
+    if language == "kr":
+        lines.append(
+            "# LANGUAGE MODE: KOREAN ONLY.\n"
+            "Output ONLY Korean fields: headline_kr, body_kr, cta_kr.\n"
+            "SET headline_en, body_en, cta_en to empty strings. Do NOT write English versions.\n"
+            "Even if the story is written in English, all output copy must be in natural native Korean (not a translation)."
+        )
+    elif language == "en":
+        lines.append(
+            "# LANGUAGE MODE: ENGLISH ONLY.\n"
+            "Output ONLY English fields: headline_en, body_en, cta_en.\n"
+            "SET headline_kr, body_kr, cta_kr to empty strings. Do NOT write Korean versions.\n"
+            "Even if the story is written in Korean, all output copy must be in natural native English (not a translation). "
+            "If the story describes a Korean setting/protagonist, keep the cultural texture but write the copy for an English-reading audience."
+        )
+    else:
+        lines.append("# LANGUAGE MODE: BILINGUAL (KR + EN independently composed, not translations).")
+    lines.append(f"Generate {n_variants} variants. All variants share the story above but test DIFFERENT headlines/hypotheses (different number anchors, emotional beats, or entry hooks). Return JSON only.")
     return "\n".join(lines)
 
 

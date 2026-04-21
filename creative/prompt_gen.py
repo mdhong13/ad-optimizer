@@ -25,9 +25,21 @@ def _load_system(target: str) -> str:
 
 def _user_message(brief_text: str, aspect_ratio: str, n: int, target: str) -> str:
     ar_note = f"Aspect ratio: {aspect_ratio}." if aspect_ratio else ""
+    # image/video 모델은 영어로만 충실히 이해함. 한글·한자 등 비라틴 문자열은
+    # 화면(디바이스·간판 등) 렌더링을 오염시키므로 명시적으로 금지.
+    language_guard = (
+        "CRITICAL SCRIPT RULE — The entire prompt MUST be in English. "
+        "Even if the user brief is written in Korean, rewrite all described content in English. "
+        "ANY device screens, signs, labels, packaging, or UI elements visible in the scene MUST be blank, "
+        "abstract, out-of-focus, or in natural-looking English only. "
+        "ABSOLUTELY NO on-screen text in Korean (hangul), Chinese (hanzi), or Japanese (kanji/kana). "
+        "If a phone is shown, its screen must either be completely blank, show abstract glow/UI shapes, "
+        "or be angled so the screen contents are not legible."
+    )
     return (
         f"User brief:\n{brief_text.strip()}\n\n"
         f"{ar_note}\n"
+        f"{language_guard}\n"
         f"Produce {n} clearly distinct {target} prompt(s). Return JSON only as specified."
     )
 

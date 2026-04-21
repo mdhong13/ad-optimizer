@@ -51,6 +51,14 @@
       </select>
     </div>
     <div class="form-row">
+      <label>Language (출력 언어)</label>
+      <select id="language">
+        <option value="kr">한국어만</option>
+        <option value="en">English only</option>
+        <option value="both" selected>Bilingual (KR + EN)</option>
+      </select>
+    </div>
+    <div class="form-row">
       <label>Campaign</label>
       <input id="campaign" type="text" value="kr_reassurance_v1" list="campaign_list">
       <datalist id="campaign_list">
@@ -185,6 +193,7 @@ async function runCopy(story) {
     tone: v("tone"),
     audience: v("audience"),
     n_variants: parseInt(v("n_variants"), 10) || 3,
+    language: v("language"),
     story: story,
   };
   const payload = { brief, provider_id: v("provider_id") };
@@ -268,29 +277,46 @@ function renderResults(data) {
   if (!variants.length) { box.innerHTML = '<div class="empty">variants 없음</div>'; return; }
 
   box.innerHTML = variants.map((v, i) => {
-    const ko = v.ko || {};
-    const en = v.en || {};
-    const hyp = v.hypothesis || v.angle || "";
+    // LLM 출력: flat fields (headline_kr, body_kr, cta_kr, headline_en, ...)
+    // 하위호환: v.ko / v.en 중첩 구조도 지원
+    const ko = {
+      headline: (v.ko && v.ko.headline) || v.headline_kr || "",
+      body:     (v.ko && v.ko.body)     || v.body_kr     || "",
+      cta:      (v.ko && v.ko.cta)      || v.cta_kr      || "",
+    };
+    const en = {
+      headline: (v.en && v.en.headline) || v.headline_en || "",
+      body:     (v.en && v.en.body)     || v.body_en     || "",
+      cta:      (v.en && v.en.cta)      || v.cta_en      || "",
+    };
+    const hyp = v.hypothesis || v.rationale || v.angle || "";
     const anchor = v.number_anchor || "";
+    const hasKo = !!(ko.headline || ko.body || ko.cta);
+    const hasEn = !!(en.headline || en.body || en.cta);
+    const koBlock = hasKo ? `
+          <div>
+            <div class="lang-tag">🇰🇷 KO</div>
+            <div><strong>${esc(ko.headline)}</strong></div>
+            <div style="margin-top:6px;">${esc(ko.body)}</div>
+            ${ko.cta ? `<div style="margin-top:6px; color:#68d391;">CTA: ${esc(ko.cta)}</div>` : ""}
+          </div>` : "";
+    const enBlock = hasEn ? `
+          <div>
+            <div class="lang-tag">🇬🇧 EN</div>
+            <div><strong>${esc(en.headline)}</strong></div>
+            <div style="margin-top:6px;">${esc(en.body)}</div>
+            ${en.cta ? `<div style="margin-top:6px; color:#68d391;">CTA: ${esc(en.cta)}</div>` : ""}
+          </div>` : "";
+    const onlyOne = (hasKo && !hasEn) || (!hasKo && hasEn);
+    const blockStyle = onlyOne ? "grid-template-columns: 1fr;" : "";
     return `
       <div class="variant-card">
         <div class="variant-head">
           <strong>Variant ${i + 1}</strong>
           <button class="copy-btn" onclick='copyVariant(${i})'>복사</button>
         </div>
-        <div class="lang-block">
-          <div>
-            <div class="lang-tag">🇰🇷 KO</div>
-            <div><strong>${esc(ko.headline || "")}</strong></div>
-            <div style="margin-top:6px;">${esc(ko.body || "")}</div>
-            ${ko.cta ? `<div style="margin-top:6px; color:#68d391;">CTA: ${esc(ko.cta)}</div>` : ""}
-          </div>
-          <div>
-            <div class="lang-tag">🇬🇧 EN</div>
-            <div><strong>${esc(en.headline || "")}</strong></div>
-            <div style="margin-top:6px;">${esc(en.body || "")}</div>
-            ${en.cta ? `<div style="margin-top:6px; color:#68d391;">CTA: ${esc(en.cta)}</div>` : ""}
-          </div>
+        <div class="lang-block" style="${blockStyle}">
+          ${koBlock}${enBlock}
         </div>
         <div class="meta-row">
           ${hyp ? `가설: <strong>${esc(hyp)}</strong>` : ""}

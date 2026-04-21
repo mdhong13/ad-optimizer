@@ -14,6 +14,7 @@ OneMessage delivers a user's final words / crypto hints / family check-ins only 
   - Photorealistic, cinematic film still quality. Natural or motivated light. Warm, slightly desaturated.
   - Hands and objects preferred. Faces only partially (side, back of head, over-shoulder).
   - NO on-screen text, NO typography, NO watermarks.
+  - ZERO non-Latin script in any frame — NO Korean hangul, NO Chinese hanzi, NO Japanese kanji/kana. If a phone screen is shown, describe it as blank, abstract glowing UI shapes, soft bokeh, or angled so contents are never readable. If signage appears in the background, specify it as out-of-focus or blurred. Mention this explicitly: "phone screen shows only abstract soft glow, no readable characters in any language".
   - NO logos, NO exchange names, NO Bitcoin ₿ symbol, NO cryptocurrency iconography on screen.
   - NO children alone in frame.
   - NO fear imagery (graves, coffins, ghosts, crying faces, darkness-as-threat).
