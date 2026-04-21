@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
-from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize
+from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize, tts, tts_script_gen, voices
 from creative.models import (
     COPY_PROVIDERS, COPY_DEFAULT_ID,
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
@@ -33,6 +33,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 async def creative_root(request: Request):
     return templates.TemplateResponse(request, "creative_copy.html", {
         "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
+        "voice_presets": voices.load_voice_presets(),
     })
 
 
@@ -40,6 +41,7 @@ async def creative_root(request: Request):
 async def page_copy(request: Request):
     return templates.TemplateResponse(request, "creative_copy.html", {
         "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
+        "voice_presets": voices.load_voice_presets(),
     })
 
 
@@ -143,6 +145,46 @@ async def api_image_resize(payload: dict):
         log.exception("[creative.image.resize] failed")
         raise HTTPException(status_code=500, detail=str(e))
     return {"results": results}
+
+
+# ---------- API: TTS ----------
+
+@router.get("/tts/voices")
+async def api_tts_voices():
+    return {"presets": voices.load_voice_presets()}
+
+
+@router.post("/tts/script")
+async def api_tts_script(payload: dict):
+    story = (payload.get("story") or payload.get("brief_text") or "").strip()
+    if not story:
+        raise HTTPException(status_code=400, detail="story 필수")
+    n_shots = int(payload.get("n_shots") or 3)
+    language = (payload.get("language") or "en").strip().lower()
+    provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    try:
+        result = await tts_script_gen.generate_script(story, n_shots, language, provider_id)
+    except Exception as e:
+        log.exception("[creative.tts] script failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+@router.post("/tts/synthesize")
+async def api_tts_synthesize(payload: dict):
+    preset_id = (payload.get("preset_id") or "").strip()
+    text = (payload.get("text") or "").strip()
+    if not preset_id:
+        raise HTTPException(status_code=400, detail="preset_id 필수")
+    if not text:
+        raise HTTPException(status_code=400, detail="text 필수")
+    options = payload.get("options") or {}
+    try:
+        result = await tts.synthesize(preset_id, text, options)
+    except Exception as e:
+        log.exception("[creative.tts] synthesize failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
 
 
 # ---------- API: Video ----------

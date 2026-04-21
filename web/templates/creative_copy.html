@@ -192,6 +192,37 @@
     <div id="pg_vid_list"></div>
   </div>
 </div>
+
+<!-- ========= 대사 (TTS) ========= -->
+<div class="card">
+  <h2>🎙️ 보이스오버 대사 <span style="font-weight:400; color:#718096; font-size:12px;">— 8초 샷당 1줄, 수동 편집 후 합성</span></h2>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>보이스 프리셋</label>
+      <select id="tts_preset">
+        {% for p in voice_presets %}
+          <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>대사 언어</label>
+      <select id="tts_lang">
+        <option value="en">English</option>
+        <option value="kr">한국어</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>샷 개수</label>
+      <input id="tts_n" type="number" min="1" max="3" value="3">
+    </div>
+  </div>
+  <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-gray" onclick="generateScript()">대사 생성 (스토리 기반)</button>
+    <span id="tts_status" style="font-size:12px; color:#718096;"></span>
+  </div>
+  <div id="tts_lines" style="margin-top:16px;"></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -431,6 +462,75 @@ function pgSendAllVideos(aspect, n) {
   localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
   window.open("/creative/video", "_blank");
   setStatus(`${prompts.length}샷 시퀀스 → 영상 페이지로 전송 (새 탭)`, "#68d391");
+}
+
+// ========= TTS 대사 =========
+function ttsStatus(msg, color) {
+  const el = document.getElementById("tts_status");
+  el.textContent = msg; el.style.color = color || "#718096";
+}
+
+async function generateScript() {
+  const story = v("story").trim();
+  if (!story) { ttsStatus("먼저 스토리 입력 필요", "#fc8181"); return; }
+  ttsStatus("대사 생성 중…", "#63b3ed");
+  try {
+    const r = await fetch("/creative/tts/script", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        story, language: v("tts_lang"),
+        n_shots: parseInt(v("tts_n"), 10) || 3,
+        provider_id: v("provider_id"),
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    renderLines(data.lines || []);
+    ttsStatus(`✓ ${data.lines.length}줄 생성 (${data._meta.model})`, "#68d391");
+  } catch (e) {
+    ttsStatus("✗ " + e.message, "#fc8181");
+  }
+}
+
+function renderLines(lines) {
+  const box = document.getElementById("tts_lines");
+  box.innerHTML = lines.map((line, i) => `
+    <div class="variant-card" data-shot="${i+1}">
+      <div class="variant-head">
+        <strong>Shot ${i + 1} 대사 <span style="color:#718096; font-weight:400; font-size:11px;">(8초)</span></strong>
+        <div style="display:flex; gap:6px;">
+          <span class="tts-audio-slot" data-shot="${i+1}"></span>
+          <button class="copy-btn" onclick="synthLine(${i+1})" style="background:#276749; color:#c6f6d5;">🔊 합성</button>
+        </div>
+      </div>
+      <textarea class="tts-line" data-shot="${i+1}" rows="2" style="width:100%; background:#1a1f2e; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:10px; font-size:13px; line-height:1.55; font-family:inherit; resize:vertical;">${esc(line)}</textarea>
+    </div>
+  `).join("");
+}
+
+async function synthLine(shotIdx) {
+  const ta = document.querySelector(`textarea.tts-line[data-shot="${shotIdx}"]`);
+  if (!ta) return;
+  const text = ta.value.trim();
+  if (!text) { ttsStatus(`Shot ${shotIdx}: 빈 대사`, "#fc8181"); return; }
+  const slot = document.querySelector(`.tts-audio-slot[data-shot="${shotIdx}"]`);
+  slot.innerHTML = `<span style="font-size:11px; color:#63b3ed;">합성 중…</span>`;
+  ttsStatus(`Shot ${shotIdx} 합성 중…`, "#63b3ed");
+  try {
+    const r = await fetch("/creative/tts/synthesize", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ preset_id: v("tts_preset"), text }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    slot.innerHTML = `<audio controls preload="metadata" src="${esc(data.url)}" style="height:30px; vertical-align:middle;"></audio>`;
+    ttsStatus(`✓ Shot ${shotIdx} 합성 완료`, "#68d391");
+  } catch (e) {
+    slot.innerHTML = "";
+    ttsStatus(`✗ Shot ${shotIdx}: ${e.message}`, "#fc8181");
+  }
 }
 </script>
 {% endblock %}

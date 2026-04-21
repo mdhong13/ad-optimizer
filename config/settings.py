@@ -28,6 +28,10 @@ class Settings:
     # --- Gemini ---
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
+    # --- TTS (영상 보이스오버) ---
+    ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
+    TYPECAST_API_KEY: str = os.getenv("TYPECAST_API_KEY", "")
+
     # --- Meta Ads ---
     META_APP_ID: str = os.getenv("META_APP_ID", "")
     META_APP_SECRET: str = os.getenv("META_APP_SECRET", "")
