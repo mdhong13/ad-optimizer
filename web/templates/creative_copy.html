@@ -52,10 +52,9 @@
     </div>
     <div class="form-row">
       <label>Language (출력 언어)</label>
-      <select id="language">
-        <option value="kr">한국어만</option>
-        <option value="en">English only</option>
-        <option value="both" selected>Bilingual (KR + EN)</option>
+      <select id="language" onchange="syncTtsLang()">
+        <option value="kr" selected>🇰🇷 한국어 전용</option>
+        <option value="en">🇬🇧 English only (한글 입력 시 자동 영문 번역)</option>
       </select>
     </div>
     <div class="form-row">
@@ -206,10 +205,10 @@
       </select>
     </div>
     <div class="form-row">
-      <label>대사 언어</label>
+      <label>대사 언어 <span style="color:#f6ad55; font-size:10px;">(상단 Language와 연동)</span></label>
       <select id="tts_lang">
-        <option value="en">English</option>
         <option value="kr">한국어</option>
+        <option value="en">English</option>
       </select>
     </div>
     <div class="form-row">
@@ -469,6 +468,23 @@ function ttsStatus(msg, color) {
   const el = document.getElementById("tts_status");
   el.textContent = msg; el.style.color = color || "#718096";
 }
+
+// 상단 Language 변경 시 TTS 언어 + 보이스 프리셋 자동 동기화
+function syncTtsLang() {
+  const mainLang = v("language");  // "kr" | "en"
+  const tts = document.getElementById("tts_lang");
+  if (tts) tts.value = mainLang;
+  // 언어에 맞는 첫 보이스로 자동 전환
+  const preset = document.getElementById("tts_preset");
+  if (preset) {
+    const want = mainLang === "kr" ? "_kr_" : "_en_";
+    for (const opt of preset.options) {
+      if (opt.value.includes(want)) { preset.value = opt.value; break; }
+    }
+  }
+}
+// 초기 1회 동기화
+document.addEventListener("DOMContentLoaded", syncTtsLang);
 
 async function generateScript() {
   const story = v("story").trim();
