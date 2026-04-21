@@ -137,6 +137,28 @@
     이미지 프롬프트는 safe-area composition 적용 — 같은 이미지를 다른 비율(1:1, 4:5, 9:16 등)로 재크롭해도 주요 피사체가 잘리지 않도록 중앙 60%에 배치 지시.
   </div>
 
+  <div class="section-divider">화면 표시 요구사항 (선택) — 프레임 안에 <em>반드시</em> 들어갈 요소</div>
+  <div class="form-grid">
+    <div class="form-row" style="grid-column: span 2;">
+      <label>📱 핸드폰·기기 화면에 표시할 텍스트 (legibility exception)</label>
+      <textarea id="pg_phone_text" placeholder="예) &#10;Check the toolbox — USB inside.&#10;100 BTC. I love you.&#10;&#10;이 텍스트는 프레임 안 '단 하나의' 기기 화면 안에 natural messaging UI로 렌더됨. 비워두면 일반 규칙(화면 blank) 적용."></textarea>
+    </div>
+    <div class="form-row">
+      <label>화면 텍스트 언어</label>
+      <select id="pg_screen_lang">
+        <option value="en" selected>EN (권장 — Meta 반려율 낮음)</option>
+        <option value="kr">KR (한글 — 화면 안에서만 허용)</option>
+      </select>
+    </div>
+    <div class="form-row" style="grid-column: span 3;">
+      <label>🎬 반드시 포함 (소품·배경·인물 특징 — 화면 텍스트 아님)</label>
+      <textarea id="pg_must_show" placeholder="예) 전투 조끼, 진흙 묻은 장갑, 녹슨 공구함, USB 드라이브, 참호 흙벽, 저녁 빛. 비워두면 LLM 재량."></textarea>
+    </div>
+  </div>
+  <div style="font-size:11px; color:#4a5568; margin-top:6px;">
+    💡 화면 텍스트를 EN으로 두면 한국 스토리여도 프레임 안에서는 영문으로 번역돼 Meta 반려율이 낮아집니다. KR 선택 시 한글은 <strong>이 핸드폰 화면 안에서만</strong> 허용되고 배경 간판·라벨은 여전히 blank.
+  </div>
+
   <div style="margin-top:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
     <button class="btn btn-blue" id="gen-btn" onclick="generateAll()" style="font-weight:600;">카피 + 프롬프트 동시 생성</button>
     <span id="status" style="font-size:12px; color:#718096;"></span>
@@ -215,6 +237,9 @@ async function runPromptsFor(target, story) {
     aspect_ratio: v("pg_aspect"),
     n: parseInt(v("pg_n"), 10) || 2,
     provider_id: v("pg_provider"),
+    phone_screen_text: v("pg_phone_text"),
+    must_show: v("pg_must_show"),
+    screen_text_language: v("pg_screen_lang"),
   };
   const r = await fetch("/creative/prompt/generate", {
     method: "POST",

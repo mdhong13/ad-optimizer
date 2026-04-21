@@ -88,8 +88,16 @@ async def api_prompt_generate(payload: dict):
     if target == "video":
         n = max(1, min(n, 3))
     provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    phone_screen_text = (payload.get("phone_screen_text") or "").strip()
+    must_show = (payload.get("must_show") or "").strip()
+    screen_text_language = (payload.get("screen_text_language") or "en").strip().lower()
     try:
-        result = await prompt_gen.generate_prompts(target, brief_text, aspect_ratio, n, provider_id)
+        result = await prompt_gen.generate_prompts(
+            target, brief_text, aspect_ratio, n, provider_id,
+            phone_screen_text=phone_screen_text,
+            must_show=must_show,
+            screen_text_language=screen_text_language,
+        )
     except Exception as e:
         log.exception("[creative.prompt] generate failed")
         raise HTTPException(status_code=500, detail=str(e))
