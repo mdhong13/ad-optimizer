@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 log = logging.getLogger(__name__)
 
@@ -58,25 +58,23 @@ def _resolve_source(source_url_or_path: str) -> Path:
     return p
 
 
-def _center_crop_resize(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+def _cover_crop_resize(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
     """
-    원본 이미지 → 타겟 비율로 중앙 크롭 → 타겟 사이즈로 리샘플링.
+    cover 모드 — 타겟 비율로 중앙 크롭 → 타겟 사이즈로 리샘플링.
+    피사체가 중앙 60% 안에 있을 때 안전. 비율 차이가 크면 외곽 손실 큼.
     """
     src_w, src_h = img.size
     src_ratio = src_w / src_h
     tgt_ratio = target_w / target_h
 
     if abs(src_ratio - tgt_ratio) < 0.001:
-        # 비율 동일 → 리사이즈만
         return img.resize((target_w, target_h), Image.LANCZOS)
 
     if src_ratio > tgt_ratio:
-        # 원본이 더 넓음 → 양옆 크롭
         new_w = int(src_h * tgt_ratio)
         left = (src_w - new_w) // 2
         box = (left, 0, left + new_w, src_h)
     else:
-        # 원본이 더 높음 → 위아래 크롭
         new_h = int(src_w / tgt_ratio)
         top = (src_h - new_h) // 2
         box = (0, top, src_w, top + new_h)
@@ -85,11 +83,58 @@ def _center_crop_resize(img: Image.Image, target_w: int, target_h: int) -> Image
     return cropped.resize((target_w, target_h), Image.LANCZOS)
 
 
-def resize_to_platforms(source: str, platform_keys: Iterable[str]) -> list[dict]:
+def _contain_pad_blur(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
+    """
+    contain 모드 — 원본 전체를 잘림 없이 중앙 배치,
+    여백은 원본을 cover 리사이즈 후 블러·디밍한 배경으로 채움 (IG Reels 스타일).
+    """
+    src_w, src_h = img.size
+    src_ratio = src_w / src_h
+    tgt_ratio = target_w / target_h
+
+    if abs(src_ratio - tgt_ratio) < 0.001:
+        return img.resize((target_w, target_h), Image.LANCZOS)
+
+    # 1) 배경: 타겟 사이즈로 cover crop 후 강한 가우시안 블러 + 약간 어둡게
+    bg = _cover_crop_resize(img, target_w, target_h)
+    blur_radius = max(20, int(min(target_w, target_h) * 0.06))
+    bg = bg.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+    # 어둡게 (30% darken — 피사체 대비 확보)
+    dark = Image.new("RGB", bg.size, (0, 0, 0))
+    bg = Image.blend(bg, dark, 0.3)
+
+    # 2) 전경: 원본을 타겟 안에 fully contain (잘림 없음)
+    if src_ratio > tgt_ratio:
+        # 원본이 더 넓음 → width 맞추고 height 짧게
+        fg_w = target_w
+        fg_h = int(target_w / src_ratio)
+    else:
+        # 원본이 더 높음 → height 맞추고 width 짧게
+        fg_h = target_h
+        fg_w = int(target_h * src_ratio)
+    fg = img.resize((fg_w, fg_h), Image.LANCZOS)
+
+    # 3) 중앙에 paste
+    off_x = (target_w - fg_w) // 2
+    off_y = (target_h - fg_h) // 2
+    bg.paste(fg, (off_x, off_y))
+    return bg
+
+
+def _apply_fit(img: Image.Image, target_w: int, target_h: int, fit: str) -> Image.Image:
+    if fit == "contain":
+        return _contain_pad_blur(img, target_w, target_h)
+    return _cover_crop_resize(img, target_w, target_h)
+
+
+def resize_to_platforms(source: str, platform_keys: Iterable[str], fit: str = "cover") -> list[dict]:
     """
     원본 이미지 → 선택된 플랫폼 사이즈들로 변환.
-    반환: [{"key", "label", "width", "height", "url", "path"}]
+    fit: "cover" (중앙 크롭) | "contain" (블러 레터박스, 피사체 100% 보존)
+    반환: [{"key", "label", "width", "height", "url", "path", "fit"}]
     """
+    if fit not in ("cover", "contain"):
+        fit = "cover"
     src_path = _resolve_source(source)
     results: list[dict] = []
     with Image.open(src_path) as img:
@@ -103,13 +148,13 @@ def resize_to_platforms(source: str, platform_keys: Iterable[str]) -> list[dict]
                 continue
             w, h = spec["w"], spec["h"]
             try:
-                out = _center_crop_resize(img, w, h)
+                out = _apply_fit(img, w, h, fit)
             except Exception as e:
-                log.exception("[image_resize] resize failed key=%s", key)
+                log.exception("[image_resize] resize failed key=%s fit=%s", key, fit)
                 results.append({"key": key, "label": spec["label"], "error": str(e)})
                 continue
             uid = uuid.uuid4().hex[:6]
-            fname = f"{ts}_{stem}_{key}_{uid}.jpg"
+            fname = f"{ts}_{stem}_{key}_{fit}_{uid}.jpg"
             out_path = RESIZE_OUT / fname
             out.save(out_path, format="JPEG", quality=92, optimize=True)
             results.append({
@@ -118,6 +163,7 @@ def resize_to_platforms(source: str, platform_keys: Iterable[str]) -> list[dict]
                 "platform": spec["platform"],
                 "width": w,
                 "height": h,
+                "fit": fit,
                 "url": f"/assets/generated/creative/image_resized/{fname}",
                 "path": str(out_path),
             })

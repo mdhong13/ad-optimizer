@@ -107,11 +107,28 @@
   </div>
   {% endfor %}
 
-  <div style="margin-top:8px; display:flex; gap:10px;">
+  <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
     <button class="copy-btn" onclick="selectAll(true)" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">전체 선택</button>
     <button class="copy-btn" onclick="selectAll(false)" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">전체 해제</button>
     <button class="copy-btn" onclick="selectMetaDefault()" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">Meta 기본(1:1 + 4:5 + 9:16)</button>
-    <span id="sel-count" style="font-size:12px; color:#718096; align-self:center;">0개 선택</span>
+    <span id="sel-count" style="font-size:12px; color:#718096;">0개 선택</span>
+  </div>
+
+  <div style="margin-top:14px; padding-top:14px; border-top:1px dashed #2d3748;">
+    <div style="font-size:11px; color:#a0aec0; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px;">맞춤 방식 (Fit Mode)</div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:13px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="radio" name="fit" value="cover" checked>
+        <span><strong>Cover</strong> — 중앙 크롭 (비율 차이 크면 외곽 잘림)</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <input type="radio" name="fit" value="contain">
+        <span><strong>Contain</strong> — 블러 배경 레터박스 (피사체 100% 보존, IG Reels 스타일)</span>
+      </label>
+    </div>
+    <div style="font-size:11px; color:#4a5568; margin-top:6px;">
+      비율 차이가 클 때(9:16 → 16:9 등) Contain 권장. 같은 비율군(1:1 ↔ 4:5)은 Cover 가 선명함.
+    </div>
   </div>
 </div>
 
@@ -245,12 +262,13 @@ async function resizeOne(idx) {
   if (!img) return;
   const keys = selectedPlatformKeys();
   if (!keys.length) { setStatus("먼저 플랫폼 사이즈 선택", "#fc8181"); return; }
-  setStatus(`#${idx+1} → ${keys.length}개 사이즈로 변환 중…`, "#63b3ed");
+  const fit = (document.querySelector('input[name="fit"]:checked') || {}).value || "cover";
+  setStatus(`#${idx+1} → ${keys.length}개 사이즈로 변환 중 (fit=${fit})…`, "#63b3ed");
   try {
     const r = await fetch("/creative/image/resize", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ source: img.url, platform_keys: keys }),
+      body: JSON.stringify({ source: img.url, platform_keys: keys, fit }),
     });
     const data = await r.json();
     if (!r.ok) { setStatus("변환 에러: " + (data.detail || r.statusText), "#fc8181"); return; }

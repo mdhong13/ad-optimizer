@@ -84,6 +84,9 @@ async def api_prompt_generate(payload: dict):
         raise HTTPException(status_code=400, detail="brief_text 필수")
     aspect_ratio = payload.get("aspect_ratio") or ""
     n = int(payload.get("n") or 2)
+    # Veo 3.1은 8초/샷 고정 — 영상 프롬프트는 최대 3개(=24s 스티칭)
+    if target == "video":
+        n = max(1, min(n, 3))
     provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
     try:
         result = await prompt_gen.generate_prompts(target, brief_text, aspect_ratio, n, provider_id)
@@ -123,8 +126,9 @@ async def api_image_resize(payload: dict):
     keys = payload.get("platform_keys") or []
     if not keys:
         raise HTTPException(status_code=400, detail="platform_keys 한 개 이상 필요")
+    fit = (payload.get("fit") or "cover").strip()
     try:
-        results = image_resize.resize_to_platforms(source, keys)
+        results = image_resize.resize_to_platforms(source, keys, fit=fit)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -114,7 +114,8 @@ async def poll_video_job(operation_name: str) -> dict:
     saved_paths = []
     saved_urls = []
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    # Gemini Files API는 302로 CDN URL 리다이렉트 → follow_redirects 필수
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
         for i, s in enumerate(samples):
             vid = s.get("video", {})
             uri = vid.get("uri") or vid.get("videoUri")
