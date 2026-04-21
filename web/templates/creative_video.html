@@ -10,7 +10,12 @@
     background: #0f1117; color: #e2e8f0; border: 1px solid #2d3748; border-radius: 6px;
     padding: 8px 10px; font-size: 13px; font-family: inherit;
   }
-  .form-row textarea { min-height: 140px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .form-row textarea { min-height: 120px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .shot-block { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .shot-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .shot-title { font-weight: 600; color: #f6ad55; font-size: 13px; }
+  .shot-del { background: #3a1a1a; color: #fc8181; border: none; padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .shot-del:hover { opacity: 0.85; }
   .job-row { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
   .job-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px; }
   .op-name { font-family: ui-monospace, monospace; color: #a0aec0; font-size: 11px; word-break: break-all; }
@@ -19,6 +24,8 @@
   .hint { font-size: 11px; color: #4a5568; margin-top: 4px; }
   .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid #2d3748; border-top-color: #63b3ed; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .stitch-card { background: #0f1117; border: 1px solid #276749; border-radius: 8px; padding: 14px; margin-top: 10px; }
+  .stitch-card pre { background: #000; color: #68d391; padding: 10px; border-radius: 6px; font-size: 11px; overflow-x: auto; margin-top: 8px; }
 </style>
 {% endblock %}
 
@@ -26,7 +33,7 @@
 <h1>영상 생성 (Veo 3.1)</h1>
 
 <div class="card">
-  <h2>프롬프트</h2>
+  <h2>공통 설정</h2>
   <div class="form-grid">
     <div class="form-row">
       <label>Model</label>
@@ -45,17 +52,23 @@
       </select>
     </div>
     <div class="form-row">
-      <label>Duration (초, 5~15)</label>
-      <input id="duration" type="number" min="5" max="15" value="8">
+      <label>Duration per shot (Veo 3.1 고정 8초)</label>
+      <input id="duration" type="number" value="8" disabled>
     </div>
   </div>
-  <div class="form-row" style="margin-top:14px;">
-    <label>Prompt (English 권장)</label>
-    <textarea id="prompt" placeholder="8 seconds. Opening (0-3s): over-the-shoulder shot of a 50-something Korean man's hands slowly opening a worn envelope on a wooden desk, warm morning light. Middle (3-6s): the camera glides to reveal a note with hand-drawn family names, fingers tracing them. Closing (6-8s): locked-off static wide of the desk with light catching dust motes, lower-right clear for logo overlay. Photorealistic cinematic, film grain, shallow depth of field. No text, no dialogue, no music described."></textarea>
-    <div class="hint">작업 시작 후 10초 간격으로 자동 폴링. Veo는 보통 1~5분 소요.</div>
+  <div class="hint" style="margin-top:8px;">
+    Veo 3.1은 샷당 8초 고정. 최대 3샷(= 24초) 동시 제출 가능. 완성 후 ffmpeg로 스티칭.
   </div>
-  <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
-    <button class="btn btn-blue" id="gen-btn" onclick="startJob()">영상 생성 시작</button>
+</div>
+
+<div class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <h2 style="margin:0;">샷 프롬프트 (최대 3개)</h2>
+    <button class="btn btn-gray" id="add-shot-btn" onclick="addShot()" style="padding:6px 14px;">+ 샷 추가</button>
+  </div>
+  <div id="shots"></div>
+  <div style="margin-top:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" id="gen-btn" onclick="startAllShots()">전체 샷 생성 시작</button>
     <span id="status" style="font-size:12px; color:#718096;"></span>
   </div>
 </div>
@@ -80,15 +93,70 @@ function esc(s) {
 }
 
 const JOBS_KEY = "creative_video_jobs_v1";
+const MAX_SHOTS = 3;
 let jobs = [];
+let shotCount = 0;
 
+// ========= 샷 입력 관리 =========
+function renderShotsFromValues(values) {
+  const box = document.getElementById("shots");
+  box.innerHTML = "";
+  shotCount = 0;
+  const list = (values && values.length) ? values.slice(0, MAX_SHOTS) : [""];
+  list.forEach(val => addShot(val));
+}
+
+function addShot(initialValue) {
+  if (shotCount >= MAX_SHOTS) { setStatus(`최대 ${MAX_SHOTS}샷까지`, "#fc8181"); return; }
+  shotCount++;
+  const idx = shotCount;
+  const div = document.createElement("div");
+  div.className = "shot-block";
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <div class="shot-head">
+      <span class="shot-title">Shot ${idx} — 8s</span>
+      <button class="shot-del" onclick="removeShot(this)" ${idx === 1 ? 'style="visibility:hidden;"' : ''}>삭제</button>
+    </div>
+    <textarea class="shot-prompt" placeholder="8 seconds. Opening (0-2s): ... Middle (2-6s): ... Closing (6-8s): ... No dialogue. No on-screen text. No logos. No Bitcoin symbol. No music described. No children alone in frame."></textarea>
+  `;
+  document.getElementById("shots").appendChild(div);
+  if (typeof initialValue === "string") {
+    div.querySelector(".shot-prompt").value = initialValue;
+  }
+  document.getElementById("add-shot-btn").disabled = shotCount >= MAX_SHOTS;
+  renumberShots();
+}
+
+function removeShot(btn) {
+  btn.closest(".shot-block").remove();
+  shotCount--;
+  document.getElementById("add-shot-btn").disabled = shotCount >= MAX_SHOTS;
+  renumberShots();
+}
+
+function renumberShots() {
+  document.querySelectorAll(".shot-block").forEach((block, i) => {
+    block.querySelector(".shot-title").textContent = `Shot ${i + 1} — 8s`;
+    const del = block.querySelector(".shot-del");
+    if (del) del.style.visibility = i === 0 ? "hidden" : "visible";
+  });
+}
+
+function collectPrompts() {
+  return Array.from(document.querySelectorAll(".shot-prompt"))
+    .map(t => t.value.trim())
+    .filter(Boolean);
+}
+
+// ========= 작업 목록 =========
 function loadJobs() {
   try { jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || "[]"); } catch { jobs = []; }
   renderJobs();
-  // 미완료 작업 재개
   jobs.forEach(j => { if (!j.done) pollLoop(j); });
+  maybeRenderStitchCard();
 }
-function saveJobs() { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); }
+function saveJobs() { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); maybeRenderStitchCard(); }
 
 function renderJobs() {
   const box = document.getElementById("jobs");
@@ -100,6 +168,9 @@ function renderJobs() {
       : j.done
         ? `<span style="color:#68d391;">✓ 완료 (${(j.video_urls || []).length}개)</span>`
         : `<span style="color:#63b3ed;"><span class="spin"></span>running · ${j.elapsed || 0}s</span>`;
+    const batchTag = j.batch_id
+      ? `<span style="background:#2d3748; color:#a0aec0; padding:2px 8px; border-radius:10px; font-size:10px; margin-left:6px;">batch ${j.batch_id.slice(0,6)} · shot ${j.shot_idx}/${j.batch_size}</span>`
+      : "";
     return `
       <div class="job-row">
         <div class="job-head">
@@ -107,6 +178,7 @@ function renderJobs() {
             <strong>#${i + 1}</strong>
             · ${esc(j.model || "")} · ${esc(j.aspect_ratio || "")} · ${esc(String(j.duration_seconds || ""))}s
             · ${esc(j.submitted_at || "")}
+            ${batchTag}
           </div>
           <div>${stateLabel}</div>
         </div>
@@ -118,40 +190,98 @@ function renderJobs() {
   }).join("");
 }
 
-async function startJob() {
-  const prompt = v("prompt").trim();
-  if (!prompt) { setStatus("프롬프트 필수", "#fc8181"); return; }
-  const payload = {
-    prompt,
-    model_id: v("model_id"),
-    aspect_ratio: v("aspect_ratio"),
-    duration_seconds: parseInt(v("duration"), 10) || 8,
-  };
+// ========= 스티칭 힌트 =========
+function maybeRenderStitchCard() {
+  // 같은 batch_id 의 모든 샷이 완료되면 ffmpeg 스티칭 커맨드 표시
+  const byBatch = {};
+  jobs.forEach(j => {
+    if (!j.batch_id) return;
+    (byBatch[j.batch_id] = byBatch[j.batch_id] || []).push(j);
+  });
+  const ready = Object.values(byBatch).filter(group =>
+    group.length >= 2 &&
+    group.every(j => j.done && !j.error && (j.video_paths || []).length > 0)
+  );
+  // 기존 카드 제거
+  document.querySelectorAll(".stitch-card").forEach(el => el.remove());
+  if (!ready.length) return;
+
+  const container = document.createElement("div");
+  container.className = "card";
+  container.innerHTML = `<h2>스티칭 (ffmpeg — 서버에서 실행)</h2>`;
+  ready.forEach(group => {
+    group.sort((a, b) => (a.shot_idx || 0) - (b.shot_idx || 0));
+    const paths = group.map(j => (j.video_paths || [])[0]).filter(Boolean);
+    const listTxt = paths.map(p => `file '${p}'`).join("\n");
+    const outName = `stitched_${group[0].batch_id.slice(0,6)}.mp4`;
+    const ffmpegCmd = `# 1) list.txt 저장\nprintf '${listTxt.replace(/'/g, "'\\''")}\\n' > list.txt\n\n# 2) 스티칭 (재인코딩 없이 concat)\nffmpeg -f concat -safe 0 -i list.txt -c copy ${outName}`;
+    const block = document.createElement("div");
+    block.className = "stitch-card";
+    block.innerHTML = `
+      <div style="color:#68d391; font-weight:600;">✓ Batch ${esc(group[0].batch_id.slice(0,6))} — ${group.length}샷 (총 ${group.length * 8}초) 준비 완료</div>
+      <pre>${esc(ffmpegCmd)}</pre>
+      <div class="hint">list.txt 의 경로는 서버 내부 경로. 로컬에서 실행하려면 MP4들을 먼저 다운로드 후 경로 조정.</div>
+    `;
+    container.appendChild(block);
+  });
+  document.getElementById("jobs").parentElement.after(container);
+}
+
+// ========= 전체 샷 제출 =========
+async function startAllShots() {
+  const prompts = collectPrompts();
+  if (!prompts.length) { setStatus("프롬프트 1개 이상 필요", "#fc8181"); return; }
   const btn = document.getElementById("gen-btn");
   btn.disabled = true;
-  setStatus("작업 시작 중…", "#63b3ed");
-  try {
-    const r = await fetch("/creative/video/start", {
+  setStatus(`${prompts.length}개 샷 병렬 제출 중…`, "#63b3ed");
+  const batch_id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const common = {
+    model_id: v("model_id"),
+    aspect_ratio: v("aspect_ratio"),
+    duration_seconds: 8,
+  };
+
+  const submits = prompts.map((prompt, i) =>
+    fetch("/creative/video/start", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload),
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      setStatus("에러: " + (data.detail || r.statusText), "#fc8181");
-      return;
+      body: JSON.stringify({ ...common, prompt }),
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      return { ...data, shot_idx: i + 1 };
+    })
+  );
+
+  const settled = await Promise.allSettled(submits);
+  let okCount = 0;
+  settled.forEach((s, i) => {
+    if (s.status === "fulfilled") {
+      const job = {
+        ...s.value,
+        done: false, elapsed: 0, video_urls: [],
+        batch_id, batch_size: prompts.length,
+      };
+      jobs.unshift(job);
+      pollLoop(job);
+      okCount++;
+    } else {
+      const errJob = {
+        operation_name: `(error shot ${i+1})`,
+        prompt: prompts[i],
+        model: common.model_id, aspect_ratio: common.aspect_ratio, duration_seconds: 8,
+        submitted_at: new Date().toISOString(),
+        done: true, error: s.reason.message,
+        batch_id, batch_size: prompts.length, shot_idx: i + 1,
+      };
+      jobs.unshift(errJob);
     }
-    const job = { ...data, done: false, elapsed: 0, video_urls: [] };
-    jobs.unshift(job);
-    saveJobs();
-    renderJobs();
-    setStatus(`작업 시작됨: ${data.operation_name}`, "#68d391");
-    pollLoop(job);
-  } catch (e) {
-    setStatus("네트워크 에러: " + e.message, "#fc8181");
-  } finally {
-    btn.disabled = false;
-  }
+  });
+  saveJobs();
+  renderJobs();
+  const color = okCount === prompts.length ? "#68d391" : (okCount > 0 ? "#f6ad55" : "#fc8181");
+  setStatus(`${okCount}/${prompts.length} 샷 작업 시작됨 (batch ${batch_id.slice(0,6)})`, color);
+  btn.disabled = false;
 }
 
 async function pollLoop(job) {
@@ -184,24 +314,35 @@ async function pollLoop(job) {
   }
 }
 
-loadJobs();
-
-// handoff: /creative/copy 에서 "→ 영상 생성" 으로 전달된 프롬프트 자동 채움
+// ========= handoff (카피 페이지에서 전달) =========
 (function applyHandoff() {
+  let initialPrompts = [];
+  let initialAspect = null;
   try {
     const raw = localStorage.getItem("creative_prompt_handoff");
-    if (!raw) return;
-    const h = JSON.parse(raw);
-    if (!h || !h.prompt) return;
-    if (Date.now() - (h.ts || 0) > 5 * 60 * 1000) return;
-    document.getElementById("prompt").value = h.prompt;
-    if (h.aspect_ratio) {
-      const sel = document.getElementById("aspect_ratio");
-      for (const opt of sel.options) { if (opt.value === h.aspect_ratio) { sel.value = h.aspect_ratio; break; } }
+    if (raw) {
+      const h = JSON.parse(raw);
+      if (h && (Date.now() - (h.ts || 0) <= 5 * 60 * 1000)) {
+        // 신규: prompts 배열 (시퀀스 핸드오프)
+        if (Array.isArray(h.prompts) && h.prompts.length) {
+          initialPrompts = h.prompts.slice(0, MAX_SHOTS);
+        } else if (h.prompt) {
+          initialPrompts = [h.prompt];
+        }
+        if (h.aspect_ratio) initialAspect = h.aspect_ratio;
+      }
+      localStorage.removeItem("creative_prompt_handoff");
     }
-    localStorage.removeItem("creative_prompt_handoff");
-    setStatus("카피 페이지에서 전달된 프롬프트 자동 채움", "#68d391");
   } catch (e) {}
+  renderShotsFromValues(initialPrompts);
+  if (initialAspect) {
+    const sel = document.getElementById("aspect_ratio");
+    for (const opt of sel.options) { if (opt.value === initialAspect) { sel.value = initialAspect; break; } }
+  }
+  if (initialPrompts.length > 0) {
+    setStatus(`카피 페이지에서 ${initialPrompts.length}개 샷 프롬프트 자동 채움`, "#68d391");
+  }
+  loadJobs();
 })();
 </script>
 {% endblock %}

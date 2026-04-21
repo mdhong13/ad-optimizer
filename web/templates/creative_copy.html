@@ -348,8 +348,8 @@ function renderPrompts(kind, data, aspect) {
   const sendBtnStyle = kind === "image"
     ? 'background:#2b4c7e; color:#bee3f8;'
     : 'background:#276749; color:#c6f6d5;';
-  const sendLabel = kind === "image" ? "→ 이미지 생성" : "→ 영상 생성";
-  list.innerHTML = prompts.map((p, i) => `
+  const sendLabel = kind === "image" ? "→ 이미지 생성" : "→ 영상 생성 (단일 샷)";
+  const perPromptHtml = prompts.map((p, i) => `
     <div class="variant-card">
       <div class="variant-head">
         <strong>Prompt ${i + 1}</strong>
@@ -361,6 +361,23 @@ function renderPrompts(kind, data, aspect) {
       <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; color:#cbd5e0;">${esc(p)}</div>
     </div>
   `).join("");
+  // 영상은 최대 3개 prompts 를 하나의 시퀀스(= 8s * N, 최대 24s)로 묶어서 넘길 수도 있음
+  let seqHeader = "";
+  if (kind === "video" && prompts.length >= 2) {
+    const n = Math.min(prompts.length, 3);
+    seqHeader = `
+      <div class="variant-card" style="border-color:#276749; background:#10201a;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+          <div style="font-size:12px; color:#9ae6b4;">
+            <strong style="color:#c6f6d5;">✓ 시퀀스 핸드오프</strong> — 위 프롬프트를 <strong>${n}샷(= ${n * 8}초)</strong> 시퀀스로 영상 페이지에 한 번에 전달.
+          </div>
+          <button class="copy-btn" onclick='pgSendAllVideos("${aspect}", ${n})' style="background:#276749; color:#c6f6d5; font-weight:600; padding:8px 14px; font-size:12px;">
+            → 전체 ${n}샷 영상 시퀀스 생성
+          </button>
+        </div>
+      </div>`;
+  }
+  list.innerHTML = seqHeader + perPromptHtml;
   window[`_pg_${tag}_prompts`] = prompts;
 }
 
@@ -379,6 +396,16 @@ function pgSendTo(kind, i, aspect) {
   const url = kind === "video" ? "/creative/video" : "/creative/image";
   window.open(url, "_blank");
   setStatus(`Prompt ${i+1} → ${kind} 페이지로 전송 (새 탭)`, "#68d391");
+}
+
+function pgSendAllVideos(aspect, n) {
+  const all = window._pg_vid_prompts || [];
+  const prompts = all.slice(0, Math.max(1, Math.min(n || all.length, 3)));
+  if (!prompts.length) return;
+  const handoff = { prompts: prompts, aspect_ratio: aspect, ts: Date.now() };
+  localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
+  window.open("/creative/video", "_blank");
+  setStatus(`${prompts.length}샷 시퀀스 → 영상 페이지로 전송 (새 탭)`, "#68d391");
 }
 </script>
 {% endblock %}
