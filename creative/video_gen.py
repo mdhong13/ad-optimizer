@@ -43,6 +43,12 @@ async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16"
     model = find_video_model(model_id)
     model_name = model["model"]
 
+    # Veo 3.x 지원 비율은 16:9, 9:16 뿐. 그 외는 클라이언트가 보냈어도 서버에서 클램프.
+    if aspect_ratio not in ("16:9", "9:16"):
+        clamped = "16:9" if aspect_ratio.startswith("16:") or aspect_ratio == "1.91:1" else "9:16"
+        log.warning("[creative.video] aspect_ratio %s 미지원 → %s 로 변경", aspect_ratio, clamped)
+        aspect_ratio = clamped
+
     url = f"{API_BASE}/models/{model_name}:predictLongRunning?key={settings.GEMINI_API_KEY}"
     payload = {
         "instances": [{"prompt": prompt}],

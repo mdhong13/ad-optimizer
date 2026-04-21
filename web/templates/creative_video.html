@@ -48,8 +48,8 @@
       <select id="aspect_ratio">
         <option value="9:16">9:16 (Reels / Shorts)</option>
         <option value="16:9">16:9 (YouTube / Display)</option>
-        <option value="1:1">1:1</option>
       </select>
+      <div class="hint">Veo 3.1 는 16:9 또는 9:16 만 지원. 1:1·4:5 등은 생성 후 이미지 변환 페이지 혹은 ffmpeg crop 으로 재프레이밍.</div>
     </div>
     <div class="form-row">
       <label>Duration per shot (Veo 3.1 고정 8초)</label>
@@ -337,7 +337,13 @@ async function pollLoop(job) {
   renderShotsFromValues(initialPrompts);
   if (initialAspect) {
     const sel = document.getElementById("aspect_ratio");
-    for (const opt of sel.options) { if (opt.value === initialAspect) { sel.value = initialAspect; break; } }
+    // Veo 는 16:9 / 9:16 만 지원. 그 외 비율은 9:16 기본 + 경고.
+    let matched = false;
+    for (const opt of sel.options) { if (opt.value === initialAspect) { sel.value = initialAspect; matched = true; break; } }
+    if (!matched) {
+      sel.value = (initialAspect.startsWith("16:") || initialAspect === "1.91:1") ? "16:9" : "9:16";
+      setStatus(`핸드오프 비율 ${initialAspect} 은 Veo 미지원 → ${sel.value} 로 자동 변경`, "#f6ad55");
+    }
   }
   if (initialPrompts.length > 0) {
     setStatus(`카피 페이지에서 ${initialPrompts.length}개 샷 프롬프트 자동 채움`, "#68d391");
