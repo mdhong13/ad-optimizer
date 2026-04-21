@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
-from creative import copy_gen, image_gen, video_gen, prompt_gen
+from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize
 from creative.models import (
     COPY_PROVIDERS, COPY_DEFAULT_ID,
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
@@ -47,6 +47,7 @@ async def page_copy(request: Request):
 async def page_image(request: Request):
     return templates.TemplateResponse(request, "creative_image.html", {
         "models": IMAGE_MODELS, "default_model": IMAGE_DEFAULT_ID,
+        "platform_sizes": image_resize.PLATFORM_SIZES,
     })
 
 
@@ -108,6 +109,28 @@ async def api_image_generate(payload: dict):
         log.exception("[creative.image] generate failed")
         raise HTTPException(status_code=500, detail=str(e))
     return {"images": results}
+
+
+@router.post("/image/resize")
+async def api_image_resize(payload: dict):
+    """
+    원본 이미지를 선택된 플랫폼 사이즈로 center-crop + resize.
+    payload: {"source": "/assets/generated/creative/image/foo.jpg", "platform_keys": [...]}
+    """
+    source = (payload.get("source") or "").strip()
+    if not source:
+        raise HTTPException(status_code=400, detail="source 필수")
+    keys = payload.get("platform_keys") or []
+    if not keys:
+        raise HTTPException(status_code=400, detail="platform_keys 한 개 이상 필요")
+    try:
+        results = image_resize.resize_to_platforms(source, keys)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        log.exception("[creative.image.resize] failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"results": results}
 
 
 # ---------- API: Video ----------

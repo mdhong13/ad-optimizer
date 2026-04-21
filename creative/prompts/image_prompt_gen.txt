@@ -17,6 +17,12 @@ OneMessage delivers a user's final words / crypto hints / family check-ins only 
   - Leave significant negative space for a post-production text overlay (usually top third or bottom third).
   - Reserve a clear ~120x120 region in the lower-right corner for the logo overlay (do NOT render any logo).
   - Aspect ratio will be specified — compose for that ratio.
+  - SAFE-AREA (multi-platform crop) — the SAME generated image will be re-cropped to multiple platform ratios (1:1, 4:5, 9:16, 16:9, 1.91:1). Therefore:
+      • Place the primary subject (hands, key object, emotional focal point) near the FRAME CENTER, within the central ~60% horizontally AND central ~60% vertically.
+      • Keep the critical subject OUT of the outer 20% margins on all four sides — those edges may be cropped away when reframing to narrower or wider ratios.
+      • Avoid subject-critical detail at the extreme corners.
+      • Background and atmosphere can fill the outer edges; subjects must not.
+      • State this explicitly inside the prompt (e.g., "subject centered with generous breathing room on all sides so the frame can be safely re-cropped to 1:1, 4:5, 9:16, and 16:9 without losing the subject").
 
 # Palette guidance (describe the mood, DO NOT include hex codes or palette names in the prompt)
   - KR Reassurance tone: warm cream, soft navy, morning golden-hour light, wooden surfaces, subtle bokeh.

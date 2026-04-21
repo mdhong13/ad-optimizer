@@ -100,28 +100,20 @@
     </div>
   </div>
 
-  <div class="section-divider">프롬프트 옵션 (이미지·영상)</div>
+  <div class="section-divider">프롬프트 옵션 (이미지 + 영상 동시 생성)</div>
   <div class="form-grid">
     <div class="form-row">
-      <label>Target</label>
-      <select id="pg_target">
-        <option value="image" selected>이미지 프롬프트</option>
-        <option value="video">영상 프롬프트</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label>Aspect Ratio (참고)</label>
+      <label>기본 비율 (대표 이미지·영상)</label>
       <select id="pg_aspect">
-        <option value="4:5">4:5 (Meta Feed)</option>
-        <option value="1:1">1:1</option>
-        <option value="9:16">9:16 (Reels / Shorts)</option>
-        <option value="16:9">16:9</option>
-        <option value="3:4">3:4</option>
-        <option value="2:3">2:3</option>
+        <option value="1:1" selected>1:1 (대부분 플랫폼 호환)</option>
+        <option value="4:5">4:5 (Meta Feed 최적)</option>
+        <option value="9:16">9:16 (Reels / Shorts / Stories)</option>
+        <option value="16:9">16:9 (YouTube / X)</option>
+        <option value="1.91:1">1.91:1 (Google Display / Link)</option>
       </select>
     </div>
     <div class="form-row">
-      <label>Prompt 개수 (n)</label>
+      <label>Prompt 개수 (n, 각 타입)</label>
       <input id="pg_n" type="number" min="1" max="5" value="2">
     </div>
     <div class="form-row">
@@ -132,6 +124,9 @@
         {% endfor %}
       </select>
     </div>
+  </div>
+  <div style="font-size:11px; color:#4a5568; margin-top:6px;">
+    이미지 프롬프트는 safe-area composition 적용 — 같은 이미지를 다른 비율(1:1, 4:5, 9:16 등)로 재크롭해도 주요 피사체가 잘리지 않도록 중앙 60%에 배치 지시.
   </div>
 
   <div style="margin-top:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -152,11 +147,19 @@
   </div>
 </div>
 
-<!-- ========= 프롬프트 결과 ========= -->
-<div id="pg_results" style="display:none;">
+<!-- ========= 이미지 프롬프트 결과 ========= -->
+<div id="pg_img_results" style="display:none;">
   <div class="card">
-    <h2>프롬프트 결과 <span id="pg_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
-    <div id="pg_list"></div>
+    <h2>이미지 프롬프트 <span id="pg_img_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
+    <div id="pg_img_list"></div>
+  </div>
+</div>
+
+<!-- ========= 영상 프롬프트 결과 ========= -->
+<div id="pg_vid_results" style="display:none;">
+  <div class="card">
+    <h2>영상 프롬프트 <span id="pg_vid_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
+    <div id="pg_vid_list"></div>
   </div>
 </div>
 {% endblock %}
@@ -195,10 +198,10 @@ async function runCopy(story) {
   return data;
 }
 
-// ========= 프롬프트 생성 =========
-async function runPrompts(story) {
+// ========= 프롬프트 생성 (target 별) =========
+async function runPromptsFor(target, story) {
   const payload = {
-    target: v("pg_target"),
+    target: target,
     brief_text: story,
     aspect_ratio: v("pg_aspect"),
     n: parseInt(v("pg_n"), 10) || 2,
@@ -211,7 +214,7 @@ async function runPrompts(story) {
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.detail || r.statusText);
-  return { data, target: payload.target, aspect: payload.aspect_ratio };
+  return { data, target, aspect: payload.aspect_ratio };
 }
 
 // ========= 통합 실행 =========
@@ -220,9 +223,13 @@ async function generateAll() {
   if (!story) { setStatus("먼저 스토리를 입력하세요", "#fc8181"); return; }
   const btn = document.getElementById("gen-btn");
   btn.disabled = true;
-  setStatus("생성 중… 카피 + 프롬프트 병렬 (보통 15~40초)", "#63b3ed");
+  setStatus("생성 중… 카피 + 이미지 프롬프트 + 영상 프롬프트 병렬 (보통 20~50초)", "#63b3ed");
 
-  const [copyRes, pgRes] = await Promise.allSettled([runCopy(story), runPrompts(story)]);
+  const [copyRes, imgRes, vidRes] = await Promise.allSettled([
+    runCopy(story),
+    runPromptsFor("image", story),
+    runPromptsFor("video", story),
+  ]);
 
   const msgs = [];
   if (copyRes.status === "fulfilled") {
@@ -231,15 +238,22 @@ async function generateAll() {
   } else {
     msgs.push("✗ 카피: " + copyRes.reason.message);
   }
-  if (pgRes.status === "fulfilled") {
-    renderPrompts(pgRes.value.data, pgRes.value.target, pgRes.value.aspect);
-    msgs.push(`✓ 프롬프트 ${(pgRes.value.data.prompts||[]).length}`);
+  if (imgRes.status === "fulfilled") {
+    renderPrompts("image", imgRes.value.data, imgRes.value.aspect);
+    msgs.push(`✓ 이미지 ${(imgRes.value.data.prompts||[]).length}`);
   } else {
-    msgs.push("✗ 프롬프트: " + pgRes.reason.message);
+    msgs.push("✗ 이미지: " + imgRes.reason.message);
+  }
+  if (vidRes.status === "fulfilled") {
+    renderPrompts("video", vidRes.value.data, vidRes.value.aspect);
+    msgs.push(`✓ 영상 ${(vidRes.value.data.prompts||[]).length}`);
+  } else {
+    msgs.push("✗ 영상: " + vidRes.reason.message);
   }
 
-  const bothOk = copyRes.status === "fulfilled" && pgRes.status === "fulfilled";
-  setStatus(msgs.join(" · "), bothOk ? "#68d391" : (copyRes.status === "fulfilled" || pgRes.status === "fulfilled" ? "#f6ad55" : "#fc8181"));
+  const okCount = [copyRes, imgRes, vidRes].filter(r => r.status === "fulfilled").length;
+  const color = okCount === 3 ? "#68d391" : (okCount > 0 ? "#f6ad55" : "#fc8181");
+  setStatus(msgs.join(" · "), color);
   btn.disabled = false;
 }
 
@@ -296,43 +310,49 @@ function copyVariant(i) {
   navigator.clipboard.writeText(text).then(() => setStatus(`Variant ${i+1} 복사됨`, "#68d391"));
 }
 
-function renderPrompts(data, target, aspect) {
-  document.getElementById("pg_results").style.display = "block";
+function renderPrompts(kind, data, aspect) {
+  // kind: "image" | "video"
+  const tag = kind === "image" ? "img" : "vid";
+  document.getElementById(`pg_${tag}_results`).style.display = "block";
   const meta = data._meta || {};
-  document.getElementById("pg_meta").textContent = `— ${target} · ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
+  document.getElementById(`pg_${tag}_meta`).textContent = `— ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
   const prompts = data.prompts || [];
-  const list = document.getElementById("pg_list");
+  const list = document.getElementById(`pg_${tag}_list`);
   if (!prompts.length) { list.innerHTML = '<div class="empty">프롬프트 없음 — 응답 JSON 확인</div>'; return; }
+  const sendBtnStyle = kind === "image"
+    ? 'background:#2b4c7e; color:#bee3f8;'
+    : 'background:#276749; color:#c6f6d5;';
+  const sendLabel = kind === "image" ? "→ 이미지 생성" : "→ 영상 생성";
   list.innerHTML = prompts.map((p, i) => `
     <div class="variant-card">
       <div class="variant-head">
         <strong>Prompt ${i + 1}</strong>
         <div style="display:flex; gap:6px;">
-          <button class="copy-btn" onclick='pgCopy(${i})'>복사</button>
-          <button class="copy-btn" onclick='pgSendTo(${i}, "image", "${aspect}")' style="background:#2b4c7e; color:#bee3f8;">→ 이미지 생성</button>
-          <button class="copy-btn" onclick='pgSendTo(${i}, "video", "${aspect}")' style="background:#276749; color:#c6f6d5;">→ 영상 생성</button>
+          <button class="copy-btn" onclick='pgCopy("${tag}", ${i})'>복사</button>
+          <button class="copy-btn" onclick='pgSendTo("${kind}", ${i}, "${aspect}")' style="${sendBtnStyle}">${sendLabel}</button>
         </div>
       </div>
       <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; color:#cbd5e0;">${esc(p)}</div>
     </div>
   `).join("");
-  window._pg_prompts = prompts;
+  window[`_pg_${tag}_prompts`] = prompts;
 }
 
-function pgCopy(i) {
-  const p = (window._pg_prompts || [])[i];
+function pgCopy(tag, i) {
+  const p = (window[`_pg_${tag}_prompts`] || [])[i];
   if (!p) return;
   navigator.clipboard.writeText(p).then(() => setStatus(`Prompt ${i+1} 복사됨`, "#68d391"));
 }
 
-function pgSendTo(i, target, aspect) {
-  const p = (window._pg_prompts || [])[i];
+function pgSendTo(kind, i, aspect) {
+  const tag = kind === "image" ? "img" : "vid";
+  const p = (window[`_pg_${tag}_prompts`] || [])[i];
   if (!p) return;
   const handoff = { prompt: p, aspect_ratio: aspect, ts: Date.now() };
   localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
-  const url = target === "video" ? "/creative/video" : "/creative/image";
+  const url = kind === "video" ? "/creative/video" : "/creative/image";
   window.open(url, "_blank");
-  setStatus(`Prompt ${i+1} → ${target} 페이지로 전송 (새 탭)`, "#68d391");
+  setStatus(`Prompt ${i+1} → ${kind} 페이지로 전송 (새 탭)`, "#68d391");
 }
 </script>
 {% endblock %}

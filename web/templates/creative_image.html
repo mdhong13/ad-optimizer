@@ -14,9 +14,28 @@
   .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
   .gallery .thumb { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; }
   .gallery .thumb img { width: 100%; display: block; background: #000; }
-  .gallery .meta { padding: 10px 12px; font-size: 11px; color: #718096; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .gallery .meta { padding: 10px 12px; font-size: 11px; color: #718096; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
   .gallery .meta a { color: #63b3ed; }
+  .gallery .thumb-actions { padding: 8px 12px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
   .hint { font-size: 11px; color: #4a5568; margin-top: 4px; }
+
+  /* Platform size multi-select */
+  .plat-group { margin-bottom: 14px; }
+  .plat-group h3 { font-size: 11px; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .plat-sizes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .plat-chip { display: inline-flex; align-items: center; gap: 6px; background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; user-select: none; }
+  .plat-chip:hover { border-color: #4a5568; }
+  .plat-chip input { margin: 0; cursor: pointer; }
+  .plat-chip.active { background: #1a2a3a; border-color: #63b3ed; color: #bee3f8; }
+  .plat-meta { color: #4a5568; font-size: 10px; }
+
+  /* Resized results */
+  .resized-block { margin-top: 12px; padding: 12px; background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; }
+  .resized-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 8px; }
+  .resized-item { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 6px; overflow: hidden; }
+  .resized-item img { width: 100%; display: block; background: #000; }
+  .resized-item .rmeta { padding: 6px 8px; font-size: 10px; color: #718096; display: flex; justify-content: space-between; align-items: center; }
+  .resized-item .rmeta a { color: #63b3ed; }
 </style>
 {% endblock %}
 
@@ -35,10 +54,10 @@
       </select>
     </div>
     <div class="form-row">
-      <label>Aspect Ratio</label>
+      <label>Aspect Ratio (원본)</label>
       <select id="aspect_ratio">
-        <option value="4:5">4:5 (Meta Feed)</option>
-        <option value="1:1">1:1 (Square)</option>
+        <option value="1:1">1:1 (Square, 플랫폼 호환 최대)</option>
+        <option value="4:5">4:5 (Meta Feed 최적)</option>
         <option value="9:16">9:16 (Reels / Stories)</option>
         <option value="16:9">16:9 (Display / YouTube)</option>
         <option value="3:4">3:4</option>
@@ -52,12 +71,47 @@
   </div>
   <div class="form-row" style="margin-top:14px;">
     <label>Prompt (English 권장)</label>
-    <textarea id="prompt" placeholder="Photorealistic cinematic ad scene. Warm morning light through a window, 50-something Korean man's hands holding a worn envelope on a wooden desk. Shallow depth of field, film grain, lower-right area intentionally clear for logo overlay. No text. No logo. No Bitcoin symbol. 4:5 composition."></textarea>
-    <div class="hint">system prompt(<code>prompts/image_brief.txt</code>)는 호출 시 적용 안됨 — 현재는 사용자 프롬프트 직접 전달. 아트 디렉션 가이드는 카피 생성과 조합하여 작성할 것.</div>
+    <textarea id="prompt" placeholder="Photorealistic cinematic ad scene. Subject centered with generous breathing room on all sides so the frame can be safely re-cropped to 1:1, 4:5, 9:16, and 16:9 without losing the subject. Warm morning light, shallow depth of field, film grain, lower-right area intentionally clear for logo overlay. No text. No logo. No Bitcoin symbol."></textarea>
+    <div class="hint">safe-area composition — 스토리보드에서 생성된 프롬프트는 이미 중앙 60% 배치 지시 포함. 여기서 직접 작성 시에도 "subject centered with breathing room" 문구 권장.</div>
   </div>
   <div style="margin-top:16px; display:flex; gap:10px; align-items:center;">
     <button class="btn btn-blue" id="gen-btn" onclick="generateImage()">이미지 생성</button>
     <span id="status" style="font-size:12px; color:#718096;"></span>
+  </div>
+</div>
+
+<!-- ========= 플랫폼 사이즈 선택 ========= -->
+<div class="card">
+  <h2>플랫폼 사이즈 선택 (중복 가능)</h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:12px;">
+    선택 후 아래 생성된 이미지의 <strong>→ 사이즈 변환</strong> 버튼 클릭 시 해당 이미지가 원본 그대로 크롭·리사이즈되어 각 사이즈로 저장됩니다. (재생성 아님 — 픽셀 보존)
+  </div>
+
+  {% set groups = {} %}
+  {% for key, spec in platform_sizes.items() %}
+    {% if groups.update({spec.platform: groups.get(spec.platform, []) + [(key, spec)]}) %}{% endif %}
+  {% endfor %}
+
+  {% for plat_name, items in groups.items() %}
+  <div class="plat-group">
+    <h3>{{ plat_name }}</h3>
+    <div class="plat-sizes">
+      {% for key, spec in items %}
+        <label class="plat-chip" data-key="{{ key }}">
+          <input type="checkbox" value="{{ key }}" onchange="syncChip(this)">
+          <span>{{ spec.label }}</span>
+          <span class="plat-meta">{{ spec.w }}×{{ spec.h }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div style="margin-top:8px; display:flex; gap:10px;">
+    <button class="copy-btn" onclick="selectAll(true)" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">전체 선택</button>
+    <button class="copy-btn" onclick="selectAll(false)" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">전체 해제</button>
+    <button class="copy-btn" onclick="selectMetaDefault()" style="background:#2d3748; color:#a0aec0; padding:6px 12px; font-size:12px;">Meta 기본(1:1 + 4:5 + 9:16)</button>
+    <span id="sel-count" style="font-size:12px; color:#718096; align-self:center;">0개 선택</span>
   </div>
 </div>
 
@@ -77,7 +131,41 @@ function setStatus(msg, color) {
   el.textContent = msg;
   el.style.color = color || "#718096";
 }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+}
 
+// ========= 플랫폼 사이즈 체크박스 =========
+function syncChip(cb) {
+  cb.closest(".plat-chip").classList.toggle("active", cb.checked);
+  updateSelCount();
+}
+function selectedPlatformKeys() {
+  return Array.from(document.querySelectorAll(".plat-chip input:checked")).map(i => i.value);
+}
+function updateSelCount() {
+  document.getElementById("sel-count").textContent = selectedPlatformKeys().length + "개 선택";
+}
+function selectAll(on) {
+  document.querySelectorAll(".plat-chip input").forEach(cb => {
+    cb.checked = on;
+    cb.closest(".plat-chip").classList.toggle("active", on);
+  });
+  updateSelCount();
+}
+function selectMetaDefault() {
+  selectAll(false);
+  const defaults = ["meta_feed_1_1", "meta_feed_4_5", "meta_reels_9_16"];
+  document.querySelectorAll(".plat-chip input").forEach(cb => {
+    if (defaults.includes(cb.value)) {
+      cb.checked = true;
+      cb.closest(".plat-chip").classList.add("active");
+    }
+  });
+  updateSelCount();
+}
+
+// ========= 이미지 생성 =========
 async function generateImage() {
   const prompt = v("prompt").trim();
   if (!prompt) { setStatus("프롬프트 필수", "#fc8181"); return; }
@@ -110,18 +198,13 @@ async function generateImage() {
   }
 }
 
-function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
-}
-
-// handoff: /creative/copy 에서 "→ 이미지 생성" 으로 전달된 프롬프트 자동 채움
+// handoff
 (function applyHandoff() {
   try {
     const raw = localStorage.getItem("creative_prompt_handoff");
     if (!raw) return;
     const h = JSON.parse(raw);
     if (!h || !h.prompt) return;
-    // 5분 이내만 자동 적용
     if (Date.now() - (h.ts || 0) > 5 * 60 * 1000) return;
     document.getElementById("prompt").value = h.prompt;
     if (h.aspect_ratio) {
@@ -133,19 +216,69 @@ function esc(s) {
   } catch (e) {}
 })();
 
+// ========= 갤러리 + 사이즈 변환 =========
 function renderGallery(images) {
   document.getElementById("results").style.display = "block";
   const box = document.getElementById("gallery");
-  if (!images.length) { box.innerHTML = '<div class="empty">결과 없음 — Gemini 응답에 image part 부재</div>'; return; }
-  box.innerHTML = images.map(img => `
-    <div class="thumb">
+  if (!images.length) { box.innerHTML = '<div class="empty">결과 없음</div>'; return; }
+  box.innerHTML = images.map((img, i) => `
+    <div class="thumb" data-idx="${i}">
       <a href="${esc(img.url)}" target="_blank"><img src="${esc(img.url)}" alt=""></a>
       <div class="meta">
         <span>${esc(img.model_id || "")} · ${esc(img.aspect_ratio || "")}</span>
         <a href="${esc(img.url)}" download>다운로드</a>
       </div>
+      <div class="thumb-actions">
+        <button class="copy-btn" onclick='resizeOne(${i})' style="background:#2b4c7e; color:#bee3f8;">→ 선택 사이즈로 변환</button>
+      </div>
+      <div class="resized-block" id="rblock-${i}" style="display:none;">
+        <div style="font-size:11px; color:#a0aec0;">변환 결과</div>
+        <div class="resized-grid" id="rgrid-${i}"></div>
+      </div>
     </div>
   `).join("");
+  window._images = images;
+}
+
+async function resizeOne(idx) {
+  const img = (window._images || [])[idx];
+  if (!img) return;
+  const keys = selectedPlatformKeys();
+  if (!keys.length) { setStatus("먼저 플랫폼 사이즈 선택", "#fc8181"); return; }
+  setStatus(`#${idx+1} → ${keys.length}개 사이즈로 변환 중…`, "#63b3ed");
+  try {
+    const r = await fetch("/creative/image/resize", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ source: img.url, platform_keys: keys }),
+    });
+    const data = await r.json();
+    if (!r.ok) { setStatus("변환 에러: " + (data.detail || r.statusText), "#fc8181"); return; }
+    renderResized(idx, data.results || []);
+    setStatus(`#${idx+1} 완료 (${(data.results||[]).length}개)`, "#68d391");
+  } catch (e) {
+    setStatus("네트워크 에러: " + e.message, "#fc8181");
+  }
+}
+
+function renderResized(idx, results) {
+  const block = document.getElementById(`rblock-${idx}`);
+  const grid = document.getElementById(`rgrid-${idx}`);
+  block.style.display = "block";
+  grid.innerHTML = results.map(r => {
+    if (r.error) {
+      return `<div class="resized-item" style="padding:10px; color:#fc8181; font-size:11px;">${esc(r.label || r.key)}: ${esc(r.error)}</div>`;
+    }
+    return `
+      <div class="resized-item">
+        <a href="${esc(r.url)}" target="_blank"><img src="${esc(r.url)}" alt=""></a>
+        <div class="rmeta">
+          <span>${esc(r.label)} · ${r.width}×${r.height}</span>
+          <a href="${esc(r.url)}" download>↓</a>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 </script>
 {% endblock %}

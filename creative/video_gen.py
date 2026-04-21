@@ -49,7 +49,7 @@ async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16"
         "parameters": {
             "aspectRatio": aspect_ratio,
             "durationSeconds": int(duration_seconds),
-            "personGeneration": "allow_adult",
+            "personGeneration": "allow_all",
         },
     }
 

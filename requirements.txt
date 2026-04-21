@@ -20,6 +20,9 @@ tweepy>=4.14.0
 httpx>=0.27.0
 feedparser>=6.0.0
 
+# Image processing (multi-platform resize)
+Pillow>=10.0.0
+
 # Config / Utils
 python-dotenv>=1.0.0
 rich>=13.0.0
