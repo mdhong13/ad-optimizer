@@ -42,6 +42,59 @@
 {% block content %}
 <h1>이미지 생성</h1>
 
+<!-- ========= 스토리 기반 프롬프트 자동 생성 ========= -->
+<div class="card">
+  <h2>🧠 스토리 → 이미지 프롬프트 자동 생성 <span style="font-weight:400; color:#718096; font-size:12px;">— 선택. 직접 프롬프트를 쓸 거면 건너뛰세요.</span></h2>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>Provider (LLM)</label>
+      <select id="sp_provider_id">
+        {% for p in providers %}
+          <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Aspect Ratio (프롬프트 생성 시 참고)</label>
+      <select id="sp_aspect">
+        <option value="1:1" selected>1:1</option>
+        <option value="4:5">4:5</option>
+        <option value="9:16">9:16</option>
+        <option value="16:9">16:9</option>
+        <option value="3:4">3:4</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>프롬프트 개수 (n)</label>
+      <input id="sp_n" type="number" min="1" max="5" value="2">
+    </div>
+    <div class="form-row">
+      <label>Phone/Device Screen Language</label>
+      <select id="sp_screen_lang">
+        <option value="en" selected>English only</option>
+        <option value="kr">Korean (한글) — 디바이스 화면만</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row" style="margin-top:12px;">
+    <label>Story / Brief</label>
+    <textarea id="sp_brief" placeholder="예) 책상 위 노트북 옆 따뜻한 커피잔, 50대 손이 손글씨로 작성한 편지봉투를 집어드는 순간. 아침 햇살. 텍스트 광고 오버레이 공간은 우측 하단."></textarea>
+  </div>
+  <div class="form-row" style="margin-top:10px;">
+    <label>Phone/Device screen text (선택) — 이 문구를 프레임 내 디바이스 화면에 legibly 렌더</label>
+    <textarea id="sp_phone_text" placeholder="예) 내일 아침 9시, 약속대로 편지를 전달합니다."></textarea>
+  </div>
+  <div class="form-row" style="margin-top:10px;">
+    <label>Must-show elements (선택) — 반드시 프레임에 포함될 소품/배경 (텍스트 아님)</label>
+    <textarea id="sp_must" placeholder="예) 오래된 만년필, 책상 위 아이들 사진 액자, 창가 화분"></textarea>
+  </div>
+  <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" onclick="generateStoryPrompts()">이미지 프롬프트 생성</button>
+    <span id="sp_status" style="font-size:12px; color:#718096;"></span>
+  </div>
+  <div id="sp_results" style="margin-top:14px;"></div>
+</div>
+
 <div class="card">
   <h2>프롬프트</h2>
   <div class="form-grid">
@@ -213,6 +266,65 @@ async function generateImage() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ========= 스토리 기반 이미지 프롬프트 생성 =========
+function setSpStatus(msg, color) {
+  const el = document.getElementById("sp_status");
+  el.textContent = msg; el.style.color = color || "#718096";
+}
+async function generateStoryPrompts() {
+  const brief_text = document.getElementById("sp_brief").value.trim();
+  if (!brief_text) { setSpStatus("브리프(스토리) 필수", "#fc8181"); return; }
+  const payload = {
+    target: "image",
+    brief_text,
+    aspect_ratio: v("sp_aspect"),
+    n: parseInt(v("sp_n"), 10) || 2,
+    provider_id: v("sp_provider_id"),
+    phone_screen_text: document.getElementById("sp_phone_text").value.trim(),
+    must_show: document.getElementById("sp_must").value.trim(),
+    screen_text_language: v("sp_screen_lang"),
+  };
+  setSpStatus("프롬프트 생성 중…", "#63b3ed");
+  try {
+    const r = await fetch("/creative/prompt/generate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    renderStoryPrompts(data.prompts || [], payload.aspect_ratio);
+    setSpStatus(`✓ ${(data.prompts || []).length}개 생성 (${data._meta.model})`, "#68d391");
+  } catch (e) {
+    setSpStatus("✗ " + e.message, "#fc8181");
+  }
+}
+function renderStoryPrompts(prompts, aspect) {
+  const box = document.getElementById("sp_results");
+  if (!prompts.length) { box.innerHTML = '<div class="empty">결과 없음</div>'; return; }
+  box.innerHTML = prompts.map((p, i) => `
+    <div style="background:#0f1117; border:1px solid #2d3748; border-radius:6px; padding:12px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <strong style="color:#f6ad55;">Prompt ${i + 1}</strong>
+        <button class="copy-btn" onclick="useStoryPrompt(${i}, '${esc(aspect)}')" style="background:#2b4c7e; color:#bee3f8;">→ 이 프롬프트로 생성</button>
+      </div>
+      <div style="white-space:pre-wrap; font-size:12px; line-height:1.55; color:#cbd5e0;">${esc(p)}</div>
+    </div>
+  `).join("");
+  window._sp_prompts = prompts;
+}
+function useStoryPrompt(i, aspect) {
+  const p = (window._sp_prompts || [])[i];
+  if (!p) return;
+  document.getElementById("prompt").value = p;
+  if (aspect) {
+    const sel = document.getElementById("aspect_ratio");
+    for (const opt of sel.options) { if (opt.value === aspect) { sel.value = aspect; break; } }
+  }
+  window.scrollTo({ top: document.getElementById("prompt").offsetTop - 20, behavior: "smooth" });
+  setStatus(`Prompt ${i + 1} → 프롬프트 영역에 복사됨`, "#68d391");
 }
 
 // handoff

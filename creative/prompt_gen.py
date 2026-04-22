@@ -107,6 +107,63 @@ def _user_message(
     )
 
 
+def _format_anchor_block(anchor: dict) -> str:
+    """앵커(character + setting) → 프롬프트에 주입할 텍스트 블록."""
+    c = (anchor or {}).get("character") or {}
+    s = (anchor or {}).get("setting") or {}
+
+    def _kv(label: str, val: str) -> str:
+        val = (val or "").strip()
+        return f"  - {label}: {val}" if val else ""
+
+    char_lines = [
+        _kv("identity", c.get("identity", "")),
+        _kv("hair", c.get("hair", "")),
+        _kv("face_marks", c.get("face_marks", "")),
+        _kv("hands", c.get("hands", "")),
+        _kv("wardrobe", c.get("wardrobe", "")),
+        _kv("distinctive_prop", c.get("distinctive_prop", "")),
+    ]
+    set_lines = [
+        _kv("location", s.get("location", "")),
+        _kv("palette", s.get("palette", "")),
+        _kv("lighting", s.get("lighting", "")),
+        _kv("lens", s.get("lens", "")),
+        _kv("time_weather", s.get("time_weather", "")),
+    ]
+    char_lines = [l for l in char_lines if l]
+    set_lines = [l for l in set_lines if l]
+    if not char_lines and not set_lines:
+        return ""
+
+    parts = ["# SCENE ANCHOR — inject VERBATIM into EVERY shot prompt (critical for cross-shot continuity)"]
+    if char_lines:
+        parts.append("CHARACTER ANCHOR (must re-appear identically in every shot):")
+        parts.extend(char_lines)
+    if set_lines:
+        parts.append("SETTING ANCHOR (must re-appear identically in every shot):")
+        parts.extend(set_lines)
+    parts.append(
+        "Each shot prompt MUST embed these character and setting details verbatim, ideally in the opening phrases. "
+        "Only the shot-specific BEAT (camera move, action, emotional turn) differs between shots. "
+        "The distinctive_prop from the character anchor MUST appear visibly in every shot as a continuity marker."
+    )
+    return "\n".join(parts)
+
+
+def _face_avoid_block() -> str:
+    return (
+        "# FACE AVOIDANCE MODE — Layer 2 consistency (critical)\n"
+        "Scaffold the shots so the protagonist's FACE is never the primary subject. This side-steps the hardest "
+        "cross-shot failure mode (face change). Use ONLY the following framings, one per shot, in this order:\n"
+        "  - Shot 1: over-the-shoulder (OTS) — back of head visible, focus on what the character sees or holds.\n"
+        "  - Shot 2: hands-and-object close-up — the distinctive_prop and/or primary object of action, character's face out of frame.\n"
+        "  - Shot 3: silhouette / back-turned wide — character in contre-jour or away from camera, environment dominant.\n"
+        "If fewer than 3 shots are requested, use the first N framings in order. Never write 'face', 'eyes looking at camera', "
+        "'smiling', 'closeup on face' in any shot prompt."
+    )
+
+
 async def generate_prompts(
     target: Literal["image", "video"],
     brief_text: str,
@@ -116,6 +173,8 @@ async def generate_prompts(
     phone_screen_text: str = "",
     must_show: str = "",
     screen_text_language: str = "en",
+    anchor: dict | None = None,
+    face_avoid: bool = False,
 ) -> dict:
     """
     반환: {"prompts": [str, ...], "_meta": {provider, model, target}}
@@ -137,6 +196,15 @@ async def generate_prompts(
         must_show=must_show,
         screen_text_language=screen_text_language,
     )
+    # 앵커·얼굴회피 블록은 user 메시지 앞쪽에 추가(브리프보다 먼저 읽히도록)
+    pre_blocks: list[str] = []
+    anchor_block = _format_anchor_block(anchor or {})
+    if anchor_block:
+        pre_blocks.append(anchor_block)
+    if face_avoid and target == "video":
+        pre_blocks.append(_face_avoid_block())
+    if pre_blocks:
+        user = "\n\n".join(pre_blocks) + "\n\n" + user
     result = await call_llm_text(provider_id, system, user)
     raw = result["text"]
 

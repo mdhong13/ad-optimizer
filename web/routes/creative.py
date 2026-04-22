@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
-from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize, tts, tts_script_gen, voices, subtitle
+from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize, tts, tts_script_gen, voices, subtitle, anchor_gen, frame_extract
 from creative.models import (
     COPY_PROVIDERS, COPY_DEFAULT_ID,
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
@@ -33,15 +33,14 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 async def creative_root(request: Request):
     return templates.TemplateResponse(request, "creative_copy.html", {
         "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
-        "voice_presets": voices.load_voice_presets(),
     })
 
 
 @router.get("/copy")
 async def page_copy(request: Request):
+    # 스토리보드 페이지 — 카피 + 3샷 영상 프롬프트 전용. TTS/이미지 옵션은 각 페이지로 이동.
     return templates.TemplateResponse(request, "creative_copy.html", {
         "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
-        "voice_presets": voices.load_voice_presets(),
     })
 
 
@@ -50,6 +49,7 @@ async def page_image(request: Request):
     return templates.TemplateResponse(request, "creative_image.html", {
         "models": IMAGE_MODELS, "default_model": IMAGE_DEFAULT_ID,
         "platform_sizes": image_resize.PLATFORM_SIZES,
+        "providers": COPY_PROVIDERS, "default_provider": COPY_DEFAULT_ID,
     })
 
 
@@ -57,6 +57,7 @@ async def page_image(request: Request):
 async def page_video(request: Request):
     return templates.TemplateResponse(request, "creative_video.html", {
         "models": VIDEO_MODELS, "default_model": VIDEO_DEFAULT_ID,
+        "voice_presets": voices.load_voice_presets(),
     })
 
 
@@ -70,6 +71,53 @@ async def api_copy_generate(payload: dict):
         result = await copy_gen.generate_copy(brief, provider_id)
     except Exception as e:
         log.exception("[creative.copy] generate failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+# ---------- API: Storyboard (anchor extraction + 3-shot video prompts) ----------
+
+@router.post("/storyboard/anchor")
+async def api_storyboard_anchor(payload: dict):
+    """스토리 → 씬 앵커(Character + Setting) 추출."""
+    story = (payload.get("story") or "").strip()
+    if not story:
+        raise HTTPException(status_code=400, detail="story 필수")
+    provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    try:
+        result = await anchor_gen.extract_anchor(story, provider_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        log.exception("[creative.storyboard] anchor failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
+
+
+@router.post("/storyboard/shots")
+async def api_storyboard_shots(payload: dict):
+    """앵커 + 스토리 → N샷 영상 프롬프트(각 8초, 앵커 주입 + 얼굴 회피 옵션)."""
+    story = (payload.get("story") or "").strip()
+    if not story:
+        raise HTTPException(status_code=400, detail="story 필수")
+    anchor = payload.get("anchor") or {}
+    aspect_ratio = payload.get("aspect_ratio") or "9:16"
+    n = int(payload.get("n") or 3)
+    n = max(1, min(n, 3))
+    face_avoid = bool(payload.get("face_avoid"))
+    provider_id = payload.get("provider_id") or COPY_DEFAULT_ID
+    try:
+        result = await prompt_gen.generate_prompts(
+            target="video",
+            brief_text=story,
+            aspect_ratio=aspect_ratio,
+            n=n,
+            provider_id=provider_id,
+            anchor=anchor,
+            face_avoid=face_avoid,
+        )
+    except Exception as e:
+        log.exception("[creative.storyboard] shots failed")
         raise HTTPException(status_code=500, detail=str(e))
     return result
 
@@ -197,12 +245,37 @@ async def api_video_start(payload: dict):
     model_id = payload.get("model_id") or VIDEO_DEFAULT_ID
     aspect_ratio = payload.get("aspect_ratio") or "9:16"
     duration = int(payload.get("duration_seconds") or 8)
+    image_path = (payload.get("image_path") or "").strip() or None
+    image_mime = (payload.get("image_mime_type") or "image/jpeg").strip()
     try:
-        job = await video_gen.start_video_job(prompt, model_id, aspect_ratio, duration)
+        job = await video_gen.start_video_job(
+            prompt, model_id, aspect_ratio, duration,
+            image_path=image_path, image_mime_type=image_mime,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         log.exception("[creative.video] start failed")
         raise HTTPException(status_code=500, detail=str(e))
     return job
+
+
+@router.post("/video/extract-frame")
+async def api_video_extract_frame(payload: dict):
+    """영상의 마지막 프레임을 JPG 로 추출 — 다음 샷 image-to-video 용."""
+    video = (payload.get("video") or "").strip()
+    if not video:
+        raise HTTPException(status_code=400, detail="video 필수")
+    try:
+        result = await frame_extract.extract_last_frame(video)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        log.exception("[creative.video] extract-frame failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
 
 
 @router.get("/video/status")

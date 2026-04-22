@@ -31,10 +31,33 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
+# Layer 4 — cross-shot consistency 강화용 기본 negative prompt.
+# 3샷 스티칭 시 동일 인물/동일 배경이 깨지는 가장 흔한 실패 패턴을 배제.
+DEFAULT_NEGATIVE_PROMPT = (
+    "different person, face change, identity swap, different clothing, "
+    "different location, different lighting, jump cut, camera switch, "
+    "multiple people, crowds, text overlays, subtitles, watermarks, "
+    "logos, brand marks, cryptocurrency symbols, bitcoin symbol, "
+    "cartoon, anime, cgi render, 3d render, illustration, "
+    "low quality, artifacts, warped hands, extra fingers"
+)
 
-async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16", duration_seconds: int = 8) -> dict:
+
+async def start_video_job(
+    prompt: str,
+    model_id: str,
+    aspect_ratio: str = "9:16",
+    duration_seconds: int = 8,
+    image_path: str | None = None,
+    image_mime_type: str = "image/jpeg",
+) -> dict:
     """
     Veo 비동기 작업 시작.
+
+    image_path 가 주어지면 image-to-video 모드 — 해당 이미지가 샷의 첫 프레임으로
+    사용된다. 3샷 체이닝(Layer 3)에서 이전 샷의 마지막 프레임을 넘겨받아 동일
+    인물/배경이 자연스럽게 이어지도록 함.
+
     반환: {"operation_name": ..., "model": ..., "prompt": ..., "submitted_at": iso}
     """
     if not settings.GEMINI_API_KEY:
@@ -49,17 +72,33 @@ async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16"
         log.warning("[creative.video] aspect_ratio %s 미지원 → %s 로 변경", aspect_ratio, clamped)
         aspect_ratio = clamped
 
+    instance: dict = {"prompt": prompt}
+    if image_path:
+        img_file = Path(image_path)
+        if not img_file.is_absolute():
+            img_file = BASE_DIR / image_path.lstrip("/")
+        if not img_file.exists():
+            raise FileNotFoundError(f"reference image 없음: {img_file}")
+        b64 = base64.b64encode(img_file.read_bytes()).decode("ascii")
+        instance["image"] = {
+            "bytesBase64Encoded": b64,
+            "mimeType": image_mime_type or "image/jpeg",
+        }
+        log.info("[creative.video] image-to-video mode (ref=%s, %d bytes)", img_file.name, img_file.stat().st_size)
+
     url = f"{API_BASE}/models/{model_name}:predictLongRunning?key={settings.GEMINI_API_KEY}"
     payload = {
-        "instances": [{"prompt": prompt}],
+        "instances": [instance],
         "parameters": {
             "aspectRatio": aspect_ratio,
             "durationSeconds": int(duration_seconds),
             "personGeneration": "allow_all",
+            "negativePrompt": DEFAULT_NEGATIVE_PROMPT,
         },
     }
 
-    log.info("[creative.video] start model=%s ar=%s dur=%ss", model_name, aspect_ratio, duration_seconds)
+    log.info("[creative.video] start model=%s ar=%s dur=%ss image=%s",
+             model_name, aspect_ratio, duration_seconds, bool(image_path))
     async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.post(url, json=payload)
         if r.status_code >= 400:
@@ -80,6 +119,7 @@ async def start_video_job(prompt: str, model_id: str, aspect_ratio: str = "9:16"
         "aspect_ratio": aspect_ratio,
         "duration_seconds": duration_seconds,
         "submitted_at": datetime.now().isoformat(),
+        "image_ref": image_path or None,
     }
 
 

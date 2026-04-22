@@ -55,9 +55,20 @@
       <label>Duration per shot (Veo 3.1 고정 8초)</label>
       <input id="duration" type="number" value="8" disabled>
     </div>
+    <div class="form-row">
+      <label>
+        <input type="checkbox" id="chain_mode" checked style="margin-right:6px;">
+        🔗 체이닝 모드 (Layer 3)
+      </label>
+      <div class="hint">
+        ON: 샷을 <strong>순차</strong>로 제출 — 이전 샷 완료 → 마지막 프레임 추출 →
+        다음 샷에 <code>image-to-video</code> 로 전달. 3샷 동일성 ↑↑.<br>
+        OFF: 3샷 병렬 제출 (빠름, 연속성 ↓).
+      </div>
+    </div>
   </div>
   <div class="hint" style="margin-top:8px;">
-    Veo 3.1은 샷당 8초 고정. 최대 3샷(= 24초) 동시 제출 가능. 완성 후 ffmpeg로 스티칭.
+    Veo 3.1은 샷당 8초 고정. 최대 3샷(= 24초). 완성 후 ffmpeg로 스티칭.
   </div>
 </div>
 
@@ -77,6 +88,79 @@
   <h2>작업 목록</h2>
   <div id="jobs"></div>
   <div id="empty" class="empty">아직 시작된 작업이 없습니다.</div>
+</div>
+
+<!-- ========= TTS 대사 + 합성 ========= -->
+<div class="card">
+  <h2>🎙 TTS 보이스오버 <span style="font-weight:400; color:#718096; font-size:12px;">— 스토리 → N샷 대사 → 샷별 음성 합성</span></h2>
+  <div class="form-grid">
+    <div class="form-row">
+      <label>Voice Preset</label>
+      <select id="tts_preset">
+        {% for p in voice_presets %}
+          <option value="{{ p.id }}">{{ p.label }} ({{ p.provider }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Language (대사 언어)</label>
+      <select id="tts_lang">
+        <option value="kr" selected>🇰🇷 한국어</option>
+        <option value="en">🇬🇧 English</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>대사 개수 (= 샷 수)</label>
+      <select id="tts_n">
+        <option value="3" selected>3 (24s)</option>
+        <option value="2">2 (16s)</option>
+        <option value="1">1 (8s)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Provider (LLM — 대사 생성)</label>
+      <select id="tts_provider_id">
+        <option value="claude-sonnet" selected>claude-sonnet</option>
+        <option value="openai-4o">openai-4o</option>
+        <option value="gemini-flash">gemini-flash</option>
+        <option value="local-vllm">local-vllm</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row" style="margin-top:12px;">
+    <label>Story (스토리 — 스토리보드에서 자동 전달됨)</label>
+    <textarea id="tts_story" placeholder="씬 + 감정을 구체적으로. 이 스토리로 N개의 8초짜리 voiceover 대사가 생성됩니다."></textarea>
+  </div>
+  <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" onclick="generateScript()">대사 생성</button>
+    <span id="tts_status" style="font-size:12px; color:#718096;"></span>
+  </div>
+  <div id="tts_lines" style="margin-top:14px;"></div>
+</div>
+
+<!-- ========= 자막 + 음성 + 영상 합성 ========= -->
+<div class="card">
+  <h2>🎬 자막 + 음성 합성 (최종 mp4) <span style="font-weight:400; color:#718096; font-size:12px;">— 로컬 ffmpeg burn-in + concat</span></h2>
+  <div style="font-size:12px; color:#718096; margin-bottom:10px;">
+    샷별로 <strong>영상 경로</strong> + (선택) <strong>TTS 오디오</strong> + (선택) <strong>자막</strong>을 조합.
+    영상·오디오·자막은 위 작업 목록·TTS 합성 결과에서 자동 채워지지만, 경로·자막은 직접 편집 가능.
+  </div>
+  <div class="form-grid">
+    <div class="form-row" style="max-width:220px;">
+      <label>자막 폰트 기준 언어</label>
+      <select id="merge_lang">
+        <option value="kr" selected>🇰🇷 Malgun Gothic</option>
+        <option value="en">🇬🇧 Arial</option>
+      </select>
+    </div>
+  </div>
+  <div id="merge_shots" style="margin-top:12px;"></div>
+  <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-gray" onclick="rebuildMergeShots()">샷 갱신 (작업 목록 + TTS 결과 기준)</button>
+    <button class="btn btn-blue" onclick="mergeVideo()">🎬 합성 시작</button>
+    <span id="merge_status" style="font-size:12px; color:#718096;"></span>
+  </div>
+  <div id="merge_result" style="margin-top:14px;"></div>
 </div>
 {% endblock %}
 
@@ -171,6 +255,13 @@ function renderJobs() {
     const batchTag = j.batch_id
       ? `<span style="background:#2d3748; color:#a0aec0; padding:2px 8px; border-radius:10px; font-size:10px; margin-left:6px;">batch ${j.batch_id.slice(0,6)} · shot ${j.shot_idx}/${j.batch_size}</span>`
       : "";
+    const chainTag = j.image_ref
+      ? `<span style="background:#10201a; color:#9ae6b4; border:1px solid #276749; padding:2px 8px; border-radius:10px; font-size:10px; margin-left:6px;">🔗 chained</span>`
+      : "";
+    const nextFrameHtml = j.next_frame_url
+      ? `<div style="margin-top:6px; font-size:11px; color:#9ae6b4;">→ 다음 샷 참조 프레임:
+           <a href="${esc(j.next_frame_url)}" target="_blank" style="color:#9ae6b4;">${esc(j.next_frame_url.split('/').pop())}</a></div>`
+      : "";
     return `
       <div class="job-row">
         <div class="job-head">
@@ -178,13 +269,14 @@ function renderJobs() {
             <strong>#${i + 1}</strong>
             · ${esc(j.model || "")} · ${esc(j.aspect_ratio || "")} · ${esc(String(j.duration_seconds || ""))}s
             · ${esc(j.submitted_at || "")}
-            ${batchTag}
+            ${batchTag}${chainTag}
           </div>
           <div>${stateLabel}</div>
         </div>
         <div style="font-size:12px; color:#a0aec0; margin-bottom:6px;">${esc((j.prompt || "").slice(0, 220))}${(j.prompt || "").length > 220 ? "…" : ""}</div>
         <div class="op-name">op: ${esc(j.operation_name || "")}</div>
         ${videos ? `<div class="video-wrap">${videos}</div>` : ""}
+        ${nextFrameHtml}
       </div>
     `;
   }).join("");
@@ -227,13 +319,13 @@ function maybeRenderStitchCard() {
   document.getElementById("jobs").parentElement.after(container);
 }
 
-// ========= 전체 샷 제출 =========
+// ========= 전체 샷 제출 — 병렬 or 체이닝(순차) =========
 async function startAllShots() {
   const prompts = collectPrompts();
   if (!prompts.length) { setStatus("프롬프트 1개 이상 필요", "#fc8181"); return; }
   const btn = document.getElementById("gen-btn");
   btn.disabled = true;
-  setStatus(`${prompts.length}개 샷 병렬 제출 중…`, "#63b3ed");
+  const chainMode = document.getElementById("chain_mode").checked;
   const batch_id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const common = {
     model_id: v("model_id"),
@@ -241,6 +333,16 @@ async function startAllShots() {
     duration_seconds: 8,
   };
 
+  if (chainMode) {
+    await startChainedShots(prompts, common, batch_id);
+  } else {
+    await startParallelShots(prompts, common, batch_id);
+  }
+  btn.disabled = false;
+}
+
+async function startParallelShots(prompts, common, batch_id) {
+  setStatus(`${prompts.length}개 샷 병렬 제출 중…`, "#63b3ed");
   const submits = prompts.map((prompt, i) =>
     fetch("/creative/video/start", {
       method: "POST",
@@ -252,7 +354,6 @@ async function startAllShots() {
       return { ...data, shot_idx: i + 1 };
     })
   );
-
   const settled = await Promise.allSettled(submits);
   let okCount = 0;
   settled.forEach((s, i) => {
@@ -266,22 +367,101 @@ async function startAllShots() {
       pollLoop(job);
       okCount++;
     } else {
-      const errJob = {
+      jobs.unshift({
         operation_name: `(error shot ${i+1})`,
         prompt: prompts[i],
         model: common.model_id, aspect_ratio: common.aspect_ratio, duration_seconds: 8,
         submitted_at: new Date().toISOString(),
         done: true, error: s.reason.message,
         batch_id, batch_size: prompts.length, shot_idx: i + 1,
-      };
-      jobs.unshift(errJob);
+      });
     }
   });
   saveJobs();
   renderJobs();
   const color = okCount === prompts.length ? "#68d391" : (okCount > 0 ? "#f6ad55" : "#fc8181");
-  setStatus(`${okCount}/${prompts.length} 샷 작업 시작됨 (batch ${batch_id.slice(0,6)})`, color);
-  btn.disabled = false;
+  setStatus(`${okCount}/${prompts.length} 샷 병렬 시작됨 (batch ${batch_id.slice(0,6)})`, color);
+}
+
+async function startChainedShots(prompts, common, batch_id) {
+  setStatus(`🔗 체이닝 모드: ${prompts.length}샷 순차 실행…`, "#63b3ed");
+  let prevImagePath = null;
+  for (let i = 0; i < prompts.length; i++) {
+    const label = `샷 ${i + 1}/${prompts.length}`;
+    const payload = {
+      ...common,
+      prompt: prompts[i],
+      image_path: prevImagePath || undefined,
+    };
+    setStatus(`${label} 제출${prevImagePath ? " (이전 샷 프레임 연결)" : ""}…`, "#63b3ed");
+
+    let startedJob;
+    try {
+      const r = await fetch("/creative/video/start", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      startedJob = { ...data, shot_idx: i + 1 };
+    } catch (e) {
+      jobs.unshift({
+        operation_name: `(error shot ${i+1})`,
+        prompt: prompts[i],
+        model: common.model_id, aspect_ratio: common.aspect_ratio, duration_seconds: 8,
+        submitted_at: new Date().toISOString(),
+        done: true, error: e.message,
+        batch_id, batch_size: prompts.length, shot_idx: i + 1,
+        image_ref: prevImagePath || null,
+      });
+      saveJobs(); renderJobs();
+      setStatus(`✗ ${label} 제출 실패 — 체인 중단`, "#fc8181");
+      return;
+    }
+
+    const job = {
+      ...startedJob,
+      done: false, elapsed: 0, video_urls: [],
+      batch_id, batch_size: prompts.length,
+    };
+    jobs.unshift(job);
+    saveJobs(); renderJobs();
+
+    // 이 샷이 완료될 때까지 대기
+    await pollLoop(job);
+    if (job.error) {
+      setStatus(`✗ ${label} 실패: ${job.error} — 체인 중단`, "#fc8181");
+      return;
+    }
+    const videoUrl = (job.video_urls || [])[0];
+    if (!videoUrl) {
+      setStatus(`✗ ${label} 비디오 URL 없음 — 체인 중단`, "#fc8181");
+      return;
+    }
+
+    // 다음 샷이 있으면 마지막 프레임 추출
+    if (i < prompts.length - 1) {
+      setStatus(`${label} 완료. 마지막 프레임 추출 중…`, "#63b3ed");
+      try {
+        const r = await fetch("/creative/video/extract-frame", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ video: videoUrl }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || r.statusText);
+        prevImagePath = data.path;
+        job.next_frame_url = data.url;
+        saveJobs(); renderJobs();
+      } catch (e) {
+        setStatus(`✗ 프레임 추출 실패: ${e.message} — 체인 중단`, "#fc8181");
+        return;
+      }
+    }
+  }
+  setStatus(`✓ 체이닝 ${prompts.length}샷 완료 (batch ${batch_id.slice(0,6)})`, "#68d391");
+  rebuildMergeShots();
 }
 
 async function pollLoop(job) {
@@ -314,22 +494,25 @@ async function pollLoop(job) {
   }
 }
 
-// ========= handoff (카피 페이지에서 전달) =========
+// ========= handoff (스토리보드에서 전달) =========
 (function applyHandoff() {
   let initialPrompts = [];
   let initialAspect = null;
+  let initialStory = "";
+  let initialLang = null;
   try {
     const raw = localStorage.getItem("creative_prompt_handoff");
     if (raw) {
       const h = JSON.parse(raw);
       if (h && (Date.now() - (h.ts || 0) <= 5 * 60 * 1000)) {
-        // 신규: prompts 배열 (시퀀스 핸드오프)
         if (Array.isArray(h.prompts) && h.prompts.length) {
           initialPrompts = h.prompts.slice(0, MAX_SHOTS);
         } else if (h.prompt) {
           initialPrompts = [h.prompt];
         }
         if (h.aspect_ratio) initialAspect = h.aspect_ratio;
+        if (h.story) initialStory = h.story;
+        if (h.language) initialLang = h.language;
       }
       localStorage.removeItem("creative_prompt_handoff");
     }
@@ -337,7 +520,6 @@ async function pollLoop(job) {
   renderShotsFromValues(initialPrompts);
   if (initialAspect) {
     const sel = document.getElementById("aspect_ratio");
-    // Veo 는 16:9 / 9:16 만 지원. 그 외 비율은 9:16 기본 + 경고.
     let matched = false;
     for (const opt of sel.options) { if (opt.value === initialAspect) { sel.value = initialAspect; matched = true; break; } }
     if (!matched) {
@@ -345,10 +527,187 @@ async function pollLoop(job) {
       setStatus(`핸드오프 비율 ${initialAspect} 은 Veo 미지원 → ${sel.value} 로 자동 변경`, "#f6ad55");
     }
   }
+  if (initialStory) {
+    document.getElementById("tts_story").value = initialStory;
+  }
+  if (initialLang) {
+    const ts = document.getElementById("tts_lang");
+    for (const opt of ts.options) { if (opt.value === initialLang) { ts.value = initialLang; break; } }
+    const ms = document.getElementById("merge_lang");
+    for (const opt of ms.options) { if (opt.value === initialLang) { ms.value = initialLang; break; } }
+  }
+  // 샷 수를 핸드오프 프롬프트 수와 맞춤
+  if (initialPrompts.length) {
+    const tn = document.getElementById("tts_n");
+    const targetN = String(Math.min(initialPrompts.length, 3));
+    for (const opt of tn.options) { if (opt.value === targetN) { tn.value = targetN; break; } }
+  }
   if (initialPrompts.length > 0) {
-    setStatus(`카피 페이지에서 ${initialPrompts.length}개 샷 프롬프트 자동 채움`, "#68d391");
+    setStatus(`스토리보드에서 ${initialPrompts.length}개 샷 프롬프트 + 스토리 자동 채움`, "#68d391");
   }
   loadJobs();
+  rebuildMergeShots();
 })();
+
+// ========= TTS 대사 생성 =========
+let _ttsLines = [];   // [{text, audio_url, audio_path}, ...]
+function setTtsStatus(msg, color) {
+  const el = document.getElementById("tts_status");
+  el.textContent = msg; el.style.color = color || "#718096";
+}
+async function generateScript() {
+  const story = v("tts_story").trim();
+  if (!story) { setTtsStatus("스토리 필요", "#fc8181"); return; }
+  const n_shots = parseInt(v("tts_n"), 10) || 3;
+  const language = v("tts_lang");
+  const provider_id = v("tts_provider_id");
+  setTtsStatus("대사 생성 중…", "#63b3ed");
+  try {
+    const r = await fetch("/creative/tts/script", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ story, n_shots, language, provider_id }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    _ttsLines = (data.lines || []).map(t => ({ text: t, audio_url: null, audio_path: null }));
+    renderTtsLines();
+    setTtsStatus(`✓ ${_ttsLines.length}개 대사 생성 (${data._meta.model})`, "#68d391");
+    rebuildMergeShots();
+  } catch (e) {
+    setTtsStatus("✗ " + e.message, "#fc8181");
+  }
+}
+function renderTtsLines() {
+  const box = document.getElementById("tts_lines");
+  if (!_ttsLines.length) { box.innerHTML = ""; return; }
+  box.innerHTML = _ttsLines.map((l, i) => `
+    <div class="shot-block" style="margin-bottom:8px;">
+      <div class="shot-head">
+        <span class="shot-title">Line ${i + 1}</span>
+        <button class="copy-btn" onclick="synthOne(${i})" style="background:#2b4c7e; color:#bee3f8;">🔊 합성</button>
+      </div>
+      <textarea class="tts-line" data-idx="${i}" style="min-height:60px; width:100%; background:#0f1117; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit; resize:vertical;" oninput="_ttsLines[${i}].text = this.value">${esc(l.text)}</textarea>
+      <div class="tts-audio" id="tts-audio-${i}" style="margin-top:8px; ${l.audio_url ? "" : "display:none;"}">
+        ${l.audio_url ? `<audio controls src="${esc(l.audio_url)}" style="width:100%;"></audio>` : ""}
+      </div>
+    </div>
+  `).join("");
+}
+async function synthOne(i) {
+  const line = _ttsLines[i];
+  if (!line || !line.text.trim()) { setTtsStatus(`Line ${i+1} 비어있음`, "#fc8181"); return; }
+  setTtsStatus(`Line ${i+1} 합성 중…`, "#63b3ed");
+  try {
+    const r = await fetch("/creative/tts/synthesize", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ preset_id: v("tts_preset"), text: line.text }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    line.audio_url = data.url;
+    line.audio_path = data.path;
+    renderTtsLines();
+    setTtsStatus(`✓ Line ${i+1} 합성 완료`, "#68d391");
+    rebuildMergeShots();
+  } catch (e) {
+    setTtsStatus(`✗ Line ${i+1}: ${e.message}`, "#fc8181");
+  }
+}
+
+// ========= 자막 + 음성 합성 =========
+let _mergeShots = [];   // [{video_url, audio_url, subtitle}]
+function setMergeStatus(msg, color) {
+  const el = document.getElementById("merge_status");
+  el.textContent = msg; el.style.color = color || "#718096";
+}
+function latestJobVideosByBatch() {
+  // 가장 최근 batch 의 완료된 샷 영상 URL 을 샷 순서대로 반환
+  const byBatch = {};
+  jobs.forEach(j => { if (j.batch_id) (byBatch[j.batch_id] = byBatch[j.batch_id] || []).push(j); });
+  const batches = Object.entries(byBatch)
+    .map(([id, group]) => ({ id, group, first: group[0] }))
+    .filter(({ group }) => group.every(j => j.done && !j.error && (j.video_urls || []).length > 0));
+  if (!batches.length) return [];
+  // submitted_at 최대값 기준 최신
+  batches.sort((a, b) => (b.first.submitted_at || "").localeCompare(a.first.submitted_at || ""));
+  const group = batches[0].group.slice();
+  group.sort((a, b) => (a.shot_idx || 0) - (b.shot_idx || 0));
+  return group.map(j => (j.video_urls || [])[0] || "");
+}
+function rebuildMergeShots() {
+  const videos = latestJobVideosByBatch();
+  const ttsN = _ttsLines.length;
+  // 샷 수 = max(영상 수, TTS 수, 현재 렌더된 샷 수, 1)
+  const n = Math.max(videos.length, ttsN, _mergeShots.length, 1);
+  const next = [];
+  for (let i = 0; i < n; i++) {
+    const prev = _mergeShots[i] || {};
+    next.push({
+      video_url: prev.video_url || videos[i] || "",
+      audio_url: prev.audio_url || (_ttsLines[i] ? _ttsLines[i].audio_url : "") || "",
+      subtitle: prev.subtitle != null ? prev.subtitle : (_ttsLines[i] ? _ttsLines[i].text : "") || "",
+    });
+  }
+  _mergeShots = next;
+  renderMergeShots();
+}
+function renderMergeShots() {
+  const box = document.getElementById("merge_shots");
+  if (!_mergeShots.length) { box.innerHTML = '<div class="empty">샷 없음 — 먼저 영상 생성 또는 TTS 합성</div>'; return; }
+  box.innerHTML = _mergeShots.map((s, i) => `
+    <div class="shot-block">
+      <div class="shot-head">
+        <span class="shot-title">Merge Shot ${i + 1}</span>
+      </div>
+      <div class="form-row" style="margin-bottom:8px;">
+        <label>Video path/URL</label>
+        <input type="text" class="mg-video" data-idx="${i}" value="${esc(s.video_url)}" oninput="_mergeShots[${i}].video_url = this.value" placeholder="/assets/generated/creative/video/....mp4">
+      </div>
+      <div class="form-row" style="margin-bottom:8px;">
+        <label>TTS audio path/URL (선택)</label>
+        <input type="text" class="mg-audio" data-idx="${i}" value="${esc(s.audio_url)}" oninput="_mergeShots[${i}].audio_url = this.value" placeholder="/assets/generated/creative/tts/....mp3">
+      </div>
+      <div class="form-row">
+        <label>Subtitle text (선택 — burn-in)</label>
+        <textarea class="mg-sub" data-idx="${i}" style="min-height:48px;" oninput="_mergeShots[${i}].subtitle = this.value" placeholder="화면 하단에 burn-in 될 자막">${esc(s.subtitle)}</textarea>
+      </div>
+    </div>
+  `).join("");
+}
+async function mergeVideo() {
+  const shots = _mergeShots
+    .filter(s => (s.video_url || "").trim())
+    .map(s => ({
+      video: s.video_url.trim(),
+      audio: (s.audio_url || "").trim() || null,
+      subtitle: (s.subtitle || "").trim() || null,
+    }));
+  if (!shots.length) { setMergeStatus("샷 최소 1개 필요 (video 경로)", "#fc8181"); return; }
+  const lang = v("merge_lang");
+  setMergeStatus(`${shots.length}샷 합성 중… ffmpeg burn-in + concat`, "#63b3ed");
+  document.getElementById("merge_result").innerHTML = "";
+  try {
+    const r = await fetch("/creative/video/subtitle", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ shots, lang }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    setMergeStatus(`✓ 합성 완료 (${data.shots}샷 · ${data.duration}s)`, "#68d391");
+    document.getElementById("merge_result").innerHTML = `
+      <div class="shot-block">
+        <div style="font-size:12px; color:#68d391; margin-bottom:8px;">
+          ✓ ${esc(data.url)} <a href="${esc(data.url)}" download style="color:#63b3ed; margin-left:8px;">↓ 다운로드</a>
+        </div>
+        <video controls preload="metadata" src="${esc(data.url)}" style="width:100%; max-width:720px; border-radius:6px; background:#000;"></video>
+      </div>
+    `;
+  } catch (e) {
+    setMergeStatus("✗ " + e.message, "#fc8181");
+  }
+}
 </script>
 {% endblock %}

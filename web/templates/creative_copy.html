@@ -21,13 +21,23 @@
   .copy-btn:hover { background: #4a5568; color: #e2e8f0; }
   pre.raw { background: #0f1117; border: 1px solid #2d3748; border-radius: 6px; padding: 12px; font-size: 11px; color: #718096; overflow-x: auto; max-height: 260px; }
   .section-divider { font-size: 11px; color: #4a5568; margin: 18px 0 10px; text-transform: uppercase; letter-spacing: 0.1em; border-top: 1px dashed #2d3748; padding-top: 14px; }
+  .anchor-grid { display: grid; grid-template-columns: 160px 1fr; gap: 8px 14px; font-size: 12px; }
+  .anchor-grid label { color: #a0aec0; padding-top: 8px; }
+  .anchor-grid input, .anchor-grid textarea {
+    background: #1a1f2e; color: #e2e8f0; border: 1px solid #2d3748; border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; font-family: inherit;
+  }
+  .anchor-grid textarea { min-height: 42px; resize: vertical; }
+  .anchor-section { background: #10181f; border: 1px solid #1e3a5f; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .anchor-section h3 { margin: 0 0 10px; font-size: 13px; color: #9bc1e4; }
 </style>
 {% endblock %}
 
 {% block content %}
-<h1>스토리보드</h1>
+<h1>스토리보드 → 영상</h1>
 <div style="font-size:12px; color:#718096; margin-top:-12px; margin-bottom:20px;">
-  스토리 하나로 카피와 이미지/영상 프롬프트를 <strong>한 번에</strong> 생성. 모든 출력이 같은 씬·감정을 공유.
+  스토리 하나로 <strong>카피 + 24초(3샷) 영상 프롬프트</strong>를 생성. 3샷 인물·배경 동일성 유지에 집중.
+  이미지는 <a href="/creative/image" style="color:#63b3ed;">이미지 페이지</a>, TTS·자막은 <a href="/creative/video" style="color:#63b3ed;">영상 페이지</a>.
 </div>
 
 <!-- ========= 통합 입력 카드 ========= -->
@@ -37,13 +47,13 @@
     placeholder="예)
 50대 한국 가장. 작업실 책상에서 오래된 편지봉투를 꺼낸다. 봉투 안에는 가족 이름이 적힌 쪽지. 창밖 아침 햇살이 비스듬히 책상 위로 떨어진다. 손끝이 이름 하나하나를 짚는다. 말은 없다. 그가 떠난 뒤에도 이 편지는 전달될 것이다."></textarea>
   <div style="margin-top:8px; font-size:11px; color:#4a5568;">
-    한/영 무관, 씬·감정·등장 물체·조명을 구체적으로. 이 스토리가 카피와 프롬프트 모두에 들어갑니다.
+    한/영 무관, 씬·감정·등장 물체·조명을 구체적으로.
   </div>
 
   <div class="section-divider">브리프 (카피 생성용)</div>
   <div class="form-grid">
     <div class="form-row">
-      <label>Provider / Model (카피)</label>
+      <label>Provider / Model (카피·앵커·프롬프트 공용)</label>
       <select id="provider_id">
         {% for p in providers %}
           <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
@@ -52,7 +62,7 @@
     </div>
     <div class="form-row">
       <label>Language (출력 언어)</label>
-      <select id="language" onchange="syncTtsLang()">
+      <select id="language">
         <option value="kr" selected>🇰🇷 한국어 전용</option>
         <option value="en">🇬🇧 English only (한글 입력 시 자동 영문 번역)</option>
       </select>
@@ -107,59 +117,34 @@
     </div>
   </div>
 
-  <div class="section-divider">프롬프트 옵션 (이미지 + 영상 동시 생성)</div>
+  <div class="section-divider">영상 옵션 (3샷 시퀀스)</div>
   <div class="form-grid">
     <div class="form-row">
-      <label>기본 비율 (대표 이미지·영상)</label>
+      <label>Aspect Ratio (Veo)</label>
       <select id="pg_aspect">
-        <option value="1:1" selected>1:1 (대부분 플랫폼 호환)</option>
-        <option value="4:5">4:5 (Meta Feed 최적)</option>
-        <option value="9:16">9:16 (Reels / Shorts / Stories)</option>
-        <option value="16:9">16:9 (YouTube / X)</option>
-        <option value="1.91:1">1.91:1 (Google Display / Link)</option>
+        <option value="9:16" selected>9:16 (Reels / Shorts)</option>
+        <option value="16:9">16:9 (YouTube / Display)</option>
       </select>
     </div>
     <div class="form-row">
-      <label>Prompt 개수 (n, 각 타입)</label>
-      <input id="pg_n" type="number" min="1" max="5" value="2">
-    </div>
-    <div class="form-row">
-      <label>Provider (프롬프트)</label>
-      <select id="pg_provider">
-        {% for p in providers %}
-          <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
-        {% endfor %}
+      <label>샷 개수 (각 8초)</label>
+      <select id="pg_n">
+        <option value="3" selected>3샷 (24s)</option>
+        <option value="2">2샷 (16s)</option>
+        <option value="1">1샷 (8s)</option>
       </select>
     </div>
-  </div>
-  <div style="font-size:11px; color:#4a5568; margin-top:6px;">
-    이미지 프롬프트는 safe-area composition 적용 — 같은 이미지를 다른 비율(1:1, 4:5, 9:16 등)로 재크롭해도 주요 피사체가 잘리지 않도록 중앙 60%에 배치 지시.
-  </div>
-
-  <div class="section-divider">화면 표시 요구사항 (선택) — 프레임 안에 <em>반드시</em> 들어갈 요소</div>
-  <div class="form-grid">
-    <div class="form-row" style="grid-column: span 2;">
-      <label>📱 핸드폰·기기 화면에 표시할 텍스트 (legibility exception)</label>
-      <textarea id="pg_phone_text" placeholder="예) &#10;Check the toolbox — USB inside.&#10;100 BTC. I love you.&#10;&#10;이 텍스트는 프레임 안 '단 하나의' 기기 화면 안에 natural messaging UI로 렌더됨. 비워두면 일반 규칙(화면 blank) 적용."></textarea>
-    </div>
     <div class="form-row">
-      <label>화면 텍스트 언어</label>
-      <select id="pg_screen_lang">
-        <option value="en" selected>EN (권장 — Meta 반려율 낮음)</option>
-        <option value="kr">KR (한글 — 화면 안에서만 허용)</option>
-      </select>
+      <label>
+        <input type="checkbox" id="face_avoid" checked style="margin-right:6px;">
+        얼굴 회피 모드 (Layer 2)
+      </label>
+      <div style="font-size:10px; color:#4a5568;">OTS / 손·소품 / 실루엣만. 광고 컨텍스트 권장.</div>
     </div>
-    <div class="form-row" style="grid-column: span 3;">
-      <label>🎬 반드시 포함 (소품·배경·인물 특징 — 화면 텍스트 아님)</label>
-      <textarea id="pg_must_show" placeholder="예) 전투 조끼, 진흙 묻은 장갑, 녹슨 공구함, USB 드라이브, 참호 흙벽, 저녁 빛. 비워두면 LLM 재량."></textarea>
-    </div>
-  </div>
-  <div style="font-size:11px; color:#4a5568; margin-top:6px;">
-    💡 화면 텍스트를 EN으로 두면 한국 스토리여도 프레임 안에서는 영문으로 번역돼 Meta 반려율이 낮아집니다. KR 선택 시 한글은 <strong>이 핸드폰 화면 안에서만</strong> 허용되고 배경 간판·라벨은 여전히 blank.
   </div>
 
   <div style="margin-top:20px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <button class="btn btn-blue" id="gen-btn" onclick="generateAll()" style="font-weight:600;">카피 + 프롬프트 동시 생성</button>
+    <button class="btn btn-blue" id="gen-btn" onclick="generateAll()" style="font-weight:600;">① 카피 + 앵커 추출</button>
     <span id="status" style="font-size:12px; color:#718096;"></span>
   </div>
 </div>
@@ -170,17 +155,38 @@
     <h2>카피 결과 <span id="meta-label" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
     <div id="variants"></div>
   </div>
-  <div class="card">
-    <h2>Raw JSON (카피)</h2>
-    <pre class="raw" id="raw-json"></pre>
-  </div>
 </div>
 
-<!-- ========= 이미지 프롬프트 결과 ========= -->
-<div id="pg_img_results" style="display:none;">
-  <div class="card">
-    <h2>이미지 프롬프트 <span id="pg_img_meta" style="font-weight:400; color:#718096; font-size:12px;"></span></h2>
-    <div id="pg_img_list"></div>
+<!-- ========= 앵커 (동일성 고정 블록) ========= -->
+<div id="anchor_box" class="card" style="display:none;">
+  <h2>🔒 씬 앵커 <span style="font-weight:400; color:#718096; font-size:12px;">— 3샷 전체에 동일하게 주입됨. 구체적일수록 재현성 ↑</span></h2>
+
+  <div class="anchor-section">
+    <h3>Character (인물 고정)</h3>
+    <div class="anchor-grid">
+      <label>identity</label><input id="a_identity" placeholder="mid-40s Korean man, lean, 175cm, weathered">
+      <label>hair</label><input id="a_hair" placeholder="close-cropped black hair, graying temples">
+      <label>face_marks</label><input id="a_face_marks" placeholder="3-day stubble, scar over left eyebrow (있으면 강력)">
+      <label>hands</label><input id="a_hands" placeholder="weathered, calloused, dirt under fingernails">
+      <label>wardrobe</label><input id="a_wardrobe" placeholder="olive field jacket, three snap pockets, worn cargo pants">
+      <label>distinctive_prop</label><input id="a_distinctive" placeholder="steel ring on left pinky (고유 마커)">
+    </div>
+  </div>
+
+  <div class="anchor-section">
+    <h3>Setting (배경 고정)</h3>
+    <div class="anchor-grid">
+      <label>location</label><input id="a_location" placeholder="narrow earthen trench, timber-braced walls, damp mud floor">
+      <label>palette</label><input id="a_palette" placeholder="muted olive / ash gray / cold morning blue + warm tungsten accent">
+      <label>lighting</label><input id="a_lighting" placeholder="single tungsten key from camera-left, low-angle golden overcast">
+      <label>lens</label><input id="a_lens" placeholder="35mm, shallow DOF, handheld micro-tremor">
+      <label>time_weather</label><input id="a_time" placeholder="late afternoon, light dust in air">
+    </div>
+  </div>
+
+  <div style="margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <button class="btn btn-blue" onclick="generateShots()" style="background:#276749;">② 앵커로 3샷 프롬프트 생성</button>
+    <span id="shot_status" style="font-size:12px; color:#718096;"></span>
   </div>
 </div>
 
@@ -191,53 +197,12 @@
     <div id="pg_vid_list"></div>
   </div>
 </div>
-
-<!-- ========= 대사 (TTS) ========= -->
-<div class="card">
-  <h2>🎙️ 보이스오버 대사 <span style="font-weight:400; color:#718096; font-size:12px;">— 8초 샷당 1줄, 수동 편집 후 합성</span></h2>
-  <div class="form-grid">
-    <div class="form-row">
-      <label>보이스 프리셋</label>
-      <select id="tts_preset">
-        {% for p in voice_presets %}
-          <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-row">
-      <label>대사 언어 <span style="color:#f6ad55; font-size:10px;">(상단 Language와 연동)</span></label>
-      <select id="tts_lang">
-        <option value="kr">한국어</option>
-        <option value="en">English</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label>샷 개수</label>
-      <input id="tts_n" type="number" min="1" max="3" value="3">
-    </div>
-  </div>
-  <div style="margin-top:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <button class="btn btn-gray" onclick="generateScript()">대사 생성 (스토리 기반)</button>
-    <span id="tts_status" style="font-size:12px; color:#718096;"></span>
-  </div>
-  <div id="tts_lines" style="margin-top:16px;"></div>
-  <div id="tts_merge_box" style="margin-top:20px; padding-top:16px; border-top:1px solid #2d3748; display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-      <div style="font-size:12px; color:#a0aec0;">
-        ✅ 샷별로 <b>영상 경로</b> + <b>🔊 합성</b> 완료 후 아래 버튼으로 자막+음성 합성.<br>
-        영상 경로는 <code>/assets/generated/creative/video/xxx.mp4</code> 또는 절대경로.
-      </div>
-      <button class="btn btn-green" onclick="mergeShots()">🎬 자막+음성 합성 (단일 mp4)</button>
-    </div>
-    <div id="merge_status" style="margin-top:10px; font-size:12px; color:#718096;"></div>
-    <div id="merge_result" style="margin-top:12px;"></div>
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 function v(id) { return document.getElementById(id).value; }
+function cbx(id) { return document.getElementById(id).checked; }
 function setStatus(msg, color) {
   const el = document.getElementById("status");
   el.textContent = msg;
@@ -270,40 +235,66 @@ async function runCopy(story) {
   return data;
 }
 
-// ========= 프롬프트 생성 (target 별) =========
-async function runPromptsFor(target, story) {
-  const payload = {
-    target: target,
-    brief_text: story,
-    aspect_ratio: v("pg_aspect"),
-    n: parseInt(v("pg_n"), 10) || 2,
-    provider_id: v("pg_provider"),
-    phone_screen_text: v("pg_phone_text"),
-    must_show: v("pg_must_show"),
-    screen_text_language: v("pg_screen_lang"),
-  };
-  const r = await fetch("/creative/prompt/generate", {
+// ========= 앵커 추출 =========
+async function runAnchor(story) {
+  const r = await fetch("/creative/storyboard/anchor", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ story, provider_id: v("provider_id") }),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.detail || r.statusText);
-  return { data, target, aspect: payload.aspect_ratio };
+  return data;
 }
 
-// ========= 통합 실행 =========
+function fillAnchor(a) {
+  const c = a.character || {};
+  const s = a.setting || {};
+  document.getElementById("a_identity").value = c.identity || "";
+  document.getElementById("a_hair").value = c.hair || "";
+  document.getElementById("a_face_marks").value = c.face_marks || "";
+  document.getElementById("a_hands").value = c.hands || "";
+  document.getElementById("a_wardrobe").value = c.wardrobe || "";
+  document.getElementById("a_distinctive").value = c.distinctive_prop || "";
+  document.getElementById("a_location").value = s.location || "";
+  document.getElementById("a_palette").value = s.palette || "";
+  document.getElementById("a_lighting").value = s.lighting || "";
+  document.getElementById("a_lens").value = s.lens || "";
+  document.getElementById("a_time").value = s.time_weather || "";
+  document.getElementById("anchor_box").style.display = "block";
+}
+
+function readAnchor() {
+  return {
+    character: {
+      identity: v("a_identity"),
+      hair: v("a_hair"),
+      face_marks: v("a_face_marks"),
+      hands: v("a_hands"),
+      wardrobe: v("a_wardrobe"),
+      distinctive_prop: v("a_distinctive"),
+    },
+    setting: {
+      location: v("a_location"),
+      palette: v("a_palette"),
+      lighting: v("a_lighting"),
+      lens: v("a_lens"),
+      time_weather: v("a_time"),
+    },
+  };
+}
+
+// ========= 통합 실행: 카피 + 앵커 병렬 =========
 async function generateAll() {
   const story = v("story").trim();
   if (!story) { setStatus("먼저 스토리를 입력하세요", "#fc8181"); return; }
   const btn = document.getElementById("gen-btn");
   btn.disabled = true;
-  setStatus("생성 중… 카피 + 이미지 프롬프트 + 영상 프롬프트 병렬 (보통 20~50초)", "#63b3ed");
+  setStatus("생성 중… 카피 + 앵커 병렬 (~20~30초)", "#63b3ed");
 
-  const [copyRes, imgRes, vidRes] = await Promise.allSettled([
+  const [copyRes, anchorRes] = await Promise.allSettled([
     runCopy(story),
-    runPromptsFor("image", story),
-    runPromptsFor("video", story),
+    runAnchor(story),
   ]);
 
   const msgs = [];
@@ -313,38 +304,59 @@ async function generateAll() {
   } else {
     msgs.push("✗ 카피: " + copyRes.reason.message);
   }
-  if (imgRes.status === "fulfilled") {
-    renderPrompts("image", imgRes.value.data, imgRes.value.aspect);
-    msgs.push(`✓ 이미지 ${(imgRes.value.data.prompts||[]).length}`);
+  if (anchorRes.status === "fulfilled") {
+    fillAnchor(anchorRes.value.anchor || {});
+    msgs.push(`✓ 앵커 추출`);
   } else {
-    msgs.push("✗ 이미지: " + imgRes.reason.message);
-  }
-  if (vidRes.status === "fulfilled") {
-    renderPrompts("video", vidRes.value.data, vidRes.value.aspect);
-    msgs.push(`✓ 영상 ${(vidRes.value.data.prompts||[]).length}`);
-  } else {
-    msgs.push("✗ 영상: " + vidRes.reason.message);
+    msgs.push("✗ 앵커: " + anchorRes.reason.message);
   }
 
-  const okCount = [copyRes, imgRes, vidRes].filter(r => r.status === "fulfilled").length;
-  const color = okCount === 3 ? "#68d391" : (okCount > 0 ? "#f6ad55" : "#fc8181");
+  const okCount = [copyRes, anchorRes].filter(r => r.status === "fulfilled").length;
+  const color = okCount === 2 ? "#68d391" : (okCount > 0 ? "#f6ad55" : "#fc8181");
   setStatus(msgs.join(" · "), color);
   btn.disabled = false;
+}
+
+// ========= 3샷 프롬프트 생성 (앵커 주입) =========
+async function generateShots() {
+  const story = v("story").trim();
+  if (!story) { setStatus("스토리 필요", "#fc8181"); return; }
+  const anchor = readAnchor();
+  const payload = {
+    story,
+    anchor,
+    aspect_ratio: v("pg_aspect"),
+    n: parseInt(v("pg_n"), 10) || 3,
+    face_avoid: cbx("face_avoid"),
+    provider_id: v("provider_id"),
+  };
+  const el = document.getElementById("shot_status");
+  el.textContent = "3샷 프롬프트 생성 중…"; el.style.color = "#63b3ed";
+  try {
+    const r = await fetch("/creative/storyboard/shots", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    renderShotPrompts(data, payload.aspect_ratio);
+    el.textContent = `✓ ${(data.prompts||[]).length}샷 생성 (${data._meta.model})`; el.style.color = "#68d391";
+  } catch (e) {
+    el.textContent = "✗ " + e.message; el.style.color = "#fc8181";
+  }
 }
 
 function renderResults(data) {
   document.getElementById("results").style.display = "block";
   const meta = data._meta || {};
   document.getElementById("meta-label").textContent = `— ${meta.provider || ""} / ${meta.model || ""}`;
-  document.getElementById("raw-json").textContent = JSON.stringify(data, null, 2);
 
   const variants = data.variants || [];
   const box = document.getElementById("variants");
   if (!variants.length) { box.innerHTML = '<div class="empty">variants 없음</div>'; return; }
 
   box.innerHTML = variants.map((v, i) => {
-    // LLM 출력: flat fields (headline_kr, body_kr, cta_kr, headline_en, ...)
-    // 하위호환: v.ko / v.en 중첩 구조도 지원
     const ko = {
       headline: (v.ko && v.ko.headline) || v.headline_kr || "",
       body:     (v.ko && v.ko.body)     || v.body_kr     || "",
@@ -402,213 +414,81 @@ function copyVariant(i) {
   navigator.clipboard.writeText(text).then(() => setStatus(`Variant ${i+1} 복사됨`, "#68d391"));
 }
 
-function renderPrompts(kind, data, aspect) {
-  // kind: "image" | "video"
-  const tag = kind === "image" ? "img" : "vid";
-  document.getElementById(`pg_${tag}_results`).style.display = "block";
+function renderShotPrompts(data, aspect) {
+  document.getElementById("pg_vid_results").style.display = "block";
   const meta = data._meta || {};
-  document.getElementById(`pg_${tag}_meta`).textContent = `— ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
+  document.getElementById("pg_vid_meta").textContent = `— ${aspect} · ${meta.provider || ""}/${meta.model || ""}`;
   const prompts = data.prompts || [];
-  const list = document.getElementById(`pg_${tag}_list`);
-  if (!prompts.length) { list.innerHTML = '<div class="empty">프롬프트 없음 — 응답 JSON 확인</div>'; return; }
-  const sendBtnStyle = kind === "image"
-    ? 'background:#2b4c7e; color:#bee3f8;'
-    : 'background:#276749; color:#c6f6d5;';
-  const sendLabel = kind === "image" ? "→ 이미지 생성" : "→ 영상 생성 (단일 샷)";
+  const list = document.getElementById("pg_vid_list");
+  if (!prompts.length) { list.innerHTML = '<div class="empty">프롬프트 없음</div>'; return; }
+
   const perPromptHtml = prompts.map((p, i) => `
     <div class="variant-card">
       <div class="variant-head">
-        <strong>Prompt ${i + 1}</strong>
+        <strong>Shot ${i + 1} <span style="color:#718096; font-weight:400; font-size:11px;">(8s)</span></strong>
         <div style="display:flex; gap:6px;">
-          <button class="copy-btn" onclick='pgCopy("${tag}", ${i})'>복사</button>
-          <button class="copy-btn" onclick='pgSendTo("${kind}", ${i}, "${aspect}")' style="${sendBtnStyle}">${sendLabel}</button>
+          <button class="copy-btn" onclick='pgCopy(${i})'>복사</button>
+          <button class="copy-btn" onclick='pgSendTo(${i}, "${aspect}")' style="background:#276749; color:#c6f6d5;">→ 영상 (단일 샷)</button>
         </div>
       </div>
       <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; color:#cbd5e0;">${esc(p)}</div>
     </div>
   `).join("");
-  // 영상은 최대 3개 prompts 를 하나의 시퀀스(= 8s * N, 최대 24s)로 묶어서 넘길 수도 있음
+
   let seqHeader = "";
-  if (kind === "video" && prompts.length >= 2) {
+  if (prompts.length >= 2) {
     const n = Math.min(prompts.length, 3);
     seqHeader = `
       <div class="variant-card" style="border-color:#276749; background:#10201a;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
           <div style="font-size:12px; color:#9ae6b4;">
-            <strong style="color:#c6f6d5;">✓ 시퀀스 핸드오프</strong> — 위 프롬프트를 <strong>${n}샷(= ${n * 8}초)</strong> 시퀀스로 영상 페이지에 한 번에 전달.
+            <strong style="color:#c6f6d5;">✓ 시퀀스 + 스토리 핸드오프</strong> — ${n}샷 + 스토리(TTS용)를 영상 페이지에 전달.
           </div>
           <button class="copy-btn" onclick='pgSendAllVideos("${aspect}", ${n})' style="background:#276749; color:#c6f6d5; font-weight:600; padding:8px 14px; font-size:12px;">
-            → 전체 ${n}샷 영상 시퀀스 생성
+            → 전체 ${n}샷 영상 시퀀스
           </button>
         </div>
       </div>`;
   }
   list.innerHTML = seqHeader + perPromptHtml;
-  window[`_pg_${tag}_prompts`] = prompts;
+  window._pg_vid_prompts = prompts;
 }
 
-function pgCopy(tag, i) {
-  const p = (window[`_pg_${tag}_prompts`] || [])[i];
+function pgCopy(i) {
+  const p = (window._pg_vid_prompts || [])[i];
   if (!p) return;
-  navigator.clipboard.writeText(p).then(() => setStatus(`Prompt ${i+1} 복사됨`, "#68d391"));
+  navigator.clipboard.writeText(p).then(() => setStatus(`Shot ${i+1} 복사됨`, "#68d391"));
 }
 
-function pgSendTo(kind, i, aspect) {
-  const tag = kind === "image" ? "img" : "vid";
-  const p = (window[`_pg_${tag}_prompts`] || [])[i];
+function pgSendTo(i, aspect) {
+  const p = (window._pg_vid_prompts || [])[i];
   if (!p) return;
-  const handoff = { prompt: p, aspect_ratio: aspect, ts: Date.now() };
+  const handoff = {
+    prompt: p,
+    aspect_ratio: aspect,
+    story: v("story"),
+    language: v("language"),
+    ts: Date.now(),
+  };
   localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
-  const url = kind === "video" ? "/creative/video" : "/creative/image";
-  window.open(url, "_blank");
-  setStatus(`Prompt ${i+1} → ${kind} 페이지로 전송 (새 탭)`, "#68d391");
+  window.open("/creative/video", "_blank");
+  setStatus(`Shot ${i+1} → 영상 페이지로 전송 (새 탭)`, "#68d391");
 }
 
 function pgSendAllVideos(aspect, n) {
   const all = window._pg_vid_prompts || [];
   const prompts = all.slice(0, Math.max(1, Math.min(n || all.length, 3)));
   if (!prompts.length) return;
-  const handoff = { prompts: prompts, aspect_ratio: aspect, ts: Date.now() };
+  const handoff = {
+    prompts,
+    aspect_ratio: aspect,
+    story: v("story"),
+    language: v("language"),
+    ts: Date.now(),
+  };
   localStorage.setItem("creative_prompt_handoff", JSON.stringify(handoff));
   window.open("/creative/video", "_blank");
-  setStatus(`${prompts.length}샷 시퀀스 → 영상 페이지로 전송 (새 탭)`, "#68d391");
-}
-
-// ========= TTS 대사 =========
-function ttsStatus(msg, color) {
-  const el = document.getElementById("tts_status");
-  el.textContent = msg; el.style.color = color || "#718096";
-}
-
-// 상단 Language 변경 시 TTS 언어 + 보이스 프리셋 자동 동기화
-function syncTtsLang() {
-  const mainLang = v("language");  // "kr" | "en"
-  const tts = document.getElementById("tts_lang");
-  if (tts) tts.value = mainLang;
-  // 언어에 맞는 첫 보이스로 자동 전환
-  const preset = document.getElementById("tts_preset");
-  if (preset) {
-    const want = mainLang === "kr" ? "_kr_" : "_en_";
-    for (const opt of preset.options) {
-      if (opt.value.includes(want)) { preset.value = opt.value; break; }
-    }
-  }
-}
-// 초기 1회 동기화
-document.addEventListener("DOMContentLoaded", syncTtsLang);
-
-async function generateScript() {
-  const story = v("story").trim();
-  if (!story) { ttsStatus("먼저 스토리 입력 필요", "#fc8181"); return; }
-  ttsStatus("대사 생성 중…", "#63b3ed");
-  try {
-    const r = await fetch("/creative/tts/script", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        story, language: v("tts_lang"),
-        n_shots: parseInt(v("tts_n"), 10) || 3,
-        provider_id: v("provider_id"),
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || r.statusText);
-    renderLines(data.lines || []);
-    ttsStatus(`✓ ${data.lines.length}줄 생성 (${data._meta.model})`, "#68d391");
-  } catch (e) {
-    ttsStatus("✗ " + e.message, "#fc8181");
-  }
-}
-
-function renderLines(lines) {
-  const box = document.getElementById("tts_lines");
-  box.innerHTML = lines.map((line, i) => `
-    <div class="variant-card" data-shot="${i+1}">
-      <div class="variant-head">
-        <strong>Shot ${i + 1} 대사 <span style="color:#718096; font-weight:400; font-size:11px;">(8초)</span></strong>
-        <div style="display:flex; gap:6px;">
-          <span class="tts-audio-slot" data-shot="${i+1}"></span>
-          <button class="copy-btn" onclick="synthLine(${i+1})" style="background:#276749; color:#c6f6d5;">🔊 합성</button>
-        </div>
-      </div>
-      <textarea class="tts-line" data-shot="${i+1}" rows="2" style="width:100%; background:#1a1f2e; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:10px; font-size:13px; line-height:1.55; font-family:inherit; resize:vertical;">${esc(line)}</textarea>
-      <div style="margin-top:8px; display:flex; gap:6px; align-items:center;">
-        <label style="font-size:11px; color:#a0aec0; min-width:70px;">영상 경로</label>
-        <input class="shot-video" data-shot="${i+1}" placeholder="/assets/generated/creative/video/xxx.mp4"
-          style="flex:1; background:#1a1f2e; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:6px 10px; font-size:12px; font-family:monospace;">
-      </div>
-    </div>
-  `).join("");
-  document.getElementById("tts_merge_box").style.display = lines.length ? "block" : "none";
-}
-
-async function synthLine(shotIdx) {
-  const ta = document.querySelector(`textarea.tts-line[data-shot="${shotIdx}"]`);
-  if (!ta) return;
-  const text = ta.value.trim();
-  if (!text) { ttsStatus(`Shot ${shotIdx}: 빈 대사`, "#fc8181"); return; }
-  const slot = document.querySelector(`.tts-audio-slot[data-shot="${shotIdx}"]`);
-  slot.innerHTML = `<span style="font-size:11px; color:#63b3ed;">합성 중…</span>`;
-  ttsStatus(`Shot ${shotIdx} 합성 중…`, "#63b3ed");
-  try {
-    const r = await fetch("/creative/tts/synthesize", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ preset_id: v("tts_preset"), text }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || r.statusText);
-    slot.innerHTML = `<audio controls preload="metadata" src="${esc(data.url)}" style="height:30px; vertical-align:middle;" data-audio-url="${esc(data.url)}"></audio>`;
-    ttsStatus(`✓ Shot ${shotIdx} 합성 완료`, "#68d391");
-  } catch (e) {
-    slot.innerHTML = "";
-    ttsStatus(`✗ Shot ${shotIdx}: ${e.message}`, "#fc8181");
-  }
-}
-
-// ========= 자막 + 음성 burn-in =========
-function mergeStatus(msg, color) {
-  const el = document.getElementById("merge_status");
-  if (el) { el.textContent = msg; el.style.color = color || "#718096"; }
-}
-
-async function mergeShots() {
-  const cards = document.querySelectorAll("#tts_lines .variant-card");
-  if (!cards.length) { mergeStatus("생성된 샷 없음", "#fc8181"); return; }
-  const shots = [];
-  for (const card of cards) {
-    const idx = card.dataset.shot;
-    const ta = card.querySelector(`textarea.tts-line`);
-    const vid = card.querySelector(`input.shot-video`);
-    const audio = card.querySelector(`audio[data-audio-url]`);
-    const video = (vid.value || "").trim();
-    if (!video) {
-      mergeStatus(`Shot ${idx}: 영상 경로 미입력`, "#fc8181"); return;
-    }
-    shots.push({
-      video,
-      audio: audio ? audio.getAttribute("data-audio-url") : null,
-      subtitle: (ta.value || "").trim() || null,
-    });
-  }
-  mergeStatus(`합성 중… (${shots.length}샷)`, "#63b3ed");
-  document.getElementById("merge_result").innerHTML = "";
-  try {
-    const r = await fetch("/creative/video/subtitle", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ shots, lang: v("tts_lang") }),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || r.statusText);
-    mergeStatus(`✓ 완료 (${data.duration}s, ${data.shots}샷)`, "#68d391");
-    document.getElementById("merge_result").innerHTML = `
-      <video controls preload="metadata" src="${esc(data.url)}" style="max-width:360px; border-radius:8px; border:1px solid #2d3748;"></video>
-      <div style="margin-top:6px; font-size:11px; color:#718096; font-family:monospace;">${esc(data.url)}</div>
-    `;
-  } catch (e) {
-    mergeStatus("✗ " + e.message, "#fc8181");
-  }
+  setStatus(`${prompts.length}샷 시퀀스 + 스토리 → 영상 페이지 (새 탭)`, "#68d391");
 }
 </script>
 {% endblock %}
