@@ -221,6 +221,17 @@
     <span id="tts_status" style="font-size:12px; color:#718096;"></span>
   </div>
   <div id="tts_lines" style="margin-top:16px;"></div>
+  <div id="tts_merge_box" style="margin-top:20px; padding-top:16px; border-top:1px solid #2d3748; display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="font-size:12px; color:#a0aec0;">
+        ✅ 샷별로 <b>영상 경로</b> + <b>🔊 합성</b> 완료 후 아래 버튼으로 자막+음성 합성.<br>
+        영상 경로는 <code>/assets/generated/creative/video/xxx.mp4</code> 또는 절대경로.
+      </div>
+      <button class="btn btn-green" onclick="mergeShots()">🎬 자막+음성 합성 (단일 mp4)</button>
+    </div>
+    <div id="merge_status" style="margin-top:10px; font-size:12px; color:#718096;"></div>
+    <div id="merge_result" style="margin-top:12px;"></div>
+  </div>
 </div>
 {% endblock %}
 
@@ -521,8 +532,14 @@ function renderLines(lines) {
         </div>
       </div>
       <textarea class="tts-line" data-shot="${i+1}" rows="2" style="width:100%; background:#1a1f2e; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:10px; font-size:13px; line-height:1.55; font-family:inherit; resize:vertical;">${esc(line)}</textarea>
+      <div style="margin-top:8px; display:flex; gap:6px; align-items:center;">
+        <label style="font-size:11px; color:#a0aec0; min-width:70px;">영상 경로</label>
+        <input class="shot-video" data-shot="${i+1}" placeholder="/assets/generated/creative/video/xxx.mp4"
+          style="flex:1; background:#1a1f2e; color:#e2e8f0; border:1px solid #2d3748; border-radius:6px; padding:6px 10px; font-size:12px; font-family:monospace;">
+      </div>
     </div>
   `).join("");
+  document.getElementById("tts_merge_box").style.display = lines.length ? "block" : "none";
 }
 
 async function synthLine(shotIdx) {
@@ -541,11 +558,56 @@ async function synthLine(shotIdx) {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.detail || r.statusText);
-    slot.innerHTML = `<audio controls preload="metadata" src="${esc(data.url)}" style="height:30px; vertical-align:middle;"></audio>`;
+    slot.innerHTML = `<audio controls preload="metadata" src="${esc(data.url)}" style="height:30px; vertical-align:middle;" data-audio-url="${esc(data.url)}"></audio>`;
     ttsStatus(`✓ Shot ${shotIdx} 합성 완료`, "#68d391");
   } catch (e) {
     slot.innerHTML = "";
     ttsStatus(`✗ Shot ${shotIdx}: ${e.message}`, "#fc8181");
+  }
+}
+
+// ========= 자막 + 음성 burn-in =========
+function mergeStatus(msg, color) {
+  const el = document.getElementById("merge_status");
+  if (el) { el.textContent = msg; el.style.color = color || "#718096"; }
+}
+
+async function mergeShots() {
+  const cards = document.querySelectorAll("#tts_lines .variant-card");
+  if (!cards.length) { mergeStatus("생성된 샷 없음", "#fc8181"); return; }
+  const shots = [];
+  for (const card of cards) {
+    const idx = card.dataset.shot;
+    const ta = card.querySelector(`textarea.tts-line`);
+    const vid = card.querySelector(`input.shot-video`);
+    const audio = card.querySelector(`audio[data-audio-url]`);
+    const video = (vid.value || "").trim();
+    if (!video) {
+      mergeStatus(`Shot ${idx}: 영상 경로 미입력`, "#fc8181"); return;
+    }
+    shots.push({
+      video,
+      audio: audio ? audio.getAttribute("data-audio-url") : null,
+      subtitle: (ta.value || "").trim() || null,
+    });
+  }
+  mergeStatus(`합성 중… (${shots.length}샷)`, "#63b3ed");
+  document.getElementById("merge_result").innerHTML = "";
+  try {
+    const r = await fetch("/creative/video/subtitle", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ shots, lang: v("tts_lang") }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || r.statusText);
+    mergeStatus(`✓ 완료 (${data.duration}s, ${data.shots}샷)`, "#68d391");
+    document.getElementById("merge_result").innerHTML = `
+      <video controls preload="metadata" src="${esc(data.url)}" style="max-width:360px; border-radius:8px; border:1px solid #2d3748;"></video>
+      <div style="margin-top:6px; font-size:11px; color:#718096; font-family:monospace;">${esc(data.url)}</div>
+    `;
+  } catch (e) {
+    mergeStatus("✗ " + e.message, "#fc8181");
   }
 }
 </script>

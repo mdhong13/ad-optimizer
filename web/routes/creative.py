@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 
-from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize, tts, tts_script_gen, voices
+from creative import copy_gen, image_gen, video_gen, prompt_gen, image_resize, tts, tts_script_gen, voices, subtitle
 from creative.models import (
     COPY_PROVIDERS, COPY_DEFAULT_ID,
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
@@ -215,5 +215,33 @@ async def api_video_status(op: str):
         log.exception("[creative.video] poll failed")
         raise HTTPException(status_code=500, detail=str(e))
     return status
+
+
+@router.post("/video/subtitle")
+async def api_video_subtitle(payload: dict):
+    """
+    샷별 video + (선택) TTS 오디오 + (선택) 자막 → 단일 mp4 burn-in.
+
+    payload:
+      {
+        "shots": [{"video": "...", "audio": "..."|null, "subtitle": "..."|null}, ...],
+        "lang": "kr" | "en"
+      }
+    """
+    shots = payload.get("shots") or []
+    if not shots:
+        raise HTTPException(status_code=400, detail="shots 필수")
+    lang = (payload.get("lang") or "kr").lower()
+    try:
+        result = await subtitle.render_video(shots, lang=lang)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        # ffmpeg 미설치 / 실행 실패
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        log.exception("[creative.subtitle] failed")
+        raise HTTPException(status_code=500, detail=str(e))
+    return result
 
 
