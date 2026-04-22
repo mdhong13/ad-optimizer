@@ -55,8 +55,9 @@ async def generate_script(
     try:
         parsed = _extract_json(raw)
     except json.JSONDecodeError as e:
-        log.error("[tts_script] JSON parse failed: %s\nraw=%s", e, raw[:500])
-        raise
+        log.error("[tts_script] JSON parse failed: %s\nraw=%s", e, raw[:1000])
+        snippet = raw[:300].replace("\n", " ")
+        raise ValueError(f"LLM JSON 파싱 실패 ({e.msg} @ line {e.lineno} col {e.colno}). raw: {snippet!r}") from e
 
     lines = parsed.get("lines") or []
     if not isinstance(lines, list):

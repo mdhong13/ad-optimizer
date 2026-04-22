@@ -70,8 +70,22 @@ def _user_message(brief: dict) -> str:
     return "\n".join(lines)
 
 
+def _sanitize_json_text(s: str) -> str:
+    """LLM 이 뱉는 smart quotes / non-breaking space 를 JSON 파서가 먹는 형태로."""
+    # curly double quotes → straight
+    s = s.replace("\u201c", '"').replace("\u201d", '"')
+    # curly single quotes → straight
+    s = s.replace("\u2018", "'").replace("\u2019", "'")
+    # non-breaking space → regular
+    s = s.replace("\u00a0", " ")
+    # trailing comma before } or ] (JSON 미허용)
+    import re as _re
+    s = _re.sub(r",(\s*[}\]])", r"\1", s)
+    return s
+
+
 def _extract_json(raw: str) -> dict:
-    """LLM 응답에서 JSON 추출 (markdown fence 제거 포함)."""
+    """LLM 응답에서 JSON 추출 (markdown fence 제거 + smart-quote 보정)."""
     s = raw.strip()
     if s.startswith("```"):
         s = s.split("\n", 1)[1] if "\n" in s else s
@@ -85,7 +99,11 @@ def _extract_json(raw: str) -> dict:
     r = s.rfind("}")
     if l >= 0 and r > l:
         s = s[l : r + 1]
-    return json.loads(s)
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        # smart quotes / trailing comma 등 흔한 파손 보정 후 재시도
+        return json.loads(_sanitize_json_text(s))
 
 
 async def _call_anthropic(model: str, system: str, user: str) -> str:
