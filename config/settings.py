@@ -118,6 +118,10 @@ class Settings:
     DRY_RUN: bool = os.getenv("DRY_RUN", "true").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
+    # 자동 스케줄러 가동 여부. 기본 false — Railway·서버 배포 = 자동 가동 금지.
+    # 의도된 운영 시 명시적으로 true 로 설정. 2026-05-28 사고 후 도입.
+    AUTO_START_SCHEDULER: bool = os.getenv("AUTO_START_SCHEDULER", "false").lower() == "true"
+
     # --- Campaign Optimizer ---
     CAMPAIGN_CYCLE_HOURS: int = int(os.getenv("CAMPAIGN_CYCLE_HOURS", "8"))
     CAMPAIGNS_PER_CYCLE: int = int(os.getenv("CAMPAIGNS_PER_CYCLE", "20"))

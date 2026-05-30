@@ -15,11 +15,13 @@ logging.basicConfig(
     force=True,
 )
 
+from config.settings import settings as app_settings
 from storage.db import init_db
 from web import live_logs, scheduler_bg
 from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings, creative
 
 live_logs.install_handler()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="OneMessage Ad Optimizer", version="2.0.0")
 
@@ -52,12 +54,32 @@ async def startup():
     import asyncio
     live_logs.set_loop(asyncio.get_running_loop())
     init_db()
-    scheduler_bg.start()
+
+    # 자동 가동 가드 — 2026-05-28 사고 후 도입.
+    # Railway·서버 배포만으로 스케줄러가 도는 사고 방지. 명시적 opt-in 필요.
+    logger.info(
+        "Scheduler config — AUTO_START_SCHEDULER=%s, DRY_RUN=%s, APP_ENV=%s",
+        app_settings.AUTO_START_SCHEDULER, app_settings.DRY_RUN, app_settings.APP_ENV,
+    )
+    if app_settings.AUTO_START_SCHEDULER:
+        if not app_settings.DRY_RUN:
+            logger.warning(
+                "⚠️ Scheduler starting in LIVE mode (DRY_RUN=false). "
+                "All campaign mutations will hit real platform APIs."
+            )
+        scheduler_bg.start()
+        logger.info("Scheduler started (AUTO_START_SCHEDULER=true).")
+    else:
+        logger.info(
+            "Scheduler NOT started (AUTO_START_SCHEDULER=false). "
+            "Manual trigger via /api/scheduler endpoints only."
+        )
 
 
 @app.on_event("shutdown")
 async def shutdown():
-    scheduler_bg.shutdown()
+    if app_settings.AUTO_START_SCHEDULER:
+        scheduler_bg.shutdown()
 
 
 @app.get("/health")
