@@ -38,22 +38,18 @@ async def rag_console(request: Request):
     except RAGError as e:
         health["error"] = str(e)
 
-    return templates.TemplateResponse(
-        "rag.html",
-        {
-            "request": request,
-            "health": health,
-            "base_url": rag.base_url,
-            "surfaces": list(SURFACE_TYPES.keys()),
-            "all_types": ALL_TYPES,
-            "result": None,
-            "query": "",
-            "selected_surface": "",
-            "selected_types": [],
-            "mode": "search",
-            "top_k": 5,
-        },
-    )
+    return templates.TemplateResponse(request, "rag.html", {
+        "health": health,
+        "base_url": rag.base_url,
+        "surfaces": list(SURFACE_TYPES.keys()),
+        "all_types": ALL_TYPES,
+        "result": None,
+        "query": "",
+        "selected_surface": "",
+        "selected_types": [],
+        "mode": "search",
+        "top_k": 5,
+    })
 
 
 @router.post("")
@@ -105,22 +101,18 @@ async def rag_query(
     except RAGError:
         pass
 
-    return templates.TemplateResponse(
-        "rag.html",
-        {
-            "request": request,
-            "health": health,
-            "base_url": rag.base_url,
-            "surfaces": list(SURFACE_TYPES.keys()),
-            "all_types": ALL_TYPES,
-            "result": result,
-            "query": query,
-            "selected_surface": surface or "",
-            "selected_types": types or [],
-            "mode": mode,
-            "top_k": top_k,
-        },
-    )
+    return templates.TemplateResponse(request, "rag.html", {
+        "health": health,
+        "base_url": rag.base_url,
+        "surfaces": list(SURFACE_TYPES.keys()),
+        "all_types": ALL_TYPES,
+        "result": result,
+        "query": query,
+        "selected_surface": surface or "",
+        "selected_types": types or [],
+        "mode": mode,
+        "top_k": top_k,
+    })
 
 
 @router.post("/copy-context")
@@ -144,20 +136,16 @@ async def rag_copy_context(
     except RAGError:
         pass
 
-    return templates.TemplateResponse(
-        "rag.html",
-        {
-            "request": request,
-            "health": health,
-            "base_url": rag.base_url,
-            "surfaces": list(SURFACE_TYPES.keys()),
-            "all_types": ALL_TYPES,
-            "result": None,
-            "copy_result": result,
-            "query": query,
-            "selected_surface": surface,
-            "selected_types": SURFACE_TYPES.get(surface, []),
-            "mode": "copy",
-            "top_k": top_k,
-        },
-    )
+    return templates.TemplateResponse(request, "rag.html", {
+        "health": health,
+        "base_url": rag.base_url,
+        "surfaces": list(SURFACE_TYPES.keys()),
+        "all_types": ALL_TYPES,
+        "result": None,
+        "copy_result": result,
+        "query": query,
+        "selected_surface": surface,
+        "selected_types": SURFACE_TYPES.get(surface, []),
+        "mode": "copy",
+        "top_k": top_k,
+    })

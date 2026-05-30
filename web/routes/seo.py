@@ -117,15 +117,11 @@ PHASES = [
 
 @router.get("")
 async def seo_overview(request: Request):
-    return templates.TemplateResponse(
-        "seo.html",
-        {
-            "request": request,
-            "surfaces": SURFACES,
-            "phases": PHASES,
-            "total_surfaces": len(SURFACES),
-            "done_count": sum(1 for s in SURFACES if s["status"].startswith("✅")),
-            "in_progress_count": sum(1 for s in SURFACES if s["status"].startswith("🟡")),
-            "pending_count": sum(1 for s in SURFACES if s["status"].startswith("🟢")),
-        },
-    )
+    return templates.TemplateResponse(request, "seo.html", {
+        "surfaces": SURFACES,
+        "phases": PHASES,
+        "total_surfaces": len(SURFACES),
+        "done_count": sum(1 for s in SURFACES if s["status"].startswith("✅")),
+        "in_progress_count": sum(1 for s in SURFACES if s["status"].startswith("🟡")),
+        "pending_count": sum(1 for s in SURFACES if s["status"].startswith("🟢")),
+    })

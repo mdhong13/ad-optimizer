@@ -90,19 +90,15 @@ async def knowin_overview(request: Request):
     )
     kw_stats = keyword_pool_stats()
 
-    return templates.TemplateResponse(
-        "knowin.html",
-        {
-            "request": request,
-            "campaigns": SURFACE_CAMPAIGNS,
-            "guardrails": GUARDRAILS,
-            "stats": stats,
-            "queue": queue,
-            "kw_stats": kw_stats,
-            "active_count": sum(1 for c in SURFACE_CAMPAIGNS if not c["status"].startswith("🟢")),
-            "total_count": len(SURFACE_CAMPAIGNS),
-        },
-    )
+    return templates.TemplateResponse(request, "knowin.html", {
+        "campaigns": SURFACE_CAMPAIGNS,
+        "guardrails": GUARDRAILS,
+        "stats": stats,
+        "queue": queue,
+        "kw_stats": kw_stats,
+        "active_count": sum(1 for c in SURFACE_CAMPAIGNS if not c["status"].startswith("🟢")),
+        "total_count": len(SURFACE_CAMPAIGNS),
+    })
 
 
 # ── 검색 (네이버 API → MongoDB) ───────────────────────────
@@ -167,10 +163,9 @@ async def knowin_draft(request: Request, question_id: str):
     coll = get_collection("knowin_questions")
     q = coll.find_one({"question_id": question_id}, {"_id": 0})
     if not q:
-        return templates.TemplateResponse(
-            "knowin_draft.html",
-            {"request": request, "error": "질문 없음", "question_id": question_id},
-        )
+        return templates.TemplateResponse(request, "knowin_draft.html", {
+            "error": "질문 없음", "question_id": question_id,
+        })
 
     # 답변 초안 — 이미 생성된 게 있으면 가져오고, 없으면 새로 생성
     answers = get_collection("knowin_answers")
@@ -183,18 +178,16 @@ async def knowin_draft(request: Request, question_id: str):
         text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
         m = match_question(text)
         if not m.matched:
-            return templates.TemplateResponse(
-                "knowin_draft.html",
-                {"request": request, "error": "RAG 매칭 미달", "question": q},
-            )
+            return templates.TemplateResponse(request, "knowin_draft.html", {
+                "error": "RAG 매칭 미달", "question": q,
+            })
         try:
             llm = "local"  # 로컬 vLLM 우선 (비용 0)
             answer = generate_answer(text, m, llm=llm)
         except Exception as e:
-            return templates.TemplateResponse(
-                "knowin_draft.html",
-                {"request": request, "error": f"LLM 호출 실패: {e}", "question": q},
-            )
+            return templates.TemplateResponse(request, "knowin_draft.html", {
+                "error": f"LLM 호출 실패: {e}", "question": q,
+            })
         draft = {
             "question_id": question_id,
             "body": answer.body,
@@ -211,10 +204,9 @@ async def knowin_draft(request: Request, question_id: str):
         }
         answers.insert_one(dict(draft))
 
-    return templates.TemplateResponse(
-        "knowin_draft.html",
-        {"request": request, "question": q, "draft": draft},
-    )
+    return templates.TemplateResponse(request, "knowin_draft.html", {
+        "question": q, "draft": draft,
+    })
 
 
 # ── 승인·거절 ────────────────────────────────────────────────
