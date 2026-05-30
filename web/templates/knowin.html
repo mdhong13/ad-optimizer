@@ -19,6 +19,7 @@
   <div class="stat" style="border-left:2px solid #10b981;"><div class="label">✅ verified</div><div class="value" data-stat="verified">{{ stats.verified|default(0, true) }}</div><div class="sub">검수 통과 (페이지 박힘)</div></div>
   <div class="stat" style="border-left:2px solid #ef4444;"><div class="label">👻 ghost</div><div class="value" data-stat="ghost">{{ stats.ghost|default(0, true) }}</div><div class="sub">게시 시도 후 안 박힘</div></div>
   <div class="stat"><div class="label">blocked</div><div class="value" data-stat="blocked">{{ stats.blocked|default(0, true) }}</div><div class="sub">지식파트너·FAQ 격리</div></div>
+  <div class="stat"><div class="label">off_topic</div><div class="value" data-stat="off_topic">{{ stats.off_topic|default(0, true) }}</div><div class="sub">트럭 아님 (승용차 등)</div></div>
 </div>
 
 {% if ghosts %}
@@ -125,13 +126,13 @@
     <!-- 질문 본문 (body_plain 우선, 없으면 description 발췌) -->
     {% if q.body_plain %}
     <div style="background:#0a0f1a; border-left:2px solid #10b981; padding:10px 12px; margin-bottom:10px;">
-      <div style="font-size:11px; color:#10b981; margin-bottom:4px; font-weight:600;">📝 질문 본문 (원본 fetch)</div>
-      <div style="color:#e5e7eb; font-size:13px; line-height:1.6; white-space:pre-wrap;">{{ q.body_plain[:600] }}{% if q.body_plain|length > 600 %}...{% endif %}</div>
+      <div style="font-size:11px; color:#10b981; margin-bottom:4px; font-weight:600;">📝 질문 본문 (원본 fetch · {{ q.body_plain|length }}자)</div>
+      <div style="color:#e5e7eb; font-size:13px; line-height:1.6; white-space:pre-wrap; max-height:400px; overflow-y:auto;">{{ q.body_plain }}</div>
     </div>
     {% elif q.description_plain %}
     <div style="background:#3a2c1f; border-left:2px solid #f59e0b; padding:10px 12px; margin-bottom:10px;">
       <div style="font-size:11px; color:#fbbf24; margin-bottom:4px; font-weight:600;">⚠️ 검색 발췌 — 답변 본문 포함 가능. 원본 클릭 확인 필수.</div>
-      <div style="color:#cbd5e1; font-size:13px; line-height:1.6;">{{ q.description_plain[:400] }}</div>
+      <div style="color:#cbd5e1; font-size:13px; line-height:1.6; max-height:300px; overflow-y:auto;">{{ q.description_plain }}</div>
     </div>
     {% endif %}
 

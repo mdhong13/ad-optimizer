@@ -36,6 +36,37 @@ def _question_text(q: dict) -> str:
     return (title + " " + body).strip()
 
 
+# ── 트럭 토픽 필터 ─────────────────────────────────────────
+# 키워드 검색이 일반 부품명 (녹스센서/DPF/요소수) 도 포함해서 외제 승용차
+# 질문이 큐 절반 이상 차지. 본문에 트럭·화물차 시그널 없으면 격리.
+_TRUCK_TOPIC_KEYWORDS = [
+    # 차종·톤급
+    "트럭", "화물차", "화물자동차", "화물 운송", "화물운송",
+    "카고", "윙바디", "윙탑", "탑차", "냉동차", "냉장차",
+    "덤프", "압롤", "추레라", "트랙터",
+    "1톤", "1.4톤", "2.5톤", "3.5톤", "5톤", "8톤", "9.5톤",
+    "11톤", "14톤", "18톤", "25톤", "25.5톤",
+    # 트럭 차종 모델
+    "포터", "봉고", "리베로", "마이티", "메가트럭", "프리마", "트라고",
+    "노부스", "파맥스", "엑시언트", "콘트라스트",
+    # 트럭 행정·자격
+    "화물자격증", "화물 자격증", "화물운송종사",
+    "축중량", "축하중", "과적", "톤급", "총중량", "적재량",
+    # 트럭 사업·업종 키워드
+    "지입", "용차", "화물기사", "기사님", "운수사업",
+]
+
+
+def _is_truck_topic(text: str) -> bool:
+    """본문에 트럭·화물차 시그널 키워드 있는지"""
+    if not text:
+        return False
+    for kw in _TRUCK_TOPIC_KEYWORDS:
+        if kw in text:
+            return True
+    return False
+
+
 def _ensure_body(q: dict) -> dict:
     """body_plain + answer_blocked + already_answered 없으면 페이지 fetch → DB 저장 + q 갱신.
 
@@ -202,6 +233,7 @@ async def knowin_overview(request: Request):
         "approved": coll.count_documents({"status": "approved"}),
         "posted": coll.count_documents({"status": "posted"}),
         "blocked": coll.count_documents({"status": "blocked"}),
+        "off_topic": coll.count_documents({"status": "off_topic"}),
         "verified": coll.count_documents({"status": "posted", "verified": True}),
         "ghost": coll.count_documents({
             "status": {"$in": ["posted", "approved"]},
@@ -370,6 +402,16 @@ def _match_task(limit: int):
                 coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
                 _task_update(task_id, inc_rejected=1)
                 continue
+
+            # 3) 트럭 토픽 필터 — 외제 승용차 등 비트럭 질문 격리
+            if not _is_truck_topic(text):
+                coll.update_one(
+                    {"_id": q["_id"]},
+                    {"$set": {"status": "off_topic"}},
+                )
+                _task_update(task_id, inc_rejected=1)
+                continue
+
             m = match_question(text)
             if m.matched:
                 coll.update_one(
@@ -470,7 +512,7 @@ def _backfill_body_task(limit: int):
                 now = datetime.now(timezone.utc)
                 if meta.body:
                     update["body_plain"] = meta.body
-                # 우선순위: already_answered > answer_blocked
+                # 우선순위: already_answered > answer_blocked > off_topic
                 if meta.already_answered:
                     update["already_answered"] = True
                     update["answered_by"] = meta.answered_by
@@ -483,6 +525,11 @@ def _backfill_body_task(limit: int):
                     update["blocked_reason"] = meta.blocked_reason
                     update["status"] = "blocked"
                     blocked_n += 1
+                elif meta.body:
+                    # body 확보됐고 차단·본인답 아님 — 트럭 토픽 검사
+                    text_for_topic = ((q.get("title_plain") or "") + " " + meta.body).strip()
+                    if not _is_truck_topic(text_for_topic):
+                        update["status"] = "off_topic"
                 if update:
                     coll.update_one({"_id": q["_id"]}, {"$set": update})
                     # already_answered 면 answers 컬렉션도 마킹
@@ -544,6 +591,7 @@ async def knowin_tasks_status():
         "approved": qcoll.count_documents({"status": "approved"}),
         "posted": qcoll.count_documents({"status": "posted"}),
         "blocked": qcoll.count_documents({"status": "blocked"}),
+        "off_topic": qcoll.count_documents({"status": "off_topic"}),
     }
     # datetime → isoformat
     def _serialize(t):
