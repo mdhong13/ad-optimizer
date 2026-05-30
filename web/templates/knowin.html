@@ -44,6 +44,12 @@
              style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
       <button type="submit" class="btn btn-green">pending 매칭 (RAG)</button>
     </form>
+    <form method="post" action="/knowin/backfill-body" style="display:inline-flex; gap:8px; align-items:center;"
+          title="body_plain 없는 큐 항목 → 페이지 fetch (동문서답 방지)">
+      <input type="number" name="limit" value="30" min="1" max="200"
+             style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      <button type="submit" class="btn" style="background:#f59e0b; color:#000;">📝 본문 백필</button>
+    </form>
   </div>
   <div style="margin-top:10px; font-size:12px; color:#9ca3af;">
     키워드 풀: 위키 {{ kw_stats.from_truck_wiki_json }} + RAG meta {{ kw_stats.from_rag_meta }} + 일반어 {{ kw_stats.general_keywords }} = <strong>{{ kw_stats.total_after_dedup_filter }}</strong> 키워드
@@ -74,10 +80,20 @@
       {% if q.matched_url %}<a href="{{ q.matched_url }}" target="_blank" style="color:#10b981;">{{ q.matched_title|default('?', true) }}</a>{% else %}-{% endif %}
       · 키워드: <span style="color:#cbd5e1;">{{ q.keyword|default('?', true) }}</span>
       · 날짜: {{ q.post_date|default('?', true) }}
-      {% if q.description_plain %}
-      <div style="color:#cbd5e1; margin-top:6px; font-size:12px; line-height:1.5;">{{ q.description_plain[:200] }}</div>
-      {% endif %}
     </div>
+
+    <!-- 질문 본문 (body_plain 우선, 없으면 description 발췌) -->
+    {% if q.body_plain %}
+    <div style="background:#0a0f1a; border-left:2px solid #10b981; padding:10px 12px; margin-bottom:10px;">
+      <div style="font-size:11px; color:#10b981; margin-bottom:4px; font-weight:600;">📝 질문 본문 (원본 fetch)</div>
+      <div style="color:#e5e7eb; font-size:13px; line-height:1.6; white-space:pre-wrap;">{{ q.body_plain[:600] }}{% if q.body_plain|length > 600 %}...{% endif %}</div>
+    </div>
+    {% elif q.description_plain %}
+    <div style="background:#3a2c1f; border-left:2px solid #f59e0b; padding:10px 12px; margin-bottom:10px;">
+      <div style="font-size:11px; color:#fbbf24; margin-bottom:4px; font-weight:600;">⚠️ 검색 발췌 — 답변 본문 포함 가능. 원본 클릭 확인 필수.</div>
+      <div style="color:#cbd5e1; font-size:13px; line-height:1.6;">{{ q.description_plain[:400] }}</div>
+    </div>
+    {% endif %}
 
     {% if q.answer %}
     {% set draft = q.answer %}
@@ -103,6 +119,9 @@
       <button onclick="copyFt('{{ q.question_id }}')" class="btn btn-blue" style="font-size:12px; padding:6px 12px;">📋 복사</button>
       <span id="cs-{{ q.question_id }}" style="color:#10b981; font-size:12px;"></span>
       <a href="{{ q.link }}" target="_blank" class="btn" style="background:#374151; color:#fff; font-size:12px; padding:6px 12px;">원본 지식인 열기 →</a>
+      <button type="button" onclick="regenerateNow('{{ q.question_id }}')" class="btn"
+              style="background:#0ea5e9; color:#fff; font-size:12px; padding:6px 12px;"
+              title="기존 답변 삭제 + 본문 fetch 후 다시 생성">🔄 재생성</button>
       <span style="flex:1;"></span>
       {% if q.status != 'approved' %}
       <form method="post" action="/knowin/approve/{{ q.question_id }}" style="display:inline;">
@@ -119,9 +138,12 @@
     </div>
 
     {% else %}
-    <!-- 답변 초안이 아직 없는 경우 (드물긴 함 — 매칭 시 자동 생성) -->
-    <div style="background:#3a2c1f; padding:8px 10px; color:#fde68a; font-size:12px;">
-      ⏳ 답변 초안 미생성 — <a href="/knowin/draft/{{ q.question_id }}" style="color:#fbbf24;">생성 페이지로 이동</a>
+    <!-- 답변 초안 미생성 — 메인 안에서 자동 생성 (페이지 로드 시 직렬 fetch) -->
+    <div class="answer-pending" data-qid="{{ q.question_id }}" data-link="{{ q.link }}"
+         style="background:#1e3a5f; padding:10px 12px; color:#cbe1ff; font-size:12px;">
+      <span class="status-text">⏳ 답변 초안 자동 생성 대기 중...</span>
+      <button type="button" onclick="generateNow('{{ q.question_id }}')"
+              class="btn" style="margin-left:12px; background:#3b82f6; color:#fff; font-size:11px; padding:4px 10px;">🔄 지금 생성</button>
     </div>
     {% endif %}
   </div>
@@ -177,6 +199,91 @@ function copyFt(qid) {
   }
 }
 
+// 미생성 카드 → 그 자리에서 답변 생성 (POST /knowin/generate/{qid})
+async function generateNow(qid) {
+  const div = document.querySelector(`.answer-pending[data-qid="${qid}"]`);
+  if (!div) return;
+  const status = div.querySelector('.status-text');
+  if (status) status.textContent = '⏳ 답변 생성 중... (본문 fetch + RAG + LLM, 10~20초)';
+  try {
+    const res = await fetch(`/knowin/generate/${qid}`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) {
+      if (status) status.innerHTML = '❌ ' + escapeHtml(data.error || 'unknown');
+      return;
+    }
+    div.outerHTML = renderAnswerArea(qid, data.draft);
+  } catch (e) {
+    if (status) status.innerHTML = '❌ 요청 실패: ' + escapeHtml(String(e));
+  }
+}
+
+// 재생성 (기존 draft 삭제 후 generate). body 백필 후 동문서답 수정용.
+async function regenerateNow(qid) {
+  if (!confirm('기존 답변 초안을 삭제하고 본문 fetch 후 다시 생성합니다. 진행할까요?')) return;
+  // 카드의 answer 영역(textarea + 액션) 을 pending placeholder 로 교체
+  const card = document.getElementById('q-' + qid);
+  if (!card) return;
+  const ta = card.querySelector(`#ft-${qid}`);
+  // textarea 의 부모 영역 찾기 — gardrail block 부터 액션까지 한 묶음
+  // 간단히: textarea + 다음 .action div + 가드레일 형제들 제거 후 pending 박음
+  // 안전한 방법: 페이지 reload 대신 fetch /regenerate → 응답으로 영역 교체
+  try {
+    const res = await fetch(`/knowin/regenerate/${qid}`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) {
+      alert('재생성 실패: ' + (data.error || 'unknown'));
+      return;
+    }
+    // 페이지 reload 가 가장 안전 — 카드 전체가 새 draft 로 렌더됨
+    window.location.href = '/knowin?msg=regenerated#q-' + qid;
+  } catch (e) {
+    alert('요청 실패: ' + e);
+  }
+}
+
+// 답변 영역 HTML (generate 응답 → 카드 교체용)
+function renderAnswerArea(qid, d) {
+  const warningsBlock = (d.warnings && d.warnings.length > 0)
+    ? `<div style="background:#5c1f1f; padding:8px 10px; margin-bottom:8px; color:#ffe1cb; font-size:12px;">
+         <strong>⚠️ 가드레일 경고:</strong>
+         <ul style="margin:4px 0 0 18px;">${d.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>
+       </div>`
+    : `<div style="background:#1f3a2f; padding:6px 10px; margin-bottom:8px; color:#a7f3d0; font-size:12px;">
+         ✅ 가드레일 통과 · ${d.word_count}자 · ${d.sentence_count}문장 · ${escapeHtml(d.llm_model || '')}
+       </div>`;
+  return `
+    ${warningsBlock}
+    <textarea readonly id="ft-${qid}"
+              style="width:100%; height:200px; padding:10px; background:#020617; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:12px; line-height:1.6;">${escapeHtml(d.full_text || '')}</textarea>
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button onclick="copyFt('${qid}')" class="btn btn-blue" style="font-size:12px; padding:6px 12px;">📋 복사</button>
+      <span id="cs-${qid}" style="color:#10b981; font-size:12px;"></span>
+      <button type="button" onclick="regenerateNow('${qid}')" class="btn" style="background:#0ea5e9; color:#fff; font-size:12px; padding:6px 12px;">🔄 재생성</button>
+      <span style="flex:1;"></span>
+      <form method="post" action="/knowin/approve/${qid}" style="display:inline;">
+        <button type="submit" class="btn btn-green" style="font-size:12px; padding:6px 12px;">✅ 승인</button>
+      </form>
+      <form method="post" action="/knowin/posted/${qid}" style="display:inline;">
+        <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
+      </form>
+      <form method="post" action="/knowin/reject/${qid}" style="display:inline;" onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
+      </form>
+    </div>
+  `;
+}
+
+// 페이지 로드 후 미생성 카드들 직렬 자동 생성 (LLM·d4win 부하 회피)
+(async function autoGeneratePending() {
+  const pending = document.querySelectorAll('.answer-pending[data-qid]');
+  for (const div of pending) {
+    if (!div.isConnected) continue; // 이미 교체된 경우 skip
+    const qid = div.dataset.qid;
+    await generateNow(qid);
+  }
+})();
+
 // URL ?msg=... 토스트 (approve/posted/rejected 후 리다이렉트 메시지)
 (function showMsgToast() {
   const params = new URLSearchParams(window.location.search);
@@ -188,6 +295,8 @@ function copyFt(qid) {
     'rejected': '❌ 거절됨',
     'crawl-started': '🔍 크롤 시작됨',
     'match-started': '🎯 매칭 시작됨',
+    'backfill-started': '📝 본문 백필 시작됨 (페이지 fetch, 분 단위)',
+    'regenerated': '🔄 답변 재생성 완료',
   };
   const label = labels[msg] || msg;
   const toast = document.createElement('div');

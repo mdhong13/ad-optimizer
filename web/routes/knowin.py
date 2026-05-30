@@ -22,6 +22,40 @@ from storage.db import get_collection
 from agent.knowin_matcher import match_question
 from agent.knowin_answerer import generate_answer
 from agent.knowin_keyword_pool import build_keyword_pool, keyword_pool_stats
+from intelligence.knowin_body_fetcher import fetch_question_body
+
+
+# ── 질문 텍스트 정규화 ─────────────────────────────────────
+# 네이버 검색 API description 은 검색어 발췌(snippet)라 답변본문이 잡힐 위험.
+# body_plain (페이지 직접 fetch) 우선, 없으면 description_plain fallback.
+
+def _question_text(q: dict) -> str:
+    """matcher/answerer 에 줄 본문 — body 우선, description 폴백"""
+    title = (q.get("title_plain") or "").strip()
+    body = (q.get("body_plain") or "").strip() or (q.get("description_plain") or "").strip()
+    return (title + " " + body).strip()
+
+
+def _ensure_body(q: dict) -> dict:
+    """body_plain 없으면 페이지 fetch 시도 → 성공 시 DB 저장 + q 갱신"""
+    if q.get("body_plain"):
+        return q
+    link = q.get("link") or ""
+    if not link:
+        return q
+    try:
+        body = fetch_question_body(link)
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("knowin").warning("body fetch 실패 (qid=%s): %s", q.get("question_id"), e)
+        body = None
+    if body:
+        q["body_plain"] = body
+        get_collection("knowin_questions").update_one(
+            {"question_id": q.get("question_id")},
+            {"$set": {"body_plain": body}},
+        )
+    return q
 
 
 # ── 태스크 진행도 헬퍼 ─────────────────────────────────────
@@ -271,8 +305,9 @@ def _match_task(limit: int):
     try:
         cursor = coll.find({"status": "pending"}).limit(limit)
         for i, q in enumerate(cursor):
-            text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
-            text = text.strip()
+            # 1) 진짜 본문 fetch (네이버 description 발췌가 답변본문일 수 있음 — 동문서답 방지)
+            q = _ensure_body(q)
+            text = _question_text(q)
             _task_update(task_id, current_item=text[:60], processed=i)
             if not text:
                 coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
@@ -336,6 +371,72 @@ async def knowin_match(
     return RedirectResponse("/knowin?msg=match-started", status_code=303)
 
 
+# ── 본문 백필 (옛 큐 description-only 항목 보강) ───────────
+def _backfill_body_task(limit: int):
+    """body_plain 비어있는 항목들 → 페이지 fetch → DB 저장.
+
+    동문서답 위험 1순위: description 발췌가 답변본문일 수 있음.
+    matched/approved 우선, 그 다음 pending.
+    """
+    import logging, time
+    log = logging.getLogger("knowin.backfill")
+    coll = get_collection("knowin_questions")
+
+    # matched/approved 우선 + pending 다음 (limit 안에서)
+    filt = {
+        "$and": [
+            {"$or": [{"body_plain": {"$exists": False}}, {"body_plain": ""}, {"body_plain": None}]},
+            {"link": {"$exists": True, "$ne": ""}},
+        ]
+    }
+    candidates = list(
+        coll.find(filt).sort([("status", 1), ("matched_score", -1)]).limit(limit)
+    )
+    task_id = _task_start("backfill", total=len(candidates))
+    log.info("[%s] body 백필 시작: %d 건", task_id, len(candidates))
+
+    ok_n = fail_n = 0
+    try:
+        for i, q in enumerate(candidates):
+            link = q.get("link") or ""
+            _task_update(task_id, current_item=link[:80], processed=i)
+            try:
+                body = fetch_question_body(link)
+            except Exception as e:  # noqa: BLE001
+                log.warning("fetch 실패 (qid=%s): %s", q.get("question_id"), e)
+                body = None
+            if body:
+                coll.update_one({"_id": q["_id"]}, {"$set": {"body_plain": body}})
+                ok_n += 1
+            else:
+                fail_n += 1
+            time.sleep(1.0)  # throttle
+
+        _task_update(
+            task_id,
+            processed=len(candidates),
+            current_item=None,
+            found=ok_n,
+            inserted=ok_n,
+            skipped=fail_n,
+        )
+        _task_finish(task_id, "completed")
+        log.info("[%s] 백필 완료: ok=%d fail=%d", task_id, ok_n, fail_n)
+    except Exception as e:
+        log.exception("[%s] 백필 실패: %s", task_id, e)
+        _task_finish(task_id, "failed", error=str(e))
+
+
+@router.post("/backfill-body")
+async def knowin_backfill_body(
+    background: BackgroundTasks,
+    limit: int = Form(50),
+):
+    """body_plain 없는 큐 항목 → 페이지 fetch 백그라운드"""
+    background.add_task(_backfill_body_task, limit)
+    return RedirectResponse("/knowin?msg=backfill-started", status_code=303)
+
+
 # ── 태스크 상태 JSON (UI auto-refresh) ─────────────────────
 @router.get("/tasks")
 async def knowin_tasks_status():
@@ -368,7 +469,80 @@ async def knowin_tasks_status():
     })
 
 
-# ── 답변 초안 생성 ──────────────────────────────────────────
+# ── 답변 초안 생성 (메인 인라인용 JSON) ────────────────────
+def _draft_to_json(d: dict) -> dict:
+    """MongoDB doc → JSON-safe dict"""
+    out = {k: v for k, v in d.items() if k != "_id"}
+    ca = d.get("created_at")
+    if ca and hasattr(ca, "isoformat"):
+        out["created_at"] = ca.isoformat()
+    return out
+
+
+@router.post("/regenerate/{question_id}")
+async def knowin_regenerate(question_id: str):
+    """기존 draft 삭제 + 다시 생성. body 백필 후 동문서답 수정용.
+
+    matched/approved 상태에서만 의미 있음. JSON 응답.
+    """
+    answers = get_collection("knowin_answers")
+    answers.delete_one({"question_id": question_id})
+    # generate 흐름 그대로 호출
+    return await knowin_generate(question_id)
+
+
+@router.post("/generate/{question_id}")
+async def knowin_generate(question_id: str):
+    """미생성 답변 초안을 그 자리에서 생성. JSON 응답.
+
+    /knowin 메인의 JS가 미생성 카드별로 직렬 호출 → 카드 교체.
+    이미 생성된 경우 그대로 반환 (race condition 안전).
+    """
+    coll = get_collection("knowin_questions")
+    q = coll.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return JSONResponse({"ok": False, "error": "질문 없음"}, status_code=404)
+
+    answers = get_collection("knowin_answers")
+    existing = answers.find_one({"question_id": question_id}, {"_id": 0})
+    if existing:
+        return JSONResponse({"ok": True, "draft": _draft_to_json(existing)})
+
+    q = _ensure_body(q)
+    text = _question_text(q)
+    if not text:
+        return JSONResponse({"ok": False, "error": "질문 본문 비어있음"}, status_code=400)
+
+    m = match_question(text)
+    if not m.matched:
+        return JSONResponse(
+            {"ok": False, "error": f"RAG 매칭 미달 (score={m.top_score:.3f})"},
+            status_code=400,
+        )
+
+    try:
+        answer = generate_answer(text, m, llm="local")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"LLM 호출 실패: {e}"}, status_code=500)
+
+    draft = {
+        "question_id": question_id,
+        "body": answer.body,
+        "full_text": answer.full_text,
+        "source_url": answer.source_url,
+        "source_title": answer.source_title,
+        "match_score": answer.match_score,
+        "word_count": answer.word_count,
+        "sentence_count": answer.sentence_count,
+        "llm_model": answer.llm_model,
+        "warnings": answer.warnings,
+        "status": "draft",
+        "created_at": datetime.now(timezone.utc),
+    }
+    answers.insert_one(dict(draft))
+    return JSONResponse({"ok": True, "draft": _draft_to_json(draft)})
+
+
 @router.get("/draft/{question_id}")
 async def knowin_draft(request: Request, question_id: str):
     coll = get_collection("knowin_questions")
@@ -386,7 +560,8 @@ async def knowin_draft(request: Request, question_id: str):
     if existing:
         draft = existing
     else:
-        text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
+        q = _ensure_body(q)
+        text = _question_text(q)
         m = match_question(text)
         if not m.matched:
             return templates.TemplateResponse(request, "knowin_draft.html", {
