@@ -68,12 +68,22 @@
 
   <div style="margin-top:20px; padding-top:16px; border-top:1px solid #334155;">
     <h3>액션</h3>
+    {% if question.status != 'posted' %}
     <form method="post" action="/knowin/approve/{{ question.question_id }}" style="display:inline;">
-      <button type="submit" class="btn btn-green">✅ 승인 (수동 게시 준비)</button>
+      <button type="submit" class="btn btn-green">✅ 승인 (게시 직전)</button>
+    </form>
+    <form method="post" action="/knowin/posted/{{ question.question_id }}" style="display:inline; margin-left:8px;">
+      <button type="submit" class="btn" style="background:#7c3aed; color:#fff;">📌 네이버 게시 완료 (재수집 skip)</button>
     </form>
     <form method="post" action="/knowin/reject/{{ question.question_id }}" style="display:inline; margin-left:8px;">
       <button type="submit" class="btn" style="background:#dc2626; color:#fff;">❌ 거절</button>
     </form>
+    {% else %}
+    <div style="background:#1f3a2f; padding:10px; color:#a7f3d0;">
+      ✅ 네이버 게시 완료 (재수집 시 자동 skip)
+      {% if question.posted_at %} · {{ question.posted_at[:19] if question.posted_at is string else question.posted_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+    </div>
+    {% endif %}
     <a href="{{ question.link }}" target="_blank" class="btn" style="background:#374151; color:#fff; margin-left:8px;">원본 지식인 열기 →</a>
   </div>
 </div>
@@ -85,7 +95,7 @@
     <li>경고 없을 때 ✅ "클립보드 복사"</li>
     <li>"원본 지식인 열기" → 답변 작성</li>
     <li>복사한 텍스트 붙여넣기 → 게시</li>
-    <li>여기로 돌아와 "승인" 클릭 (status 갱신)</li>
+    <li>여기로 돌아와 <strong>"네이버 게시 완료"</strong> 클릭 — 재수집 시 자동 skip 됨</li>
   </ol>
 </div>
 <script>

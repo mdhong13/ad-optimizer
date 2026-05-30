@@ -14,7 +14,8 @@
   <div class="stat"><div class="label">pending</div><div class="value" data-stat="pending">{{ stats.pending }}</div><div class="sub">매칭 대기</div></div>
   <div class="stat"><div class="label">matched</div><div class="value" data-stat="matched">{{ stats.matched }}</div><div class="sub">RAG 통과 — 답변 후보</div></div>
   <div class="stat"><div class="label">rejected</div><div class="value" data-stat="rejected">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
-  <div class="stat"><div class="label">answered</div><div class="value" data-stat="answered">{{ stats.answered }}</div><div class="sub">답변 완료</div></div>
+  <div class="stat"><div class="label">approved</div><div class="value" data-stat="approved">{{ stats.approved|default(0, true) }}</div><div class="sub">검토 통과·게시 대기</div></div>
+  <div class="stat"><div class="label">posted</div><div class="value" data-stat="posted">{{ stats.posted|default(0, true) }}</div><div class="sub">네이버 게시 완료</div></div>
 </div>
 
 <!-- 진행 중·최근 완료 (auto-refresh 3s) -->
@@ -137,8 +138,8 @@ async function pollTasks() {
         const elapsed = t.started_at ? Math.round((Date.now() - new Date(t.started_at).getTime()) / 1000) : 0;
         const typeLabel = t.type === 'crawl' ? '🔍 키워드 검색' : '🎯 RAG 매칭';
         const stats = t.type === 'crawl'
-          ? `발견 ${t.found} · 신규 ${t.inserted}`
-          : `matched ${t.matched} · rejected ${t.rejected}`;
+          ? `발견 ${t.found} · 신규 ${t.inserted} · skip ${t.skipped || 0}`
+          : `matched ${t.matched} · rejected ${t.rejected} · draft ${t.draft_ok || 0}/${(t.draft_ok || 0) + (t.draft_fail || 0)}`;
         return `
           <div style="background:#0f172a; padding:12px; margin-bottom:8px; border-left:3px solid #3b82f6;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -172,8 +173,8 @@ async function pollTasks() {
         const statusIcon = t.status === 'completed' ? '✅' : '❌';
         const typeLabel = t.type === 'crawl' ? '🔍 검색' : '🎯 매칭';
         const stats = t.type === 'crawl'
-          ? `발견 ${t.found} · 신규 ${t.inserted}`
-          : `matched ${t.matched} · rejected ${t.rejected}`;
+          ? `발견 ${t.found} · 신규 ${t.inserted} · skip ${t.skipped || 0}`
+          : `matched ${t.matched} · rejected ${t.rejected} · draft ${t.draft_ok || 0}/${(t.draft_ok || 0) + (t.draft_fail || 0)}`;
         return `
           <div style="background:#0a0f1a; padding:8px 12px; margin-bottom:4px; font-size:12px;">
             ${statusIcon} <strong>${typeLabel}</strong> ${t.processed}/${t.total} · ${stats} · <span style="color:#9ca3af;">${dur}s</span>

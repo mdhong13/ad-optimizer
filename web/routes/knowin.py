@@ -38,8 +38,11 @@ def _task_start(task_type: str, total: int) -> str:
         "processed": 0,
         "found": 0,                # crawl 시 누적 발견 수
         "inserted": 0,             # crawl 시 신규 insert
+        "skipped": 0,              # crawl 시 종료 status (posted/rejected) 자동 skip
         "matched": 0,              # match 시 matched 카운트
         "rejected": 0,             # match 시 rejected 카운트
+        "draft_ok": 0,             # match 시 답변 초안 자동 생성 성공
+        "draft_fail": 0,           # match 시 답변 초안 실패 (LLM 등)
         "current_item": None,
         "error": None,
     })
@@ -135,7 +138,8 @@ async def knowin_overview(request: Request):
         "pending": coll.count_documents({"status": "pending"}),
         "matched": coll.count_documents({"status": "matched"}),
         "rejected": coll.count_documents({"status": "rejected"}),
-        "answered": coll.count_documents({"status": "answered"}),
+        "approved": coll.count_documents({"status": "approved"}),
+        "posted": coll.count_documents({"status": "posted"}),
     }
     # 매칭 점수 높은 후보 큐 (상위 20)
     queue = list(
@@ -179,12 +183,32 @@ def _crawl_task(limit: int):
         coll = get_collection("knowin_questions")
         api = NaverKinSearch()
 
+        # 종료 status — 자동 skip 대상 (재수집 시 큐 오염 방지)
+        TERMINAL_STATUSES = {"posted", "rejected"}
+
         for i, kw in enumerate(keywords):
             _task_update(task_id, current_item=kw, processed=i)
             results = api.search(kw, display=20)
             found_n = len(results)
+
+            # 한 번에 종료 status 인 기존 question_id 미리 fetch (효율)
+            qids = [r.question_id for r in results]
+            terminal_ids = set()
+            if qids:
+                terminal_ids = {
+                    d["question_id"]
+                    for d in coll.find(
+                        {"question_id": {"$in": qids}, "status": {"$in": list(TERMINAL_STATUSES)}},
+                        {"question_id": 1, "_id": 0},
+                    )
+                }
+
             inserted_n = 0
+            skipped_n = 0
             for r in results:
+                if r.question_id in terminal_ids:
+                    skipped_n += 1
+                    continue   # posted/rejected 는 재처리 X
                 doc = r.to_doc()
                 res = coll.update_one(
                     {"question_id": r.question_id},
@@ -193,7 +217,7 @@ def _crawl_task(limit: int):
                 )
                 if res.upserted_id:
                     inserted_n += 1
-            _task_update(task_id, inc_found=found_n, inc_inserted=inserted_n)
+            _task_update(task_id, inc_found=found_n, inc_inserted=inserted_n, inc_skipped=skipped_n)
             time.sleep(0.2)  # throttle
 
         _task_update(task_id, processed=len(keywords), current_item=None)
@@ -252,6 +276,29 @@ def _match_task(limit: int):
                     }},
                 )
                 _task_update(task_id, inc_matched=1)
+                # 답변 초안 자동 생성 (사용자가 매치 큐에서 직접 작성 안 해도 OK)
+                try:
+                    answers = get_collection("knowin_answers")
+                    if not answers.find_one({"question_id": q.get("question_id")}, {"_id": 1}):
+                        draft = generate_answer(text, m, llm="local")
+                        answers.insert_one({
+                            "question_id": q.get("question_id"),
+                            "body": draft.body,
+                            "full_text": draft.full_text,
+                            "source_url": draft.source_url,
+                            "source_title": draft.source_title,
+                            "match_score": draft.match_score,
+                            "word_count": draft.word_count,
+                            "sentence_count": draft.sentence_count,
+                            "llm_model": draft.llm_model,
+                            "warnings": draft.warnings,
+                            "status": "draft",
+                            "created_at": datetime.now(timezone.utc),
+                        })
+                        _task_update(task_id, inc_draft_ok=1)
+                except Exception as draft_e:
+                    log.warning("draft 자동 생성 실패 (qid=%s): %s", q.get("question_id"), draft_e)
+                    _task_update(task_id, inc_draft_fail=1)
             else:
                 coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected", "matched_score": m.top_score}})
                 _task_update(task_id, inc_rejected=1)
@@ -358,9 +405,10 @@ async def knowin_draft(request: Request, question_id: str):
     })
 
 
-# ── 승인·거절 ────────────────────────────────────────────────
+# ── 승인·거절·게시완료 ──────────────────────────────────────
 @router.post("/approve/{question_id}")
 async def knowin_approve(question_id: str):
+    """검토 통과 — 클립보드 복사 후 네이버 게시 직전 단계"""
     get_collection("knowin_questions").update_one(
         {"question_id": question_id}, {"$set": {"status": "approved"}}
     )
@@ -368,6 +416,21 @@ async def knowin_approve(question_id: str):
         {"question_id": question_id}, {"$set": {"status": "approved"}}
     )
     return RedirectResponse(f"/knowin/draft/{question_id}?msg=approved", status_code=303)
+
+
+@router.post("/posted/{question_id}")
+async def knowin_posted(question_id: str):
+    """실제 네이버 게시 완료 — 종료 상태 (재수집 시 자동 skip)"""
+    now = datetime.now(timezone.utc)
+    get_collection("knowin_questions").update_one(
+        {"question_id": question_id},
+        {"$set": {"status": "posted", "posted_at": now}},
+    )
+    get_collection("knowin_answers").update_one(
+        {"question_id": question_id},
+        {"$set": {"status": "posted", "posted_at": now}},
+    )
+    return RedirectResponse(f"/knowin/draft/{question_id}?msg=posted", status_code=303)
 
 
 @router.post("/reject/{question_id}")
