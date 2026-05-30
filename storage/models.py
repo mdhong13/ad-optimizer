@@ -54,6 +54,11 @@ INDEXES = {
         {"keys": [("question_id", 1)]},
         {"keys": [("status", 1), ("created_at", -1)]},
     ],
+    # 백그라운드 태스크 진행 상태 (crawl / match)
+    "knowin_tasks": [
+        {"keys": [("task_id", 1)], "unique": True},
+        {"keys": [("status", 1), ("started_at", -1)]},
+    ],
 }
 
 

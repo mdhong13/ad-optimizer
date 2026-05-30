@@ -11,16 +11,69 @@
 ⚠️ 자동 게시 X — 첫 단계는 검토 큐만.
 """
 from fastapi import APIRouter, Request, Form, BackgroundTasks
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
+import uuid
 
 from storage.db import get_collection
 from agent.knowin_matcher import match_question
 from agent.knowin_answerer import generate_answer
 from agent.knowin_keyword_pool import build_keyword_pool, keyword_pool_stats
+
+
+# ── 태스크 진행도 헬퍼 ─────────────────────────────────────
+def _task_start(task_type: str, total: int) -> str:
+    """태스크 시작 — task_id 발급 + MongoDB insert"""
+    task_id = uuid.uuid4().hex[:12]
+    get_collection("knowin_tasks").insert_one({
+        "task_id": task_id,
+        "type": task_type,         # 'crawl' | 'match'
+        "status": "running",
+        "started_at": datetime.now(timezone.utc),
+        "finished_at": None,
+        "total": total,
+        "processed": 0,
+        "found": 0,                # crawl 시 누적 발견 수
+        "inserted": 0,             # crawl 시 신규 insert
+        "matched": 0,              # match 시 matched 카운트
+        "rejected": 0,             # match 시 rejected 카운트
+        "current_item": None,
+        "error": None,
+    })
+    return task_id
+
+
+def _task_update(task_id: str, **fields):
+    """진행 상태 갱신 — increment 가능 필드는 `$inc_*` 키로 박음"""
+    inc = {}
+    set_ = {}
+    for k, v in fields.items():
+        if k.startswith("inc_"):
+            inc[k[4:]] = v
+        else:
+            set_[k] = v
+    update = {}
+    if set_:
+        update["$set"] = set_
+    if inc:
+        update["$inc"] = inc
+    if update:
+        get_collection("knowin_tasks").update_one({"task_id": task_id}, update)
+
+
+def _task_finish(task_id: str, status: str = "completed", error: str = None):
+    """태스크 종료 — finished_at + 최종 status"""
+    get_collection("knowin_tasks").update_one(
+        {"task_id": task_id},
+        {"$set": {
+            "status": status,
+            "finished_at": datetime.now(timezone.utc),
+            "error": error,
+        }},
+    )
 
 router = APIRouter(prefix="/knowin")
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -105,24 +158,53 @@ async def knowin_overview(request: Request):
 def _crawl_task(limit: int):
     """백그라운드 실행 — 키워드 풀 처음 N개로 검색.
 
-    예외는 catch 후 로그만. ASGI 에러로 전파 X.
+    진행 상태를 `knowin_tasks` 컬렉션에 실시간 기록.
+    예외는 catch 후 task status=failed.
     """
-    import logging
+    import logging, time
     log = logging.getLogger("knowin.crawl")
+
+    pool = build_keyword_pool()
+    if not pool:
+        log.warning("키워드 풀이 비어있음")
+        return
+
+    keywords = pool[:limit]
+    task_id = _task_start("crawl", total=len(keywords))
+    log.info("[%s] 크롤 시작: %d / %d 키워드", task_id, len(keywords), len(pool))
+
     try:
-        from intelligence.knowin_crawler import crawl_to_mongo
-        pool = build_keyword_pool()
-        if not pool:
-            log.warning("키워드 풀이 비어있음 — vault 파일 부재 또는 general keywords 미정의")
-            return
-        log.info("크롤 시작: %d / %d 키워드", min(limit, len(pool)), len(pool))
-        stats = crawl_to_mongo(pool[:limit])
-        log.info("크롤 완료: %s", stats)
+        from intelligence.knowin_crawler import NaverKinSearch
+        from storage.db import get_collection
+        coll = get_collection("knowin_questions")
+        api = NaverKinSearch()
+
+        for i, kw in enumerate(keywords):
+            _task_update(task_id, current_item=kw, processed=i)
+            results = api.search(kw, display=20)
+            found_n = len(results)
+            inserted_n = 0
+            for r in results:
+                doc = r.to_doc()
+                res = coll.update_one(
+                    {"question_id": r.question_id},
+                    {"$setOnInsert": doc, "$addToSet": {"matched_keywords": kw}},
+                    upsert=True,
+                )
+                if res.upserted_id:
+                    inserted_n += 1
+            _task_update(task_id, inc_found=found_n, inc_inserted=inserted_n)
+            time.sleep(0.2)  # throttle
+
+        _task_update(task_id, processed=len(keywords), current_item=None)
+        _task_finish(task_id, "completed")
+        log.info("[%s] 크롤 완료", task_id)
     except RuntimeError as e:
-        # NAVER_CLIENT_ID/SECRET 미설정 등 환경 문제
-        log.error("크롤 실패 (환경): %s", e)
+        log.error("[%s] 크롤 실패 (환경): %s", task_id, e)
+        _task_finish(task_id, "failed", error=str(e))
     except Exception as e:
-        log.exception("크롤 실패 (예상 외): %s", e)
+        log.exception("[%s] 크롤 실패 (예상 외): %s", task_id, e)
+        _task_finish(task_id, "failed", error=str(e))
 
 
 @router.post("/crawl")
@@ -137,30 +219,49 @@ async def knowin_crawl(
 
 # ── 매칭 (pending 큐 → RAG score) ───────────────────────────
 def _match_task(limit: int):
-    """pending 질문들 → RAG 매칭 → status 갱신"""
+    """pending 질문들 → RAG 매칭 → status 갱신. 진행 상태 기록."""
+    import logging
+    log = logging.getLogger("knowin.match")
     coll = get_collection("knowin_questions")
-    cursor = coll.find({"status": "pending"}).limit(limit)
-    for q in cursor:
-        # title + description 합쳐서 매칭
-        text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
-        text = text.strip()
-        if not text:
-            coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
-            continue
-        m = match_question(text)
-        if m.matched:
-            coll.update_one(
-                {"_id": q["_id"]},
-                {"$set": {
-                    "status": "matched",
-                    "matched_url": m.url,
-                    "matched_score": m.top_score,
-                    "matched_title": m.title,
-                    "matched_at": datetime.now(timezone.utc),
-                }},
-            )
-        else:
-            coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected", "matched_score": m.top_score}})
+
+    pending_n = coll.count_documents({"status": "pending"})
+    will_process = min(limit, pending_n)
+    task_id = _task_start("match", total=will_process)
+    log.info("[%s] 매칭 시작: %d 건", task_id, will_process)
+
+    try:
+        cursor = coll.find({"status": "pending"}).limit(limit)
+        for i, q in enumerate(cursor):
+            text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
+            text = text.strip()
+            _task_update(task_id, current_item=text[:60], processed=i)
+            if not text:
+                coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
+                _task_update(task_id, inc_rejected=1)
+                continue
+            m = match_question(text)
+            if m.matched:
+                coll.update_one(
+                    {"_id": q["_id"]},
+                    {"$set": {
+                        "status": "matched",
+                        "matched_url": m.url,
+                        "matched_score": m.top_score,
+                        "matched_title": m.title,
+                        "matched_at": datetime.now(timezone.utc),
+                    }},
+                )
+                _task_update(task_id, inc_matched=1)
+            else:
+                coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected", "matched_score": m.top_score}})
+                _task_update(task_id, inc_rejected=1)
+
+        _task_update(task_id, processed=will_process, current_item=None)
+        _task_finish(task_id, "completed")
+        log.info("[%s] 매칭 완료", task_id)
+    except Exception as e:
+        log.exception("[%s] 매칭 실패: %s", task_id, e)
+        _task_finish(task_id, "failed", error=str(e))
 
 
 @router.post("/match")
@@ -171,6 +272,38 @@ async def knowin_match(
     """pending 큐 매칭 실행 (백그라운드)"""
     background.add_task(_match_task, limit)
     return RedirectResponse("/knowin?msg=match-started", status_code=303)
+
+
+# ── 태스크 상태 JSON (UI auto-refresh) ─────────────────────
+@router.get("/tasks")
+async def knowin_tasks_status():
+    """진행 중 + 최근 완료 5건. UI 폴링용."""
+    coll = get_collection("knowin_tasks")
+    running = list(coll.find({"status": "running"}, {"_id": 0}).sort("started_at", -1))
+    recent = list(coll.find(
+        {"status": {"$in": ["completed", "failed"]}},
+        {"_id": 0}
+    ).sort("finished_at", -1).limit(5))
+    # 큐 통계 같이 반환 (UI 한 번에 갱신)
+    qcoll = get_collection("knowin_questions")
+    queue_stats = {
+        "total": qcoll.estimated_document_count(),
+        "pending": qcoll.count_documents({"status": "pending"}),
+        "matched": qcoll.count_documents({"status": "matched"}),
+        "rejected": qcoll.count_documents({"status": "rejected"}),
+        "answered": qcoll.count_documents({"status": "answered"}),
+    }
+    # datetime → isoformat
+    def _serialize(t):
+        for k in ("started_at", "finished_at"):
+            if t.get(k):
+                t[k] = t[k].isoformat()
+        return t
+    return JSONResponse({
+        "running": [_serialize(t) for t in running],
+        "recent": [_serialize(t) for t in recent],
+        "queue": queue_stats,
+    })
 
 
 # ── 답변 초안 생성 ──────────────────────────────────────────

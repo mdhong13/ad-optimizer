@@ -1,3 +1,6 @@
+# Railway OOM 회피 — wheel 우선 (source build 차단)
+--prefer-binary
+
 # Web (PWA)
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
@@ -15,6 +18,13 @@ openai>=1.0.0
 facebook-business>=20.0.0
 google-ads>=28.0.0
 tweepy>=4.14.0
+
+# gRPC transitive (google-ads 의존) — wheel 보장 버전 명시
+grpcio>=1.60.0,<2.0.0
+protobuf>=4.25.0,<6.0.0
+
+# HTTP — knowin_crawler 가 sync requests 사용
+requests>=2.31.0
 
 # HTTP / Data
 httpx>=0.27.0

@@ -8,13 +8,25 @@
   <strong>⚠️ 가드레일 필독</strong> — 공식 검색 API 사용. 일 5~10건 한도. 본문 5문장+ 구체 정보 + 출처 박스. 수동 검토 첫 2주.
 </div>
 
-<!-- 큐 통계 -->
-<div class="stat-grid">
-  <div class="stat"><div class="label">총 수집</div><div class="value">{{ stats.total }}</div></div>
-  <div class="stat"><div class="label">pending</div><div class="value">{{ stats.pending }}</div><div class="sub">매칭 대기</div></div>
-  <div class="stat"><div class="label">matched</div><div class="value">{{ stats.matched }}</div><div class="sub">RAG 통과 — 답변 후보</div></div>
-  <div class="stat"><div class="label">rejected</div><div class="value">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
-  <div class="stat"><div class="label">answered</div><div class="value">{{ stats.answered }}</div><div class="sub">답변 완료</div></div>
+<!-- 큐 통계 (auto-refresh) -->
+<div class="stat-grid" id="queue-stats">
+  <div class="stat"><div class="label">총 수집</div><div class="value" data-stat="total">{{ stats.total }}</div></div>
+  <div class="stat"><div class="label">pending</div><div class="value" data-stat="pending">{{ stats.pending }}</div><div class="sub">매칭 대기</div></div>
+  <div class="stat"><div class="label">matched</div><div class="value" data-stat="matched">{{ stats.matched }}</div><div class="sub">RAG 통과 — 답변 후보</div></div>
+  <div class="stat"><div class="label">rejected</div><div class="value" data-stat="rejected">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
+  <div class="stat"><div class="label">answered</div><div class="value" data-stat="answered">{{ stats.answered }}</div><div class="sub">답변 완료</div></div>
+</div>
+
+<!-- 진행 중·최근 완료 (auto-refresh 3s) -->
+<div class="card" id="progress-card">
+  <h2>진행 상태 <span id="last-poll" style="font-size:11px; color:#9ca3af; font-weight:normal;"></span></h2>
+  <div id="running-tasks">
+    <p style="color:#9ca3af; font-size:13px;">진행 중인 태스크 없음</p>
+  </div>
+  <details style="margin-top:12px;">
+    <summary style="cursor:pointer; font-size:13px; color:#9ca3af;">최근 완료 5건</summary>
+    <div id="recent-tasks" style="margin-top:8px;"></div>
+  </details>
 </div>
 
 <!-- 액션 -->
@@ -102,4 +114,88 @@
     {% endfor %}
   </ol>
 </div>
+
+<script>
+async function pollTasks() {
+  try {
+    const r = await fetch('/knowin/tasks');
+    const data = await r.json();
+
+    // 큐 통계 갱신
+    for (const [k, v] of Object.entries(data.queue || {})) {
+      const el = document.querySelector(`[data-stat="${k}"]`);
+      if (el) el.textContent = v;
+    }
+
+    // 진행 중 태스크
+    const runningDiv = document.getElementById('running-tasks');
+    if (data.running.length === 0) {
+      runningDiv.innerHTML = '<p style="color:#9ca3af; font-size:13px;">진행 중인 태스크 없음</p>';
+    } else {
+      runningDiv.innerHTML = data.running.map(t => {
+        const pct = t.total ? Math.round((t.processed / t.total) * 100) : 0;
+        const elapsed = t.started_at ? Math.round((Date.now() - new Date(t.started_at).getTime()) / 1000) : 0;
+        const typeLabel = t.type === 'crawl' ? '🔍 키워드 검색' : '🎯 RAG 매칭';
+        const stats = t.type === 'crawl'
+          ? `발견 ${t.found} · 신규 ${t.inserted}`
+          : `matched ${t.matched} · rejected ${t.rejected}`;
+        return `
+          <div style="background:#0f172a; padding:12px; margin-bottom:8px; border-left:3px solid #3b82f6;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong>${typeLabel}</strong>
+              <span style="font-size:12px; color:#9ca3af;">${elapsed}s</span>
+            </div>
+            <div style="margin:6px 0;">
+              <div style="background:#1e293b; height:8px; border-radius:4px; overflow:hidden;">
+                <div style="background:#3b82f6; height:100%; width:${pct}%; transition:width 0.3s;"></div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:#cbd5e1;">
+              ${t.processed} / ${t.total} (${pct}%) · ${stats}
+            </div>
+            ${t.current_item ? `<div style="font-size:11px; color:#6b7280; margin-top:4px; font-family:monospace;">→ ${escapeHtml(t.current_item)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 최근 완료
+    const recentDiv = document.getElementById('recent-tasks');
+    if (data.recent.length === 0) {
+      recentDiv.innerHTML = '<p style="color:#6b7280; font-size:12px;">최근 완료 없음</p>';
+    } else {
+      recentDiv.innerHTML = data.recent.map(t => {
+        const dur = (t.started_at && t.finished_at)
+          ? Math.round((new Date(t.finished_at).getTime() - new Date(t.started_at).getTime()) / 1000)
+          : 0;
+        const statusColor = t.status === 'completed' ? '#10b981' : '#ef4444';
+        const statusIcon = t.status === 'completed' ? '✅' : '❌';
+        const typeLabel = t.type === 'crawl' ? '🔍 검색' : '🎯 매칭';
+        const stats = t.type === 'crawl'
+          ? `발견 ${t.found} · 신규 ${t.inserted}`
+          : `matched ${t.matched} · rejected ${t.rejected}`;
+        return `
+          <div style="background:#0a0f1a; padding:8px 12px; margin-bottom:4px; font-size:12px;">
+            ${statusIcon} <strong>${typeLabel}</strong> ${t.processed}/${t.total} · ${stats} · <span style="color:#9ca3af;">${dur}s</span>
+            ${t.error ? `<div style="color:#ef4444; margin-top:4px; font-size:11px;">${escapeHtml(t.error)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('last-poll').textContent =
+      `· 마지막 갱신 ${new Date().toLocaleTimeString('ko-KR')}`;
+  } catch (e) {
+    console.error('poll failed', e);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 3초마다 폴링
+pollTasks();
+setInterval(pollTasks, 3000);
+</script>
 {% endblock %}
