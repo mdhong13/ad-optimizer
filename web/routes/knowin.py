@@ -141,10 +141,25 @@ async def knowin_overview(request: Request):
         "approved": coll.count_documents({"status": "approved"}),
         "posted": coll.count_documents({"status": "posted"}),
     }
-    # 매칭 점수 높은 후보 큐 (상위 20)
+    # 매칭 큐 — matched + approved 양쪽 표시 (승인 후에도 게시완료 추적해야 하므로)
     queue = list(
-        coll.find({"status": "matched"}, {"_id": 0}).sort("matched_score", -1).limit(20)
+        coll.find(
+            {"status": {"$in": ["matched", "approved"]}}, {"_id": 0}
+        ).sort("matched_score", -1).limit(20)
     )
+    # 답변 본문 bulk fetch — 메인에서 인라인 표시용 (draft 페이지 우회)
+    qids = [q.get("question_id") for q in queue if q.get("question_id")]
+    answers_map: dict = {}
+    if qids:
+        answers_map = {
+            a["question_id"]: a
+            for a in get_collection("knowin_answers").find(
+                {"question_id": {"$in": qids}}, {"_id": 0}
+            )
+        }
+    for q in queue:
+        q["answer"] = answers_map.get(q.get("question_id"))
+
     kw_stats = keyword_pool_stats()
 
     return templates.TemplateResponse(request, "knowin.html", {
@@ -415,7 +430,7 @@ async def knowin_approve(question_id: str):
     get_collection("knowin_answers").update_one(
         {"question_id": question_id}, {"$set": {"status": "approved"}}
     )
-    return RedirectResponse(f"/knowin/draft/{question_id}?msg=approved", status_code=303)
+    return RedirectResponse(f"/knowin?msg=approved#q-{question_id}", status_code=303)
 
 
 @router.post("/posted/{question_id}")
@@ -430,7 +445,7 @@ async def knowin_posted(question_id: str):
         {"question_id": question_id},
         {"$set": {"status": "posted", "posted_at": now}},
     )
-    return RedirectResponse(f"/knowin/draft/{question_id}?msg=posted", status_code=303)
+    return RedirectResponse("/knowin?msg=posted", status_code=303)
 
 
 @router.post("/reject/{question_id}")

@@ -50,35 +50,82 @@
   </div>
 </div>
 
-<!-- 매칭 큐 -->
+<!-- 매칭 큐 — 카드 인라인 (답변 본문·복사·액션 다 메인에) -->
 <div class="card">
   <h2>답변 후보 큐 ({{ queue|length }} / 매칭 점수 순)</h2>
   {% if queue %}
-  <table>
-    <thead>
-      <tr><th>score</th><th>제목</th><th>위키 매칭</th><th>키워드</th><th>날짜</th><th>액션</th></tr>
-    </thead>
-    <tbody>
-      {% for q in queue %}
-      <tr>
-        <td style="text-align:right;">{{ '%.3f' | format(q.matched_score|default(0, true)) }}</td>
-        <td style="font-size:12px;">
-          <a href="{{ q.link }}" target="_blank" style="color:#60a5fa;">{{ q.title_plain[:60] }}</a>
-        </td>
-        <td style="font-size:12px;">
-          {% if q.matched_url %}
-          <a href="{{ q.matched_url }}" target="_blank" style="color:#10b981;">{{ q.matched_title|default('?', true) }}</a>
-          {% else %}-{% endif %}
-        </td>
-        <td style="font-size:11px; color:#9ca3af;">{{ q.keyword }}</td>
-        <td style="font-size:11px;">{{ q.post_date }}</td>
-        <td>
-          <a href="/knowin/draft/{{ q.question_id }}" class="btn btn-blue" style="font-size:11px; padding:4px 8px;">답변 초안</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  {% for q in queue %}
+  <div id="q-{{ q.question_id }}" style="background:#0f172a; border:1px solid #334155; padding:14px; margin-bottom:14px; border-left:3px solid {% if q.status == 'approved' %}#7c3aed{% else %}#3b82f6{% endif %};">
+
+    <!-- 헤더: 점수·제목·status -->
+    <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px;">
+      <span style="font-size:18px; font-weight:bold; color:#fbbf24;">{{ '%.3f' | format(q.matched_score|default(0, true)) }}</span>
+      <a href="{{ q.link }}" target="_blank" style="color:#60a5fa; font-size:15px; font-weight:600; flex:1; min-width:200px;">
+        {{ q.title_plain[:80] }}
+      </a>
+      {% if q.status == 'approved' %}
+      <span style="font-size:11px; background:#7c3aed; padding:2px 8px; border-radius:10px;">✅ 승인됨 — 게시 대기</span>
+      {% endif %}
+    </div>
+
+    <!-- 메타 -->
+    <div style="font-size:12px; color:#9ca3af; margin-bottom:10px;">
+      위키 매칭:
+      {% if q.matched_url %}<a href="{{ q.matched_url }}" target="_blank" style="color:#10b981;">{{ q.matched_title|default('?', true) }}</a>{% else %}-{% endif %}
+      · 키워드: <span style="color:#cbd5e1;">{{ q.keyword|default('?', true) }}</span>
+      · 날짜: {{ q.post_date|default('?', true) }}
+      {% if q.description_plain %}
+      <div style="color:#cbd5e1; margin-top:6px; font-size:12px; line-height:1.5;">{{ q.description_plain[:200] }}</div>
+      {% endif %}
+    </div>
+
+    {% if q.answer %}
+    {% set draft = q.answer %}
+
+    <!-- 가드레일 -->
+    {% if draft.warnings %}
+    <div style="background:#5c1f1f; padding:8px 10px; margin-bottom:8px; color:#ffe1cb; font-size:12px;">
+      <strong>⚠️ 가드레일 경고:</strong>
+      <ul style="margin:4px 0 0 18px;">{% for w in draft.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+    </div>
+    {% else %}
+    <div style="background:#1f3a2f; padding:6px 10px; margin-bottom:8px; color:#a7f3d0; font-size:12px;">
+      ✅ 가드레일 통과 · {{ draft.word_count }}자 · {{ draft.sentence_count }}문장 · {{ draft.llm_model }}
+    </div>
+    {% endif %}
+
+    <!-- 게시용 전체 텍스트 (본문 + 출처 박스) — 바로 복사 -->
+    <textarea readonly id="ft-{{ q.question_id }}"
+              style="width:100%; height:200px; padding:10px; background:#020617; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:12px; line-height:1.6;">{{ draft.full_text }}</textarea>
+
+    <!-- 액션 (인라인) -->
+    <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button onclick="copyFt('{{ q.question_id }}')" class="btn btn-blue" style="font-size:12px; padding:6px 12px;">📋 복사</button>
+      <span id="cs-{{ q.question_id }}" style="color:#10b981; font-size:12px;"></span>
+      <a href="{{ q.link }}" target="_blank" class="btn" style="background:#374151; color:#fff; font-size:12px; padding:6px 12px;">원본 지식인 열기 →</a>
+      <span style="flex:1;"></span>
+      {% if q.status != 'approved' %}
+      <form method="post" action="/knowin/approve/{{ q.question_id }}" style="display:inline;">
+        <button type="submit" class="btn btn-green" style="font-size:12px; padding:6px 12px;">✅ 승인</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/knowin/posted/{{ q.question_id }}" style="display:inline;">
+        <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
+      </form>
+      <form method="post" action="/knowin/reject/{{ q.question_id }}" style="display:inline;"
+            onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
+      </form>
+    </div>
+
+    {% else %}
+    <!-- 답변 초안이 아직 없는 경우 (드물긴 함 — 매칭 시 자동 생성) -->
+    <div style="background:#3a2c1f; padding:8px 10px; color:#fde68a; font-size:12px;">
+      ⏳ 답변 초안 미생성 — <a href="/knowin/draft/{{ q.question_id }}" style="color:#fbbf24;">생성 페이지로 이동</a>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
   {% else %}
   <p style="color:#9ca3af;">큐 비어있음. "키워드 검색" → "pending 매칭" 순으로 실행.</p>
   {% endif %}
@@ -117,6 +164,40 @@
 </div>
 
 <script>
+// 카드 textarea 클립보드 복사
+function copyFt(qid) {
+  const ta = document.getElementById('ft-' + qid);
+  if (!ta) return;
+  ta.select();
+  document.execCommand('copy');
+  const cs = document.getElementById('cs-' + qid);
+  if (cs) {
+    cs.textContent = '✓ 복사됨';
+    setTimeout(() => { cs.textContent = ''; }, 2000);
+  }
+}
+
+// URL ?msg=... 토스트 (approve/posted/rejected 후 리다이렉트 메시지)
+(function showMsgToast() {
+  const params = new URLSearchParams(window.location.search);
+  const msg = params.get('msg');
+  if (!msg) return;
+  const labels = {
+    'approved': '✅ 승인됨 — 클립보드 복사 후 네이버 게시',
+    'posted': '📌 네이버 게시 완료 처리됨 (재수집 skip)',
+    'rejected': '❌ 거절됨',
+    'crawl-started': '🔍 크롤 시작됨',
+    'match-started': '🎯 매칭 시작됨',
+  };
+  const label = labels[msg] || msg;
+  const toast = document.createElement('div');
+  toast.textContent = label;
+  toast.style.cssText = 'position:fixed; top:20px; right:20px; background:#1e3a5f; color:#fff; padding:12px 20px; border-left:4px solid #3b82f6; box-shadow:0 4px 12px rgba(0,0,0,0.5); z-index:9999; font-size:14px;';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; }, 3500);
+  setTimeout(() => { toast.remove(); }, 4500);
+})();
+
 async function pollTasks() {
   try {
     const r = await fetch('/knowin/tasks');
