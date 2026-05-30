@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -52,6 +53,26 @@ QUESTION_BODY_SELECTORS = [
     "div._questionContentsArea",
 ]
 
+# 외부 답변 차단 영역 안내 문구
+BLOCKED_PHRASES = [
+    "답변을 등록할 수 없",
+    "답변 등록이 제한",
+    "이 질문은 답변할 수 없",
+    "전문 답변자가 답변",
+]
+
+
+@dataclass
+class FetchedQuestion:
+    """페이지 fetch 결과 — body + 답변 차단 여부"""
+    body: Optional[str] = None
+    answer_blocked: bool = False
+    blocked_reason: Optional[str] = None
+
+    @property
+    def ok(self) -> bool:
+        return self.body is not None or self.answer_blocked
+
 
 def to_mobile_url(link: str) -> str:
     """데스크탑 link → 모바일 link 변환 (파싱 안정성)
@@ -72,25 +93,52 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
-def fetch_question_body(
+def _detect_answer_blocked(soup, page_text: str) -> tuple[bool, Optional[str]]:
+    """페이지 시그널에서 외부 답변 차단 여부 검출.
+
+    탐지 우선순위:
+      1. 지식파트너 영역 (정부·공공기관 FAQ)
+      2. FAQ 라벨 (class 또는 텍스트)
+      3. 명시적 차단 안내 문구
+    """
+    # 1) 지식파트너 영역 — 답변자 영역에 박힘
+    if "지식파트너" in page_text:
+        return True, "지식파트너 영역 (정부·공공기관 FAQ — 외부 답변 차단)"
+
+    # 2) FAQ 카테고리 라벨 — class 에 'faq' 포함 + 텍스트 'FAQ'
+    for el in soup.select('[class*="faq"]'):
+        txt = el.get_text(strip=True).upper()
+        if txt == "FAQ":
+            return True, "FAQ 카테고리 (외부 답변 차단)"
+
+    # 3) 명시적 차단 안내
+    for phrase in BLOCKED_PHRASES:
+        if phrase in page_text:
+            return True, f"안내문 감지: '{phrase}'"
+
+    return False, None
+
+
+def fetch_question_meta(
     link: str,
     *,
     timeout: int = FETCH_TIMEOUT,
     session: Optional[requests.Session] = None,
-) -> Optional[str]:
-    """지식인 질문 페이지 → 본문 텍스트 추출.
+) -> FetchedQuestion:
+    """지식인 질문 페이지 → 본문 + 답변 차단 여부 추출.
 
-    Returns:
-        본문 텍스트 (실패 시 None)
+    body 추출 실패해도 answer_blocked 만 신뢰 가능. 호출자는 둘 다 처리.
     """
+    result = FetchedQuestion()
+
     try:
         from bs4 import BeautifulSoup
     except ImportError:
         logger.error("beautifulsoup4 미설치 — pip install beautifulsoup4")
-        return None
+        return result
 
     if not link or "kin.naver.com" not in link:
-        return None
+        return result
 
     url = to_mobile_url(link)
     sess = session or requests
@@ -99,17 +147,25 @@ def fetch_question_body(
         r.raise_for_status()
     except requests.RequestException as e:
         logger.warning("body fetch '%s' failed: %s", link, e)
-        return None
+        return result
 
     soup = BeautifulSoup(r.text, "html.parser")
+    page_text = soup.get_text(" ", strip=True)
 
+    # 답변 차단 검출 우선 — body 추출 무관하게 표시
+    blocked, reason = _detect_answer_blocked(soup, page_text)
+    result.answer_blocked = blocked
+    result.blocked_reason = reason
+
+    # body 추출 (차단 영역이라도 본문 자체는 보관 — 카드 미리보기용)
     # 1) 우선 셀렉터 순차 시도
     for sel in QUESTION_BODY_SELECTORS:
         node = soup.select_one(sel)
         if node:
             text = _clean_text(node.get_text(separator=" "))
             if len(text) >= 10:
-                return text
+                result.body = text
+                return result
 
     # 2) ld+json (schema.org Question) fallback
     for script in soup.find_all("script", type="application/ld+json"):
@@ -120,16 +176,28 @@ def fetch_question_body(
             if isinstance(data, dict) and data.get("@type") == "Question":
                 txt = data.get("text") or ""
                 if txt:
-                    return _clean_text(txt)
+                    result.body = _clean_text(txt)
+                    return result
         except Exception:
             continue
 
-    # 3) og:description 최후 fallback (질문·답변 머지 가능 — 신뢰도 낮음)
+    # 3) og:description 최후 fallback
     og = soup.find("meta", attrs={"property": "og:description"})
     if og and og.get("content"):
-        return _clean_text(og["content"])
+        result.body = _clean_text(og["content"])
 
-    return None
+    return result
+
+
+def fetch_question_body(
+    link: str,
+    *,
+    timeout: int = FETCH_TIMEOUT,
+    session: Optional[requests.Session] = None,
+) -> Optional[str]:
+    """body 만 반환하는 wrapper (하위 호환). 차단 여부 필요 시 fetch_question_meta 사용."""
+    meta = fetch_question_meta(link, timeout=timeout, session=session)
+    return meta.body
 
 
 def batch_fetch(

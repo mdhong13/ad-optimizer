@@ -16,6 +16,7 @@
   <div class="stat"><div class="label">rejected</div><div class="value" data-stat="rejected">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
   <div class="stat"><div class="label">approved</div><div class="value" data-stat="approved">{{ stats.approved|default(0, true) }}</div><div class="sub">검토 통과·게시 대기</div></div>
   <div class="stat"><div class="label">posted</div><div class="value" data-stat="posted">{{ stats.posted|default(0, true) }}</div><div class="sub">네이버 게시 완료</div></div>
+  <div class="stat"><div class="label">blocked</div><div class="value" data-stat="blocked">{{ stats.blocked|default(0, true) }}</div><div class="sub">지식파트너·FAQ 격리</div></div>
 </div>
 
 <!-- 진행 중·최근 완료 (auto-refresh 3s) -->
@@ -45,11 +46,25 @@
       <button type="submit" class="btn btn-green">pending 매칭 (RAG)</button>
     </form>
     <form method="post" action="/knowin/backfill-body" style="display:inline-flex; gap:8px; align-items:center;"
-          title="body_plain 없는 큐 항목 → 페이지 fetch (동문서답 방지)">
+          title="body_plain 없는 큐 항목 → 페이지 fetch (동문서답 방지 + 지식파트너/FAQ 차단 검출)">
       <input type="number" name="limit" value="30" min="1" max="200"
              style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
       <button type="submit" class="btn" style="background:#f59e0b; color:#000;">📝 본문 백필</button>
     </form>
+  </div>
+
+  <!-- 수동 게시 등록 — 네이버에 직접 게시한 답변 DB 마킹 -->
+  <div style="margin-top:14px; padding-top:12px; border-top:1px dashed #334155;">
+    <form method="post" action="/knowin/mark-posted" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"
+          title="네이버에 본인 ID 로 직접 게시한 답변을 DB에 posted 마킹 (재수집 skip)">
+      <span style="font-size:12px; color:#9ca3af;">수동 게시 등록:</span>
+      <input type="text" name="link" placeholder="네이버 지식인 URL 또는 docId 붙여넣기"
+             style="flex:1; min-width:300px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:12px;" />
+      <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 posted 박기</button>
+    </form>
+    <div style="font-size:11px; color:#6b7280; margin-top:4px;">
+      예: <code style="color:#9ca3af;">https://kin.naver.com/qna/detail.naver?d1id=...&docId=493xxxxxx</code>
+    </div>
   </div>
   <div style="margin-top:10px; font-size:12px; color:#9ca3af;">
     키워드 풀: 위키 {{ kw_stats.from_truck_wiki_json }} + RAG meta {{ kw_stats.from_rag_meta }} + 일반어 {{ kw_stats.general_keywords }} = <strong>{{ kw_stats.total_after_dedup_filter }}</strong> 키워드
@@ -297,6 +312,9 @@ function renderAnswerArea(qid, d) {
     'match-started': '🎯 매칭 시작됨',
     'backfill-started': '📝 본문 백필 시작됨 (페이지 fetch, 분 단위)',
     'regenerated': '🔄 답변 재생성 완료',
+    'marked-posted': '📌 수동 게시 등록 완료 — 재수집 시 skip',
+    'marked-posted-new': '📌 수동 게시 신규 등록 (DB에 없던 질문 — 재수집 skip 보장)',
+    'mark-posted-error': '❌ link 또는 docId 입력 필요',
   };
   const label = labels[msg] || msg;
   const toast = document.createElement('div');

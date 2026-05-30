@@ -22,7 +22,7 @@ from storage.db import get_collection
 from agent.knowin_matcher import match_question
 from agent.knowin_answerer import generate_answer
 from agent.knowin_keyword_pool import build_keyword_pool, keyword_pool_stats
-from intelligence.knowin_body_fetcher import fetch_question_body
+from intelligence.knowin_body_fetcher import fetch_question_body, fetch_question_meta
 
 
 # ── 질문 텍스트 정규화 ─────────────────────────────────────
@@ -37,23 +37,34 @@ def _question_text(q: dict) -> str:
 
 
 def _ensure_body(q: dict) -> dict:
-    """body_plain 없으면 페이지 fetch 시도 → 성공 시 DB 저장 + q 갱신"""
-    if q.get("body_plain"):
+    """body_plain + answer_blocked 없으면 페이지 fetch 시도 → DB 저장 + q 갱신.
+
+    이미 body_plain 또는 answer_blocked 확정된 항목은 skip (캐시).
+    """
+    if q.get("body_plain") or q.get("answer_blocked"):
         return q
     link = q.get("link") or ""
     if not link:
         return q
     try:
-        body = fetch_question_body(link)
+        meta = fetch_question_meta(link)
     except Exception as e:  # noqa: BLE001
         import logging
-        logging.getLogger("knowin").warning("body fetch 실패 (qid=%s): %s", q.get("question_id"), e)
-        body = None
-    if body:
-        q["body_plain"] = body
+        logging.getLogger("knowin").warning("meta fetch 실패 (qid=%s): %s", q.get("question_id"), e)
+        return q
+
+    update: dict = {}
+    if meta.body:
+        q["body_plain"] = meta.body
+        update["body_plain"] = meta.body
+    if meta.answer_blocked:
+        q["answer_blocked"] = True
+        q["blocked_reason"] = meta.blocked_reason
+        update["answer_blocked"] = True
+        update["blocked_reason"] = meta.blocked_reason
+    if update:
         get_collection("knowin_questions").update_one(
-            {"question_id": q.get("question_id")},
-            {"$set": {"body_plain": body}},
+            {"question_id": q.get("question_id")}, {"$set": update}
         )
     return q
 
@@ -174,6 +185,7 @@ async def knowin_overview(request: Request):
         "rejected": coll.count_documents({"status": "rejected"}),
         "approved": coll.count_documents({"status": "approved"}),
         "posted": coll.count_documents({"status": "posted"}),
+        "blocked": coll.count_documents({"status": "blocked"}),
     }
     # 매칭 큐 — matched + approved 양쪽 표시 (승인 후에도 게시완료 추적해야 하므로)
     queue = list(
@@ -306,9 +318,20 @@ def _match_task(limit: int):
         cursor = coll.find({"status": "pending"}).limit(limit)
         for i, q in enumerate(cursor):
             # 1) 진짜 본문 fetch (네이버 description 발췌가 답변본문일 수 있음 — 동문서답 방지)
+            #    동시에 답변 차단 영역(지식파트너/FAQ) 검출
             q = _ensure_body(q)
+            _task_update(task_id, current_item=(q.get("title_plain") or "")[:60], processed=i)
+
+            # 2) 답변 차단 영역 → 즉시 격리 (종료 상태)
+            if q.get("answer_blocked"):
+                coll.update_one(
+                    {"_id": q["_id"]},
+                    {"$set": {"status": "blocked", "blocked_reason": q.get("blocked_reason")}},
+                )
+                _task_update(task_id, inc_rejected=1)  # 통계상 rejected 와 묶음
+                continue
+
             text = _question_text(q)
-            _task_update(task_id, current_item=text[:60], processed=i)
             if not text:
                 coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
                 _task_update(task_id, inc_rejected=1)
@@ -395,21 +418,35 @@ def _backfill_body_task(limit: int):
     task_id = _task_start("backfill", total=len(candidates))
     log.info("[%s] body 백필 시작: %d 건", task_id, len(candidates))
 
-    ok_n = fail_n = 0
+    ok_n = fail_n = blocked_n = 0
     try:
         for i, q in enumerate(candidates):
             link = q.get("link") or ""
             _task_update(task_id, current_item=link[:80], processed=i)
             try:
-                body = fetch_question_body(link)
+                meta = fetch_question_meta(link)
             except Exception as e:  # noqa: BLE001
                 log.warning("fetch 실패 (qid=%s): %s", q.get("question_id"), e)
-                body = None
-            if body:
-                coll.update_one({"_id": q["_id"]}, {"$set": {"body_plain": body}})
-                ok_n += 1
-            else:
+                meta = None
+
+            if meta is None:
                 fail_n += 1
+            else:
+                update: dict = {}
+                if meta.body:
+                    update["body_plain"] = meta.body
+                if meta.answer_blocked:
+                    update["answer_blocked"] = True
+                    update["blocked_reason"] = meta.blocked_reason
+                    # 옛 matched/approved 였어도 차단으로 격리 (재처리 X)
+                    update["status"] = "blocked"
+                    blocked_n += 1
+                if update:
+                    coll.update_one({"_id": q["_id"]}, {"$set": update})
+                if meta.body:
+                    ok_n += 1
+                elif not meta.answer_blocked:
+                    fail_n += 1
             time.sleep(1.0)  # throttle
 
         _task_update(
@@ -419,6 +456,7 @@ def _backfill_body_task(limit: int):
             found=ok_n,
             inserted=ok_n,
             skipped=fail_n,
+            rejected=blocked_n,  # 차단 카운트 활용
         )
         _task_finish(task_id, "completed")
         log.info("[%s] 백필 완료: ok=%d fail=%d", task_id, ok_n, fail_n)
@@ -454,7 +492,9 @@ async def knowin_tasks_status():
         "pending": qcoll.count_documents({"status": "pending"}),
         "matched": qcoll.count_documents({"status": "matched"}),
         "rejected": qcoll.count_documents({"status": "rejected"}),
-        "answered": qcoll.count_documents({"status": "answered"}),
+        "approved": qcoll.count_documents({"status": "approved"}),
+        "posted": qcoll.count_documents({"status": "posted"}),
+        "blocked": qcoll.count_documents({"status": "blocked"}),
     }
     # datetime → isoformat
     def _serialize(t):
@@ -509,6 +549,11 @@ async def knowin_generate(question_id: str):
         return JSONResponse({"ok": True, "draft": _draft_to_json(existing)})
 
     q = _ensure_body(q)
+    if q.get("answer_blocked"):
+        return JSONResponse(
+            {"ok": False, "error": f"답변 차단 영역: {q.get('blocked_reason') or '외부 답변 불가'}"},
+            status_code=400,
+        )
     text = _question_text(q)
     if not text:
         return JSONResponse({"ok": False, "error": "질문 본문 비어있음"}, status_code=400)
@@ -621,6 +666,56 @@ async def knowin_posted(question_id: str):
         {"$set": {"status": "posted", "posted_at": now}},
     )
     return RedirectResponse("/knowin?msg=posted", status_code=303)
+
+
+@router.post("/mark-posted")
+async def knowin_mark_posted(link: str = Form(""), question_id: str = Form("")):
+    """네이버에 수동으로 직접 게시한 답변을 DB에 posted 마킹.
+
+    link (전체 URL) 또는 question_id (docId) 중 하나 필수.
+    DB에 없으면 최소 row 박아서 재수집 시 skip 보장.
+    """
+    from urllib.parse import urlparse, parse_qs
+
+    qid = (question_id or "").strip()
+    lnk = (link or "").strip()
+
+    if not qid and lnk:
+        try:
+            p = urlparse(lnk)
+            qs = parse_qs(p.query)
+            qid = (qs.get("docId") or [""])[0]
+        except Exception:
+            qid = ""
+
+    if not qid:
+        return RedirectResponse("/knowin?msg=mark-posted-error", status_code=303)
+
+    now = datetime.now(timezone.utc)
+    coll = get_collection("knowin_questions")
+    existing = coll.find_one({"question_id": qid}, {"_id": 1})
+    if existing:
+        coll.update_one(
+            {"question_id": qid},
+            {"$set": {"status": "posted", "posted_at": now}},
+        )
+        get_collection("knowin_answers").update_one(
+            {"question_id": qid},
+            {"$set": {"status": "posted", "posted_at": now}},
+        )
+        return RedirectResponse(f"/knowin?msg=marked-posted#q-{qid}", status_code=303)
+
+    # DB 에 없는 질문 → 최소 row 박음 (재수집 시 skip 보장)
+    coll.insert_one({
+        "question_id": qid,
+        "link": lnk or f"https://kin.naver.com/qna/detail.naver?docId={qid}",
+        "status": "posted",
+        "posted_at": now,
+        "title_plain": "(수동 등록 — 외부 직접 답변)",
+        "manual_posted": True,
+        "created_at": now,
+    })
+    return RedirectResponse("/knowin?msg=marked-posted-new", status_code=303)
 
 
 @router.post("/reject/{question_id}")
