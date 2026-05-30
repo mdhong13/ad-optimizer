@@ -16,8 +16,33 @@
   <div class="stat"><div class="label">rejected</div><div class="value" data-stat="rejected">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
   <div class="stat"><div class="label">approved</div><div class="value" data-stat="approved">{{ stats.approved|default(0, true) }}</div><div class="sub">검토 통과·게시 대기</div></div>
   <div class="stat"><div class="label">posted</div><div class="value" data-stat="posted">{{ stats.posted|default(0, true) }}</div><div class="sub">네이버 게시 완료</div></div>
+  <div class="stat" style="border-left:2px solid #10b981;"><div class="label">✅ verified</div><div class="value" data-stat="verified">{{ stats.verified|default(0, true) }}</div><div class="sub">검수 통과 (페이지 박힘)</div></div>
+  <div class="stat" style="border-left:2px solid #ef4444;"><div class="label">👻 ghost</div><div class="value" data-stat="ghost">{{ stats.ghost|default(0, true) }}</div><div class="sub">게시 시도 후 안 박힘</div></div>
   <div class="stat"><div class="label">blocked</div><div class="value" data-stat="blocked">{{ stats.blocked|default(0, true) }}</div><div class="sub">지식파트너·FAQ 격리</div></div>
 </div>
+
+{% if ghosts %}
+<!-- 👻 ghost 경고 — 게시 시도했지만 페이지에 본인 답변 박혀있지 않음 -->
+<div class="card" style="background:#5c1f1f; border:1px solid #b91c1c; color:#fee2e2;">
+  <h2 style="color:#fee2e2;">👻 Ghost {{ ghosts|length }}건 — 답변 안 박힘 (즉시 확인)</h2>
+  <p style="font-size:13px; margin-bottom:8px;">게시 직후 자동 검수에서 본인 ID(nors****/live****) 답변을 못 찾았습니다. 네이버 측 차단·캐시 지연·게시 실패 등 원인.</p>
+  <ul style="font-size:12px; line-height:1.6; margin:0 0 8px 18px;">
+    {% for g in ghosts %}
+    <li>
+      <a href="{{ g.link }}" target="_blank" style="color:#fda4af;">{{ (g.title_plain or '(no title)')[:60] }}</a>
+      · 시도 {{ g.verify_attempts|default(0, true) }}회
+      <form method="post" action="/knowin/verify/{{ g.question_id }}" style="display:inline; margin-left:6px;"
+            onsubmit="event.preventDefault(); reverifyGhost('{{ g.question_id }}'); return false;">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:11px; padding:2px 8px;">🔍 재검수</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="/knowin/verify-all" style="display:inline;">
+    <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">🔍 일괄 재검수 (백그라운드)</button>
+  </form>
+</div>
+{% endif %}
 
 <!-- 진행 중·최근 완료 (auto-refresh 3s) -->
 <div class="card" id="progress-card">
@@ -139,9 +164,9 @@
               title="기존 답변 삭제 + 본문 fetch 후 다시 생성">🔄 재생성</button>
       <span style="flex:1;"></span>
       {% if q.status != 'approved' %}
-      <form method="post" action="/knowin/approve/{{ q.question_id }}" style="display:inline;">
-        <button type="submit" class="btn btn-green" style="font-size:12px; padding:6px 12px;">✅ 승인</button>
-      </form>
+      <button type="button" onclick="approveNow('{{ q.question_id }}')"
+              class="btn btn-green" style="font-size:12px; padding:6px 12px;"
+              title="승인 + 즉시 페이지 검수 + Claude 디버그 trace 출력">✅ 승인</button>
       {% endif %}
       <form method="post" action="/knowin/posted/{{ q.question_id }}" style="display:inline;">
         <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
@@ -151,6 +176,9 @@
         <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
       </form>
     </div>
+
+    <!-- 승인 trace panel (JS 가 동적으로 박음) -->
+    <div id="trace-{{ q.question_id }}" style="display:none; margin-top:10px;"></div>
 
     {% else %}
     <!-- 답변 초안 미생성 — 메인 안에서 자동 생성 (페이지 로드 시 직렬 fetch) -->
@@ -299,6 +327,87 @@ function renderAnswerArea(qid, d) {
   }
 })();
 
+// 승인 — 즉시 검수 + trace 출력 (Claude 세션 디버그용)
+async function approveNow(qid) {
+  const panel = document.getElementById('trace-' + qid);
+  if (panel) {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="background:#1e3a5f; padding:8px 12px; color:#cbe1ff; font-size:12px;">⏳ 승인 + 검수 중 (페이지 fetch 5~10초)...</div>';
+  }
+  try {
+    const res = await fetch(`/knowin/approve/${qid}`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) {
+      if (panel) panel.innerHTML = `<div style="background:#5c1f1f; padding:8px 12px; color:#fee2e2;">❌ ${escapeHtml(data.error || 'unknown')}</div>`;
+      return;
+    }
+    renderTrace(qid, data);
+    // 카드 status 시각 갱신 — 보라색 border
+    const card = document.getElementById('q-' + qid);
+    if (card) card.style.borderLeftColor = '#7c3aed';
+  } catch (e) {
+    if (panel) panel.innerHTML = `<div style="background:#5c1f1f; padding:8px 12px; color:#fee2e2;">❌ 요청 실패: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+function renderTrace(qid, data) {
+  const panel = document.getElementById('trace-' + qid);
+  if (!panel) return;
+  const verdict = data.verified === true
+    ? '<span style="color:#10b981; font-weight:600;">✅ 검수 통과 — 페이지에 본인 답변 박힘</span>'
+    : data.verified === false
+      ? '<span style="color:#ef4444; font-weight:600;">👻 Ghost — 페이지에 본인 답변 안 박힘 (네이버 차단·캐시 지연 가능)</span>'
+      : '<span style="color:#9ca3af;">— 검수 skip</span>';
+  const bodySrcWarn = data.body_source === 'description-only'
+    ? '<div style="background:#3a2c1f; padding:6px 10px; color:#fbbf24; font-size:11px; margin-bottom:6px;">⚠️ body_source=description-only — 검색 발췌 기반 답변. 본문 백필 + 재생성 권장.</div>'
+    : '';
+  panel.innerHTML = `
+    <div style="background:#0a0f1a; border:1px solid #1e293b; padding:10px;">
+      <div style="font-size:13px; margin-bottom:8px;">${verdict}</div>
+      ${bodySrcWarn}
+      <details open>
+        <summary style="cursor:pointer; font-size:12px; color:#9ca3af; margin-bottom:6px;">📋 단계별 trace (Claude 채팅에 박기용)</summary>
+        <textarea readonly id="trace-text-${qid}"
+                  style="width:100%; height:280px; padding:10px; background:#020617; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:11px; line-height:1.5;">${escapeHtml(data.text)}</textarea>
+        <div style="margin-top:6px;">
+          <button onclick="copyTrace('${qid}')" class="btn" style="background:#0ea5e9; color:#fff; font-size:11px; padding:4px 10px;">📋 Claude 채팅에 박기 (복사)</button>
+          <span id="trace-cs-${qid}" style="margin-left:8px; color:#10b981; font-size:11px;"></span>
+        </div>
+      </details>
+    </div>
+  `;
+}
+
+function copyTrace(qid) {
+  const ta = document.getElementById('trace-text-' + qid);
+  if (!ta) return;
+  ta.select();
+  document.execCommand('copy');
+  const cs = document.getElementById('trace-cs-' + qid);
+  if (cs) {
+    cs.textContent = '✓ 복사됨 — Claude 채팅에 붙여넣기';
+    setTimeout(() => { cs.textContent = ''; }, 3500);
+  }
+}
+
+// Ghost 항목 재검수 (캐시 지연 회피)
+async function reverifyGhost(qid) {
+  try {
+    const res = await fetch(`/knowin/verify/${qid}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.ok && data.verified) {
+      alert('✅ 검수 통과 — 답변 박힘 확인 (page reload)');
+      window.location.reload();
+    } else if (data.ok) {
+      alert(`👻 여전히 ghost — 답변 안 박힘 (시도 누적, page_fetch_ok=${data.page_fetch_ok})`);
+    } else {
+      alert('❌ ' + (data.error || 'unknown'));
+    }
+  } catch (e) {
+    alert('요청 실패: ' + e);
+  }
+}
+
 // URL ?msg=... 토스트 (approve/posted/rejected 후 리다이렉트 메시지)
 (function showMsgToast() {
   const params = new URLSearchParams(window.location.search);
@@ -315,6 +424,7 @@ function renderAnswerArea(qid, d) {
     'marked-posted': '📌 수동 게시 등록 완료 — 재수집 시 skip',
     'marked-posted-new': '📌 수동 게시 신규 등록 (DB에 없던 질문 — 재수집 skip 보장)',
     'mark-posted-error': '❌ link 또는 docId 입력 필요',
+    'verify-started': '🔍 게시 검수 백그라운드 시작 — verified/ghost 갱신됩니다',
   };
   const label = labels[msg] || msg;
   const toast = document.createElement('div');

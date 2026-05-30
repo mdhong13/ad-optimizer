@@ -202,7 +202,19 @@ async def knowin_overview(request: Request):
         "approved": coll.count_documents({"status": "approved"}),
         "posted": coll.count_documents({"status": "posted"}),
         "blocked": coll.count_documents({"status": "blocked"}),
+        "verified": coll.count_documents({"status": "posted", "verified": True}),
+        "ghost": coll.count_documents({
+            "status": {"$in": ["posted", "approved"]},
+            "verified": False,
+        }),
     }
+    # ghost 항목들 (검수 실패 — 네이버에 본인 답변 박혀있지 않음) — 상단 경고용
+    ghosts = list(
+        coll.find(
+            {"status": {"$in": ["posted", "approved"]}, "verified": False},
+            {"_id": 0, "question_id": 1, "title_plain": 1, "link": 1, "verify_attempts": 1, "verified_at": 1},
+        ).sort("verified_at", -1).limit(10)
+    )
     # 매칭 큐 — matched + approved 양쪽 표시 (승인 후에도 게시완료 추적해야 하므로)
     queue = list(
         coll.find(
@@ -229,6 +241,7 @@ async def knowin_overview(request: Request):
         "guardrails": GUARDRAILS,
         "stats": stats,
         "queue": queue,
+        "ghosts": ghosts,
         "kw_stats": kw_stats,
         "active_count": sum(1 for c in SURFACE_CAMPAIGNS if not c["status"].startswith("🟢")),
         "total_count": len(SURFACE_CAMPAIGNS),
@@ -676,17 +689,239 @@ async def knowin_draft(request: Request, question_id: str):
     })
 
 
+# ── 승인 trace 빌더 (Claude 세션 디버그용) ────────────────
+def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
+    """승인 단계별 trace — 텍스트 dump + 구조화 객체.
+
+    사용자가 trace.text 를 클립보드 복사 → Claude 채팅에 박음 → 클로드 분석.
+    """
+    body_plain = q.get("body_plain") or ""
+    desc = q.get("description_plain") or ""
+    lines: list[str] = []
+    lines.append(f"=== knowin 승인 trace (qid={q.get('question_id')}) ===")
+    lines.append(f"timestamp: {datetime.now(timezone.utc).isoformat()}")
+    lines.append("")
+    lines.append("[질문]")
+    lines.append(f"  title    : {(q.get('title_plain') or '')[:200]}")
+    lines.append(f"  link     : {q.get('link', '')}")
+    lines.append(f"  keyword  : {q.get('keyword', '')}")
+    lines.append(f"  date     : {q.get('post_date', '')}")
+    lines.append(f"  body_src : {'fetched (m.kin)' if body_plain else 'description-only (snippet — 동문서답 위험)'}")
+    if body_plain:
+        lines.append(f"  body     : {body_plain[:600]}")
+    elif desc:
+        lines.append(f"  desc     : {desc[:300]}")
+    lines.append(f"  blocked  : {bool(q.get('answer_blocked'))} ({q.get('blocked_reason') or '-'})")
+    lines.append(f"  already  : {bool(q.get('already_answered'))} (by {q.get('answered_by') or '-'})")
+    lines.append("")
+    lines.append("[RAG 매칭]")
+    lines.append(f"  url     : {q.get('matched_url') or '-'}")
+    lines.append(f"  title   : {q.get('matched_title') or '-'}")
+    score = q.get("matched_score") or 0
+    lines.append(f"  score   : {score:.3f}" if isinstance(score, (int, float)) else f"  score   : {score}")
+    lines.append("")
+    if draft:
+        lines.append("[답변 초안]")
+        lines.append(f"  model       : {draft.get('llm_model') or '?'}")
+        msc = draft.get("match_score") or 0
+        lines.append(f"  match_score : {msc:.3f}" if isinstance(msc, (int, float)) else f"  match_score : {msc}")
+        lines.append(f"  words / sent: {draft.get('word_count', 0)} / {draft.get('sentence_count', 0)}")
+        lines.append(f"  warnings    : {draft.get('warnings') or '[]'}")
+        lines.append(f"  source_url  : {draft.get('source_url') or '-'}")
+        lines.append(f"  body        :")
+        lines.append(f"    {(draft.get('body') or '')[:1200]}")
+        lines.append("")
+    lines.append("[게시 검수 (직후 페이지 fetch)]")
+    if verify_meta is None:
+        lines.append("  (skip — link 없음 또는 fetch 실패)")
+    else:
+        lines.append(f"  body fetch ok    : {bool(verify_meta.body)}")
+        lines.append(f"  already_answered : {verify_meta.already_answered}")
+        lines.append(f"  answered_by      : {verify_meta.answered_by or '(none — 본인 ID 답변 미발견)'}")
+        lines.append(f"  answer_blocked   : {verify_meta.answer_blocked}")
+        lines.append(f"  → verified       : {verify_meta.already_answered}")
+    lines.append("")
+    lines.append("[DB update]")
+    lines.append(f"  status   : approved → {'posted (검수 통과)' if (verify_meta and verify_meta.already_answered) else 'approved (게시 대기 또는 ghost)'}")
+    lines.append(f"  verified : {(verify_meta.already_answered if verify_meta else None)}")
+
+    return {
+        "ok": True,
+        "trace_id": uuid.uuid4().hex[:12],
+        "question_id": q.get("question_id"),
+        "verified": (verify_meta.already_answered if verify_meta else None),
+        "ghost": (verify_meta is not None and not verify_meta.already_answered and not verify_meta.answer_blocked),
+        "body_source": "fetched" if body_plain else "description-only",
+        "text": "\n".join(lines),
+    }
+
+
 # ── 승인·거절·게시완료 ──────────────────────────────────────
 @router.post("/approve/{question_id}")
 async def knowin_approve(question_id: str):
-    """검토 통과 — 클립보드 복사 후 네이버 게시 직전 단계"""
-    get_collection("knowin_questions").update_one(
-        {"question_id": question_id}, {"$set": {"status": "approved"}}
-    )
+    """승인 + 즉시 게시 검수 + 단계별 trace JSON (Claude 세션 디버그용)"""
+    coll = get_collection("knowin_questions")
+    q = coll.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return JSONResponse({"ok": False, "error": "질문 없음"}, status_code=404)
+
+    # status 갱신
+    now = datetime.now(timezone.utc)
+    coll.update_one({"question_id": question_id}, {"$set": {"status": "approved", "approved_at": now}})
     get_collection("knowin_answers").update_one(
         {"question_id": question_id}, {"$set": {"status": "approved"}}
     )
-    return RedirectResponse(f"/knowin?msg=approved#q-{question_id}", status_code=303)
+    q["status"] = "approved"
+
+    # 즉시 게시 검수 시도 (페이지에 본인 ID 답변 박혔는지)
+    verify_meta = None
+    link = q.get("link") or ""
+    if link:
+        try:
+            verify_meta = fetch_question_meta(link)
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("knowin").warning("approve verify fetch 실패 (qid=%s): %s", question_id, e)
+            verify_meta = None
+
+        if verify_meta is not None:
+            update = {"verified": verify_meta.already_answered, "verified_at": now}
+            if verify_meta.already_answered:
+                update.update({
+                    "status": "posted",
+                    "posted_at": now,
+                    "answered_by": verify_meta.answered_by,
+                    "manual_posted": True,
+                })
+                get_collection("knowin_answers").update_one(
+                    {"question_id": question_id},
+                    {"$set": {"status": "posted", "posted_at": now}},
+                )
+                q["status"] = "posted"
+            coll.update_one(
+                {"question_id": question_id},
+                {"$set": update, "$inc": {"verify_attempts": 1}},
+            )
+
+    draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
+    return JSONResponse(_build_approve_trace(q, draft, verify_meta))
+
+
+@router.post("/verify/{question_id}")
+async def knowin_verify_one(question_id: str):
+    """단일 게시 검수 — 페이지 재 fetch + already_answered 갱신.
+
+    캐시 지연·재게시 후 사용. ghost (verified=false) 항목을 다시 확인.
+    """
+    coll = get_collection("knowin_questions")
+    q = coll.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return JSONResponse({"ok": False, "error": "질문 없음"}, status_code=404)
+    link = q.get("link") or ""
+    if not link:
+        return JSONResponse({"ok": False, "error": "link 없음"}, status_code=400)
+
+    try:
+        meta = fetch_question_meta(link)
+    except Exception as e:
+        coll.update_one({"question_id": question_id}, {"$inc": {"verify_attempts": 1}})
+        return JSONResponse({"ok": False, "error": f"fetch 실패: {e}"}, status_code=502)
+
+    now = datetime.now(timezone.utc)
+    update = {"verified": meta.already_answered, "verified_at": now}
+    if meta.already_answered:
+        update.update({
+            "status": "posted",
+            "posted_at": now,
+            "answered_by": meta.answered_by,
+            "manual_posted": True,
+        })
+        get_collection("knowin_answers").update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "posted", "posted_at": now}},
+        )
+    coll.update_one({"question_id": question_id}, {"$set": update, "$inc": {"verify_attempts": 1}})
+    return JSONResponse({
+        "ok": True,
+        "verified": meta.already_answered,
+        "answered_by": meta.answered_by,
+        "page_fetch_ok": bool(meta.body),
+    })
+
+
+def _verify_all_task():
+    """approved+ghost+posted-unverified 일괄 재검수 백그라운드"""
+    import logging, time as _time
+    log = logging.getLogger("knowin.verify")
+    coll = get_collection("knowin_questions")
+    candidates = list(
+        coll.find(
+            {
+                "status": {"$in": ["approved", "posted"]},
+                "$or": [
+                    {"verified": None},
+                    {"verified": False},
+                    {"verified": {"$exists": False}},
+                ],
+            },
+            {"_id": 0, "question_id": 1, "link": 1},
+        ).limit(50)
+    )
+    task_id = _task_start("verify", total=len(candidates))
+    log.info("[%s] verify 시작: %d 건", task_id, len(candidates))
+    verified_n = ghost_n = fail_n = 0
+    try:
+        for i, q in enumerate(candidates):
+            link = q.get("link") or ""
+            qid = q.get("question_id")
+            _task_update(task_id, current_item=str(qid), processed=i)
+            meta = None
+            if link:
+                try:
+                    meta = fetch_question_meta(link)
+                except Exception:
+                    meta = None
+            if meta is None:
+                fail_n += 1
+                coll.update_one({"question_id": qid}, {"$inc": {"verify_attempts": 1}})
+            else:
+                now = datetime.now(timezone.utc)
+                update: dict = {"verified": meta.already_answered, "verified_at": now}
+                if meta.already_answered:
+                    update.update({
+                        "status": "posted",
+                        "posted_at": now,
+                        "answered_by": meta.answered_by,
+                        "manual_posted": True,
+                    })
+                    verified_n += 1
+                    get_collection("knowin_answers").update_one(
+                        {"question_id": qid},
+                        {"$set": {"status": "posted", "posted_at": now}},
+                    )
+                else:
+                    ghost_n += 1
+                coll.update_one({"question_id": qid}, {"$set": update, "$inc": {"verify_attempts": 1}})
+            _time.sleep(1.0)
+        _task_update(
+            task_id,
+            processed=len(candidates),
+            current_item=None,
+            matched=verified_n,
+            rejected=ghost_n,
+            skipped=fail_n,
+        )
+        _task_finish(task_id, "completed")
+        log.info("[%s] verify 완료: verified=%d ghost=%d fail=%d", task_id, verified_n, ghost_n, fail_n)
+    except Exception as e:
+        log.exception("[%s] verify 실패: %s", task_id, e)
+        _task_finish(task_id, "failed", error=str(e))
+
+
+@router.post("/verify-all")
+async def knowin_verify_all(background: BackgroundTasks):
+    background.add_task(_verify_all_task)
+    return RedirectResponse("/knowin?msg=verify-started", status_code=303)
 
 
 @router.post("/posted/{question_id}")
