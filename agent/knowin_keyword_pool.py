@@ -23,6 +23,31 @@ from pathlib import Path
 from typing import Optional
 
 
+# repo 내부 사본 (Railway 등 vault 가 없는 환경용 fallback)
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_REPO_TRUCK_WIKI_DIR = _REPO_ROOT / "data" / "truck_wiki"
+_REPO_RAG_META = _REPO_ROOT / "data" / "rag_meta.json"
+
+# truck wiki json 후보 경로 (앞에서부터 존재하는 것 하나 선택)
+_TRUCK_WIKI_PATH_CANDIDATES = [
+    Path(r"D:/2_QuantumCat/qcat/truck/src/data/wiki"),
+    _REPO_TRUCK_WIKI_DIR,
+]
+
+# RAG meta.json 후보 경로
+_RAG_META_PATH_CANDIDATES = [
+    Path(r"D:/2_QuantumCat/qcat/QCat_Wiki/_rag/meta.json"),
+    _REPO_RAG_META,
+]
+
+
+def _first_existing(paths: list[Path]) -> Optional[Path]:
+    for p in paths:
+        if p.exists():
+            return p
+    return None
+
+
 # 위키 외 일반 검색 트리거 (수동 큐레이션)
 GENERAL_KEYWORDS = [
     # 차종 일반어
@@ -55,8 +80,8 @@ GENERAL_KEYWORDS = [
 
 def _extract_from_rag_meta() -> set[str]:
     """RAG meta.json (로컬 사본) 에서 heading 추출 — 짧고 명사형만"""
-    meta_path = Path(r"D:/2_QuantumCat/qcat/QCat_Wiki/_rag/meta.json")
-    if not meta_path.exists():
+    meta_path = _first_existing(_RAG_META_PATH_CANDIDATES)
+    if meta_path is None:
         return set()
 
     keywords: set[str] = set()
@@ -80,9 +105,14 @@ def _extract_from_rag_meta() -> set[str]:
 
 
 def _extract_from_truck_wiki_json() -> set[str]:
-    """truck.qcat.kr 4개 wiki json 의 name + aliases 추출 (있을 때만)"""
-    base = Path(r"D:/2_QuantumCat/qcat/truck/src/data/wiki")
-    if not base.exists():
+    """truck.qcat.kr 5개 wiki json 의 name + aliases 추출 (있을 때만)
+
+    소스 우선순위:
+      1. D:/2_QuantumCat/qcat/truck/src/data/wiki (로컬 truck 원본)
+      2. <repo>/data/truck_wiki/ (Railway·CI 등 vault 없는 환경용 fallback)
+    """
+    base = _first_existing(_TRUCK_WIKI_PATH_CANDIDATES)
+    if base is None:
         return set()
 
     keywords: set[str] = set()
