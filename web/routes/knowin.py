@@ -37,11 +37,12 @@ def _question_text(q: dict) -> str:
 
 
 def _ensure_body(q: dict) -> dict:
-    """body_plain + answer_blocked 없으면 페이지 fetch 시도 → DB 저장 + q 갱신.
+    """body_plain + answer_blocked + already_answered 없으면 페이지 fetch → DB 저장 + q 갱신.
 
-    이미 body_plain 또는 answer_blocked 확정된 항목은 skip (캐시).
+    이미 확정된 항목은 skip (캐시).
+    already_answered (본인 ID 답변 있음) 시 자동 status=posted 마킹.
     """
-    if q.get("body_plain") or q.get("answer_blocked"):
+    if q.get("body_plain") or q.get("answer_blocked") or q.get("already_answered"):
         return q
     link = q.get("link") or ""
     if not link:
@@ -62,10 +63,25 @@ def _ensure_body(q: dict) -> dict:
         q["blocked_reason"] = meta.blocked_reason
         update["answer_blocked"] = True
         update["blocked_reason"] = meta.blocked_reason
+    if meta.already_answered:
+        q["already_answered"] = True
+        q["answered_by"] = meta.answered_by
+        q["status"] = "posted"
+        update["already_answered"] = True
+        update["answered_by"] = meta.answered_by
+        update["status"] = "posted"
+        update["posted_at"] = datetime.now(timezone.utc)
+        update["manual_posted"] = True   # 자동 감지지만 외부 직접 답변
     if update:
         get_collection("knowin_questions").update_one(
             {"question_id": q.get("question_id")}, {"$set": update}
         )
+        # 본인 답변이면 answers 컬렉션도 마킹 (있는 경우)
+        if meta.already_answered:
+            get_collection("knowin_answers").update_one(
+                {"question_id": q.get("question_id")},
+                {"$set": {"status": "posted", "posted_at": update["posted_at"]}},
+            )
     return q
 
 
@@ -322,13 +338,18 @@ def _match_task(limit: int):
             q = _ensure_body(q)
             _task_update(task_id, current_item=(q.get("title_plain") or "")[:60], processed=i)
 
-            # 2) 답변 차단 영역 → 즉시 격리 (종료 상태)
+            # 2a) 본인 ID 이미 답변 → _ensure_body 가 이미 status=posted 박음. skip.
+            if q.get("already_answered"):
+                _task_update(task_id, inc_rejected=1)
+                continue
+
+            # 2b) 답변 차단 영역 → 즉시 격리 (종료 상태)
             if q.get("answer_blocked"):
                 coll.update_one(
                     {"_id": q["_id"]},
                     {"$set": {"status": "blocked", "blocked_reason": q.get("blocked_reason")}},
                 )
-                _task_update(task_id, inc_rejected=1)  # 통계상 rejected 와 묶음
+                _task_update(task_id, inc_rejected=1)
                 continue
 
             text = _question_text(q)
@@ -418,7 +439,7 @@ def _backfill_body_task(limit: int):
     task_id = _task_start("backfill", total=len(candidates))
     log.info("[%s] body 백필 시작: %d 건", task_id, len(candidates))
 
-    ok_n = fail_n = blocked_n = 0
+    ok_n = fail_n = blocked_n = own_n = 0
     try:
         for i, q in enumerate(candidates):
             link = q.get("link") or ""
@@ -433,19 +454,33 @@ def _backfill_body_task(limit: int):
                 fail_n += 1
             else:
                 update: dict = {}
+                now = datetime.now(timezone.utc)
                 if meta.body:
                     update["body_plain"] = meta.body
-                if meta.answer_blocked:
+                # 우선순위: already_answered > answer_blocked
+                if meta.already_answered:
+                    update["already_answered"] = True
+                    update["answered_by"] = meta.answered_by
+                    update["status"] = "posted"
+                    update["posted_at"] = now
+                    update["manual_posted"] = True
+                    own_n += 1
+                elif meta.answer_blocked:
                     update["answer_blocked"] = True
                     update["blocked_reason"] = meta.blocked_reason
-                    # 옛 matched/approved 였어도 차단으로 격리 (재처리 X)
                     update["status"] = "blocked"
                     blocked_n += 1
                 if update:
                     coll.update_one({"_id": q["_id"]}, {"$set": update})
+                    # already_answered 면 answers 컬렉션도 마킹
+                    if meta.already_answered:
+                        get_collection("knowin_answers").update_one(
+                            {"question_id": q.get("question_id")},
+                            {"$set": {"status": "posted", "posted_at": now}},
+                        )
                 if meta.body:
                     ok_n += 1
-                elif not meta.answer_blocked:
+                elif not (meta.answer_blocked or meta.already_answered):
                     fail_n += 1
             time.sleep(1.0)  # throttle
 
@@ -456,10 +491,11 @@ def _backfill_body_task(limit: int):
             found=ok_n,
             inserted=ok_n,
             skipped=fail_n,
-            rejected=blocked_n,  # 차단 카운트 활용
+            rejected=blocked_n,    # 차단 카운트
+            matched=own_n,         # already_answered 카운트 (재활용 필드)
         )
         _task_finish(task_id, "completed")
-        log.info("[%s] 백필 완료: ok=%d fail=%d", task_id, ok_n, fail_n)
+        log.info("[%s] 백필 완료: ok=%d fail=%d blocked=%d own=%d", task_id, ok_n, fail_n, blocked_n, own_n)
     except Exception as e:
         log.exception("[%s] 백필 실패: %s", task_id, e)
         _task_finish(task_id, "failed", error=str(e))

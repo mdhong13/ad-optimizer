@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -61,17 +62,33 @@ BLOCKED_PHRASES = [
     "전문 답변자가 답변",
 ]
 
+# 본인 답변자 ID prefix (네이버 마스킹: 앞 4자 + ****).
+# norsunglae → "nors****", livecanvas → "live****" 형식.
+# env 로 override 가능 (쉼표 구분).
+_OWN_ANSWERER_PREFIXES = [
+    p.strip().lower()
+    for p in os.getenv("KNOWIN_OWN_ANSWERER_PREFIXES", "nors,live").split(",")
+    if p.strip()
+]
+# 매칭 정규식: `\bnors\w*\*+` (단어 시작 + prefix + 임의 문자 + 별표).
+# 일반 영문 본문에 "live" 같은 일반어 false positive 회피.
+_OWN_ANSWERER_PATTERNS = [
+    re.compile(rf"\b{re.escape(p)}\w*\*+", re.IGNORECASE) for p in _OWN_ANSWERER_PREFIXES
+]
+
 
 @dataclass
 class FetchedQuestion:
-    """페이지 fetch 결과 — body + 답변 차단 여부"""
+    """페이지 fetch 결과 — body + 답변 차단 + 본인 이미 답변 여부"""
     body: Optional[str] = None
     answer_blocked: bool = False
     blocked_reason: Optional[str] = None
+    already_answered: bool = False
+    answered_by: Optional[str] = None   # 매칭된 prefix (nors 또는 live)
 
     @property
     def ok(self) -> bool:
-        return self.body is not None or self.answer_blocked
+        return self.body is not None or self.answer_blocked or self.already_answered
 
 
 def to_mobile_url(link: str) -> str:
@@ -91,6 +108,17 @@ def _clean_text(text: str) -> str:
     """공백·줄바꿈 정리"""
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def _detect_own_answer(page_text: str) -> tuple[bool, Optional[str]]:
+    """본인 답변자 ID 가 페이지 답변자 목록에 박혀있는지.
+
+    마스킹 형식 (`nors****`, `live****`) 정규식 매칭.
+    """
+    for prefix, pattern in zip(_OWN_ANSWERER_PREFIXES, _OWN_ANSWERER_PATTERNS):
+        if pattern.search(page_text):
+            return True, prefix
+    return False, None
 
 
 def _detect_answer_blocked(soup, page_text: str) -> tuple[bool, Optional[str]]:
@@ -152,7 +180,13 @@ def fetch_question_meta(
     soup = BeautifulSoup(r.text, "html.parser")
     page_text = soup.get_text(" ", strip=True)
 
-    # 답변 차단 검출 우선 — body 추출 무관하게 표시
+    # 본인 이미 답변 검출 (norsunglae/livecanvas) — 가장 강한 종료 신호
+    own, prefix = _detect_own_answer(page_text)
+    if own:
+        result.already_answered = True
+        result.answered_by = prefix
+
+    # 답변 차단 검출 — body 추출 무관하게 표시
     blocked, reason = _detect_answer_blocked(soup, page_text)
     result.answer_blocked = blocked
     result.blocked_reason = reason
