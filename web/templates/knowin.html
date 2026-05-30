@@ -354,11 +354,18 @@ async function approveNow(qid) {
 function renderTrace(qid, data) {
   const panel = document.getElementById('trace-' + qid);
   if (!panel) return;
-  const verdict = data.verified === true
-    ? '<span style="color:#10b981; font-weight:600;">✅ 검수 통과 — 페이지에 본인 답변 박힘</span>'
-    : data.verified === false
-      ? '<span style="color:#ef4444; font-weight:600;">👻 Ghost — 페이지에 본인 답변 안 박힘 (네이버 차단·캐시 지연 가능)</span>'
-      : '<span style="color:#9ca3af;">— 검수 skip</span>';
+  // text 안에 차단 메시지 박혀있는지로 판단 (별도 필드 추가 안 함)
+  const isBlocked = /answer_blocked\s*:\s*True/i.test(data.text || '');
+  let verdict;
+  if (data.verified === true) {
+    verdict = '<span style="color:#10b981; font-weight:600;">✅ 검수 통과 — 페이지에 본인 답변 박힘</span>';
+  } else if (isBlocked) {
+    verdict = '<span style="color:#f59e0b; font-weight:600;">🚫 답변 차단 영역 — 지식파트너/FAQ. 게시 자체 불가. status=blocked 격리.</span>';
+  } else if (data.verified === false) {
+    verdict = '<span style="color:#ef4444; font-weight:600;">👻 Ghost — 페이지에 본인 답변 안 박힘 (네이버 차단·캐시 지연 가능)</span>';
+  } else {
+    verdict = '<span style="color:#9ca3af;">— 검수 skip</span>';
+  }
   const bodySrcWarn = data.body_source === 'description-only'
     ? '<div style="background:#3a2c1f; padding:6px 10px; color:#fbbf24; font-size:11px; margin-bottom:6px;">⚠️ body_source=description-only — 검색 발췌 기반 답변. 본문 백필 + 재생성 권장.</div>'
     : '';

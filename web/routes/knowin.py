@@ -790,7 +790,15 @@ def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
         lines.append(f"  → verified       : {verify_meta.already_answered}")
     lines.append("")
     lines.append("[DB update]")
-    lines.append(f"  status   : approved → {'posted (검수 통과)' if (verify_meta and verify_meta.already_answered) else 'approved (게시 대기 또는 ghost)'}")
+    if verify_meta and verify_meta.already_answered:
+        final_status = "posted (검수 통과 — 본인 ID 답변 박힘)"
+    elif verify_meta and verify_meta.answer_blocked:
+        final_status = "blocked (지식파트너/FAQ 영역 — 답변 게시 자체 불가)"
+    elif verify_meta is not None:
+        final_status = "approved (게시 대기 또는 ghost — 네이버 차단/캐시/실패)"
+    else:
+        final_status = "approved (검수 skip)"
+    lines.append(f"  status   : approved → {final_status}")
     lines.append(f"  verified : {(verify_meta.already_answered if verify_meta else None)}")
 
     return {
@@ -833,19 +841,39 @@ async def knowin_approve(question_id: str):
             verify_meta = None
 
         if verify_meta is not None:
-            update = {"verified": verify_meta.already_answered, "verified_at": now}
+            # 우선순위: already_answered > answer_blocked > 일반 verify(ghost)
             if verify_meta.already_answered:
-                update.update({
+                update = {
+                    "verified": True,
+                    "verified_at": now,
                     "status": "posted",
                     "posted_at": now,
                     "answered_by": verify_meta.answered_by,
                     "manual_posted": True,
-                })
+                }
                 get_collection("knowin_answers").update_one(
                     {"question_id": question_id},
                     {"$set": {"status": "posted", "posted_at": now}},
                 )
                 q["status"] = "posted"
+            elif verify_meta.answer_blocked:
+                # 차단 영역 — ghost 아님. status=blocked 로 격리
+                update = {
+                    "verified": False,
+                    "verified_at": now,
+                    "status": "blocked",
+                    "answer_blocked": True,
+                    "blocked_reason": verify_meta.blocked_reason,
+                }
+                get_collection("knowin_answers").update_one(
+                    {"question_id": question_id},
+                    {"$set": {"status": "blocked"}},
+                )
+                q["status"] = "blocked"
+                q["answer_blocked"] = True
+                q["blocked_reason"] = verify_meta.blocked_reason
+            else:
+                update = {"verified": False, "verified_at": now}
             coll.update_one(
                 {"question_id": question_id},
                 {"$set": update, "$inc": {"verify_attempts": 1}},
