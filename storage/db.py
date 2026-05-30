@@ -15,10 +15,19 @@ _client: MongoClient = None
 _db: Database = None
 
 
+# 같은 MongoDB 서버에 사는 다른 서비스들의 DB. 실수로 ad-optimizer가 여기 쓰면 안 됨.
+_FORBIDDEN_DBS = {"lastmessage", "showhost_live", "textbook", "admin", "config", "local"}
+
+
 def get_db() -> Database:
     """MongoDB 데이터베이스 인스턴스 반환 (싱글톤)"""
     global _client, _db
     if _db is None:
+        if settings.MONGODB_DB in _FORBIDDEN_DBS:
+            raise RuntimeError(
+                f"ad-optimizer must not use shared DB '{settings.MONGODB_DB}'. "
+                f"Set AD_OPTIMIZER_DB env var (e.g. ad_optimizer)."
+            )
         _client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000)
         _db = _client[settings.MONGODB_DB]
         logger.info(f"MongoDB connected: {settings.MONGODB_DB}")

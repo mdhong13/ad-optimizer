@@ -30,6 +30,9 @@
 | Railway ad-optimizer 환경변수 `DRY_RUN=true` 설정 | Railway가 .env.global 안 읽음 | 사용자가 Railway 대시보드에서 직접 변경 | 미조치 시 5/28 08:00 다음 사이클 발생 |
 | ~~`web/main.py` 의 `scheduler_bg.start()` 가드 추가~~ | ✅ 완료 (2026-05-28) | `AUTO_START_SCHEDULER` env 플래그 기본 false. import 충돌 수정 (`settings as app_settings`). | 재발 방지 |
 | Meta 광고 계정 reputation 점검 | 480건 거절 누적 영향 미파악 | Meta Business 알림·notification 확인 | 계정 정지 위험 |
+| SEO 파이프라인 표준 템플릿화 (QCat 감독 제안) | truck `docs/seo-pipeline.md` 추상화 미진행 | (1) truck 원본 read (2) 표면 무관 부분 추출 (3) `docs/ad_guide/seo_pipeline_template.md` 작성 (4) guide·liveon·business 적용 검토 | 가치 큼, 우선순위 P1 |
+| 가드 코드 git commit + push | Railway 재배포로 영구 차단 | `git add config/ web/ .env.ads.example handoff.md marketing_capabilities.md` + commit + push | 메모리상 ad-optimizer auto-push OK |
+| LiveOn 광고 진입 (셀러 모집·도라미 영상 in-house batch) | LiveOn 페이업 PG 결제 LIVE 미완 — 광고 → 가입 → 결제 funnel 검증 불가 | 페이업 가맹 통과 (2026-06-01 신청 → 1~2일 심사). 통과 전엔 *콘텐츠 라이브러리 batch* 까지만 | [liveon_capabilities.md](file:///D:/0_Dotcell/0_live_shopping_server/documents/liveon_capabilities.md) |
 
 ---
 
@@ -37,8 +40,12 @@
 
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
+### 2026-05-30
+- **marketing_capabilities.md 신규 작성** — 다른 Claude Code 세션 (OneMessage 앱·qcat-shop·LiveOn 등) 이 ad-optimizer 의 자원(LLM·플랫폼 API·DB·스킬·분석 산출물) 을 활용 가능한지 확인하는 카탈로그. handoff.md(상태)·ad_pipeline.md(구조) 와 별개 역할.
+- **자매 세션 협업 시작 — LiveOn + QCat 감독** — (1) LiveOn 세션이 `D:\0_Dotcell\0_live_shopping_server\documents\liveon_capabilities.md` mirror 카탈로그 작성 (commit `6adf585`). (2) QCat 감독 세션이 5 표면 + 6 자산 양방향 협업안 제출. (3) marketing_capabilities.md 에 Section 8 (자매 세션 협업 카탈로그) 신설. (4) 페르소나 도메인 격리 + OneMessage 인프라 마케팅 금지 가드레일 2건 추가. **협업 원칙**: 광고 운영권 = 표면 자율, ad-optimizer = 인프라·실행·모니터링 제공자 (위임 X, 의뢰 O).
+
 ### 2026-05-28
-- **🚨 Railway 자동 스케줄러 사고 발견·차단** — Railway 배포 ad-optimizer 웹앱(`web/main.py` startup hook)이 `.env.global` 의 `DRY_RUN=false` 와 함께 8시간 사이클로 Meta 캠페인 자동 생성 중. 최소 5/25~5/28 3일간 24 사이클 × 20개 = 480개 캠페인 자동 생성 시도. Meta가 crypto policy로 모두 거절 → 실제 출혈 0. **조치**: (1) `.env.global` `DRY_RUN=true` 로 복원 + 사고 주석. (2) Railway 측 환경변수도 사용자가 직접 변경 필요 (.env.global 안 읽음). **후속**: `web/main.py` `scheduler_bg.start()` 를 `AUTO_START_SCHEDULER` env 플래그 기본 false 로 가드 필요.
+- **🚨 Railway 자동 스케줄러 사고 발견·차단** — Railway 배포 ad-optimizer 웹앱(`web/main.py` startup hook)이 `.env.global` 의 `DRY_RUN=false` 와 함께 8시간 사이클로 Meta 캠페인 자동 생성 중. 최소 5/25~5/28 3일간 24 사이클 × 20개 = 480개 캠페인 자동 생성 시도. Meta가 crypto policy로 모두 거절 → 실제 출혈 0. **조치**: (1) `.env.global` `DRY_RUN=true` 로 복원 + 사고 주석. (2) Railway 측 환경변수도 사용자가 직접 변경 필요 (.env.global 안 읽음). (3) `web/main.py` 에 `AUTO_START_SCHEDULER` env 가드 + import 충돌(`settings as app_settings`) 수정 완료. 명시적 opt-in 없으면 deploy 만으로 가동 안 함.
 
 ### 2026-05-26
 - **handoff.md / ad_pipeline.md / docs/ad_guide/ad_coupang.md 신규 작성** — 다중 세션 협업 표준화. ad_guide 폴더는 플랫폼별 광고 기법·전략 누적 위치.
@@ -67,6 +74,12 @@
 ## 의사결정 로그 (Decisions, 비자명한 것만)
 
 > 코드/git log로 추적되지 않는 **"왜"** 정보.
+
+### 2026-05-30 / 페르소나 도메인 격리 lock — 광고 자동화 첫 검수 항목 격상
+**무엇**: 광고 카피·이미지·TTS 만들 때 페르소나 이름 박기 전 **target_product 확인 의무**. `/ad-copy`·`/creative-brief` 호출 시 필수 입력. 카피 검수 시 페르소나 이름 grep 더블 체크. ad_pipeline.md § "[2] 크리에이티브 단계 — 페르소나 도메인 격리" + marketing_capabilities.md Section 8 가드레일.
+**왜 그랬나**: 2026-05-30 truck.qcat.kr 의 `WelcomeNudge.tsx`·`PushNudge.tsx` 에 "🐱 도라미" 잘못 박힘 발견 (약 3일간 production 노출). 원인 = LiveOn 도라미 절대 규칙 (CLAUDE.md) 이 truck 표면 작업 중에도 잘못 적용. 한 회사 (Dotcell) 가 여러 제품 (LiveOn·QCat 생태계·OneMessage) 운영 시 페르소나 혼동 위험. 자매 세션 협업 시작과 *동시에* 박지 않으면 광고 자동화에서 같은 사고 반복.
+**결과**: `feedback_persona_domain_isolation.md` 메모리에 4 표면 표 추가 (LiveOn=도라미 / truck·qcat-*=양자냥 / OneMessage=자체 / 중립=박지 X). ad_pipeline.md [2] 크리에이티브 단계의 *첫 검수 항목* 으로 격상.
+**교훈**: cross-project capability catalog 도입 시 페르소나·브랜드 도메인 격리 룰을 *동시에* 박아야 함. 자원 활용 ≠ 페르소나 공용.
 
 ### 2026-05-25 / Google Ads 신청 이메일 — 개인 Gmail 사용 결정 → 거절
 **무엇**: 첫 신청에 `bungbungcar13@gmail.com` 사용
