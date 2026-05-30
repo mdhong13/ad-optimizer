@@ -130,6 +130,8 @@ agg = aggregate_campaign_performance(platform="meta", days=30)
 | `docs/platforms/README.md` | 4 플랫폼 (Meta/Google/Reddit/X) 비교표 | 신규 플랫폼 진입 시 |
 | `docs/api_access/google_ads_design_doc.md` + `.pdf` | Google Ads API Basic Access 신청서 v2.0 | 재신청 / 유사 신청 참고 |
 | `docs/ad_guide/ad_coupang.md` | 쿠팡 End ROAS 전략 (손익분기 광고 수익률) | qcat-shop 광고 / Coupang 입점 시 |
+| `docs/ad_guide/seo_pipeline_template.md` | **truck.qcat.kr 검증 → 추상화** 5 phase SEO 표준 (메타·발견성·SSR·측정·봇차단) | 신규 표면 SEO 진입 시 필수 |
+| `docs/ad_guide/cross_surface_framework.md` | **다중 표면 협업 framework** 4-Layer 모델 + 새 capability 추가 11단계 체크리스트 + 표면×capability 매트릭스 | 새 cross-surface 기능 추가 전 필수 |
 
 ### 2.5 안전 설정 (config/settings.py)
 
@@ -355,3 +357,4 @@ QCat 감독 세션 측 결정 (2026-05-30):
 | 2026-05-30 | 최초 작성 — 다른 세션 활용 카탈로그 |
 | 2026-05-30 | LiveOn cross-link — `D:\0_Dotcell\0_live_shopping_server\documents\liveon_capabilities.md` 작성됨. 도라미 메타휴먼 영상·TTS·셀러 funnel·페르소나 룰 카탈로그. 페르소나 도메인 격리 (도라미 ≠ 양자냥) 룰 적용 필수 — `feedback_persona_domain_isolation.md` 갱신됨 |
 | 2026-05-30 | Section 8 신설 — LiveOn + QCat 5 표면 + 자산 6건. 가드레일에 페르소나 격리 + OneMessage 인프라 금지 2건 추가. "광고 운영 = 표면 자율" 협업 원칙 명시 |
+| 2026-05-30 | **Cross-Surface 협업이 framework 로 격상** — (1) `docs/ad_guide/seo_pipeline_template.md` (truck 추상화). (2) `docs/ad_guide/cross_surface_framework.md` (4-Layer 모델 + 11단계 체크리스트). (3) 대시보드 nav 확장 — `/seo` SEO 최적화 + `/knowin` 지식인 답글 (둘 다 다중 표면 인벤토리 내장). 자매 세션과의 ad-hoc 액션 → 표준 패턴화. |

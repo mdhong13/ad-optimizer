@@ -43,6 +43,12 @@
 ### 2026-05-30
 - **marketing_capabilities.md 신규 작성** — 다른 Claude Code 세션 (OneMessage 앱·qcat-shop·LiveOn 등) 이 ad-optimizer 의 자원(LLM·플랫폼 API·DB·스킬·분석 산출물) 을 활용 가능한지 확인하는 카탈로그. handoff.md(상태)·ad_pipeline.md(구조) 와 별개 역할.
 - **자매 세션 협업 시작 — LiveOn + QCat 감독** — (1) LiveOn 세션이 `D:\0_Dotcell\0_live_shopping_server\documents\liveon_capabilities.md` mirror 카탈로그 작성 (commit `6adf585`). (2) QCat 감독 세션이 5 표면 + 6 자산 양방향 협업안 제출. (3) marketing_capabilities.md 에 Section 8 (자매 세션 협업 카탈로그) 신설. (4) 페르소나 도메인 격리 + OneMessage 인프라 마케팅 금지 가드레일 2건 추가. **협업 원칙**: 광고 운영권 = 표면 자율, ad-optimizer = 인프라·실행·모니터링 제공자 (위임 X, 의뢰 O).
+- **Cross-Surface 협업 framework 격상** — ad-hoc 액션을 반복 가능한 패턴으로 표준화:
+  - `docs/ad_guide/seo_pipeline_template.md` — truck 3일 SEO 구축 추상화 (5 phase + 표면별 우선순위)
+  - `docs/ad_guide/cross_surface_framework.md` — 4-Layer 모델 + 새 capability 추가 11단계 체크리스트 + 표면×capability 매트릭스
+  - 대시보드 `/seo` `/knowin` 라우트 + 페이지 신설 (다중 표면 인벤토리 내장). nav 항목 추가.
+  - `web/main.py` 라우터 등록. base.html nav 확장.
+- **차단 해소** — git commit/push 완료 (`52105c6` collab framework + DB guard 커밋). Railway DRY_RUN=true 사용자 세팅 완료.
 
 ### 2026-05-28
 - **🚨 Railway 자동 스케줄러 사고 발견·차단** — Railway 배포 ad-optimizer 웹앱(`web/main.py` startup hook)이 `.env.global` 의 `DRY_RUN=false` 와 함께 8시간 사이클로 Meta 캠페인 자동 생성 중. 최소 5/25~5/28 3일간 24 사이클 × 20개 = 480개 캠페인 자동 생성 시도. Meta가 crypto policy로 모두 거절 → 실제 출혈 0. **조치**: (1) `.env.global` `DRY_RUN=true` 로 복원 + 사고 주석. (2) Railway 측 환경변수도 사용자가 직접 변경 필요 (.env.global 안 읽음). (3) `web/main.py` 에 `AUTO_START_SCHEDULER` env 가드 + import 충돌(`settings as app_settings`) 수정 완료. 명시적 opt-in 없으면 deploy 만으로 가동 안 함.

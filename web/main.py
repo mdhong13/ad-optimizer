@@ -18,7 +18,7 @@ logging.basicConfig(
 from config.settings import settings as app_settings
 from storage.db import init_db
 from web import live_logs, scheduler_bg
-from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings, creative
+from web.routes import dashboard, campaigns, decisions, scheduler, events, viral, publisher, settings, creative, seo, knowin
 
 live_logs.install_handler()
 logger = logging.getLogger(__name__)
@@ -43,7 +43,9 @@ app.include_router(campaigns.router)
 app.include_router(decisions.router)
 app.include_router(scheduler.router)
 app.include_router(events.router)
+app.include_router(seo.router)
 app.include_router(viral.router)
+app.include_router(knowin.router)
 app.include_router(publisher.router)
 app.include_router(settings.router)
 app.include_router(creative.router)

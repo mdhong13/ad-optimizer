@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}SEO 최적화 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>SEO 최적화 — 다중 표면 파이프라인</h1>
+
+<div class="card" style="background:#1e3a5f; border:1px solid #2d4a7c; color:#cbe1ff;">
+  <strong>📘 표준 템플릿:</strong>
+  <code>docs/ad_guide/seo_pipeline_template.md</code> — truck.qcat.kr 3일 구축 경험 추상화 (5 phase + 운영 체크리스트)
+</div>
+
+<!-- 전체 통계 -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="label">총 표면</div>
+    <div class="value">{{ total_surfaces }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">✅ 완료</div>
+    <div class="value">{{ done_count }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">🟡 대기 (P1)</div>
+    <div class="value">{{ in_progress_count }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">🟢 미진입</div>
+    <div class="value">{{ pending_count }}</div>
+  </div>
+</div>
+
+<!-- 표면 인벤토리 -->
+<div class="card">
+  <h2>표면별 진행 상태</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>표면</th>
+        <th>우선순위</th>
+        <th>상태</th>
+        <th>콘텐츠 자산</th>
+        <th>색인된 페이지</th>
+        <th>완료 Phase</th>
+        <th>비고</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in surfaces %}
+      <tr>
+        <td><strong>{{ s.name }}</strong><br><small style="color:#6b7280;">{{ s.domain }}</small></td>
+        <td>{{ s.priority }}</td>
+        <td>{{ s.status }}</td>
+        <td style="font-size:12px;">{{ s.content_assets }}</td>
+        <td style="text-align:right;">{{ s.indexed_pages }}</td>
+        <td style="font-size:11px;">{{ s.phases_done|join(' · ') if s.phases_done else '—' }}</td>
+        <td style="font-size:12px; color:#6b7280;">{{ s.notes }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 5 Phase 파이프라인 -->
+<div class="card">
+  <h2>5 Phase 파이프라인 (표면별 순차 적용)</h2>
+  <table>
+    <thead>
+      <tr><th>Phase</th><th>이름</th><th>핵심 산출물</th></tr>
+    </thead>
+    <tbody>
+      {% for p in phases %}
+      <tr>
+        <td><code>{{ loop.index }}</code></td>
+        <td><strong>{{ p[1] }}</strong></td>
+        <td style="font-size:13px;">{{ p[2] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 다음 단계 안내 -->
+<div class="card">
+  <h2>새 표면 SEO 진입 시</h2>
+  <ol style="line-height:1.8;">
+    <li><code>docs/ad_guide/seo_pipeline_template.md</code> 5 phase 순차 적용</li>
+    <li>표면별 콘텐츠 자산 인벤토리 작성</li>
+    <li>Phase 1 → Phase 2 → ... 완료 시마다 이 페이지의 표면 상태 갱신</li>
+    <li>완료 후 1~3일 baseline 측정 (search-advisor.naver.com)</li>
+    <li>학습 결과를 <code>handoff.md</code>에 누적</li>
+  </ol>
+</div>
+{% endblock %}
