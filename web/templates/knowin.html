@@ -77,6 +77,10 @@
              style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
       <button type="submit" class="btn" style="background:#f59e0b; color:#000;">📝 본문 백필</button>
     </form>
+    <form method="post" action="/knowin/recheck-topic" style="display:inline;"
+          title="body 가진 matched/approved 큐 항목들 토픽 재검사 (page fetch 없이 즉시)">
+      <button type="submit" class="btn" style="background:#a16207; color:#fff;">🚫 비트럭 일괄 격리</button>
+    </form>
   </div>
 
   <!-- 수동 게시 등록 — 네이버에 직접 게시한 답변 DB 마킹 -->
@@ -433,7 +437,14 @@ async function reverifyGhost(qid) {
     'marked-posted-new': '📌 수동 게시 신규 등록 (DB에 없던 질문 — 재수집 skip 보장)',
     'mark-posted-error': '❌ link 또는 docId 입력 필요',
     'verify-started': '🔍 게시 검수 백그라운드 시작 — verified/ghost 갱신됩니다',
+    'recheck-done': '🚫 토픽 재검사 완료',
   };
+  // recheck-done 은 moved/kept 추가 표시
+  if (msg === 'recheck-done') {
+    const moved = params.get('moved') || '?';
+    const kept = params.get('kept') || '?';
+    labels['recheck-done'] = `🚫 토픽 재검사 완료 — 격리 ${moved}건 · 유지 ${kept}건`;
+  }
   const label = labels[msg] || msg;
   const toast = document.createElement('div');
   toast.textContent = label;

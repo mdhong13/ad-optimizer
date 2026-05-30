@@ -56,11 +56,51 @@ _TRUCK_TOPIC_KEYWORDS = [
     "지입", "용차", "화물기사", "기사님", "운수사업",
 ]
 
+# 비트럭 시그널 — 본문·title 에 박혀있으면 즉시 격리.
+# 외제 승용차·SUV·일반 승용차 모델명. 트럭 키워드보다 우선 검사.
+_NON_TRUCK_KEYWORDS = [
+    # 외제 브랜드
+    "BMW", "벤츠", "Benz", "아우디", "Audi", "볼보", "Volvo",
+    "폭스바겐", "Volkswagen", "포르쉐", "Porsche", "테슬라", "Tesla",
+    "재규어", "Jaguar", "랜드로버", "Land Rover", "미니쿠퍼", "MINI",
+    "푸조", "Peugeot", "시트로엥", "Citroen", "캐딜락", "Cadillac",
+    "포드", "Ford", "쉐보레", "Chevrolet", "지프", "Jeep",
+    "렉서스", "Lexus", "토요타", "Toyota", "혼다", "Honda",
+    "닛산", "Nissan", "마쓰다", "Mazda", "스바루", "Subaru",
+    "인피니티", "Infiniti", "어큐라", "Acura",
+    # 외제 모델
+    "G30", "520d", "320d", "X5", "X3", "X1", "X6", "X7",
+    "A4", "A6", "A8", "A3", "A5", "A7", "Q5", "Q7",
+    "E클래스", "S클래스", "C클래스", "GLC", "GLE", "GLS",
+    "220d", "200d", "250d", "350d",
+    # 국산 SUV·승용
+    "산타페", "싼타페", "쏘렌토", "투싼", "스포티지", "셀토스",
+    "팰리세이드", "코나", "베뉴", "셀토스", "스토닉",
+    "QM6", "QM3", "XM3", "QM5",
+    "카니발", "스타리아",
+    "그랜저", "소나타", "아반떼", "엑센트", "베르나",
+    "K3", "K5", "K7", "K8", "K9", "올뉴", "더뉴",
+    "제네시스", "G70", "G80", "G90", "GV70", "GV80",
+    "코란도", "티볼리", "렉스턴", "무쏘",
+    # 일반 자가용 시그널 (트럭 운전자가 잘 안 쓰는 용어)
+    "럭셔리라인스페셜", "익스클루시브", "다이나믹",
+]
+
 
 def _is_truck_topic(text: str) -> bool:
-    """본문에 트럭·화물차 시그널 키워드 있는지"""
+    """본문이 트럭 토픽인지 — negative 우선, positive 보조.
+
+    1. 외제 승용차·SUV 모델명 박혀있으면 즉시 False (격리)
+    2. 트럭 키워드 박혀있으면 True (통과)
+    3. 둘 다 없으면 False (보수적 격리 — 일반 부품어만 있는 케이스)
+    """
     if not text:
         return False
+    # 1) Negative 우선
+    for nk in _NON_TRUCK_KEYWORDS:
+        if nk in text:
+            return False
+    # 2) Positive
     for kw in _TRUCK_TOPIC_KEYWORDS:
         if kw in text:
             return True
@@ -998,6 +1038,34 @@ def _verify_all_task():
 async def knowin_verify_all(background: BackgroundTasks):
     background.add_task(_verify_all_task)
     return RedirectResponse("/knowin?msg=verify-started", status_code=303)
+
+
+@router.post("/recheck-topic")
+async def knowin_recheck_topic():
+    """body 가진 matched/approved 항목들 토픽 재검사 (page fetch 없이, 빠름).
+
+    토픽 룰 변경 후 옛 큐 정리용. 비트럭 → status=off_topic.
+    """
+    coll = get_collection("knowin_questions")
+    candidates = list(
+        coll.find(
+            {"status": {"$in": ["matched", "approved"]}},
+            {"_id": 1, "question_id": 1, "title_plain": 1, "body_plain": 1, "description_plain": 1},
+        )
+    )
+    moved = kept = 0
+    for q in candidates:
+        text = ((q.get("title_plain") or "") + " "
+                + (q.get("body_plain") or q.get("description_plain") or "")).strip()
+        if not _is_truck_topic(text):
+            coll.update_one({"_id": q["_id"]}, {"$set": {"status": "off_topic"}})
+            moved += 1
+        else:
+            kept += 1
+    return RedirectResponse(
+        f"/knowin?msg=recheck-done&moved={moved}&kept={kept}",
+        status_code=303,
+    )
 
 
 @router.post("/posted/{question_id}")
