@@ -103,10 +103,26 @@ async def knowin_overview(request: Request):
 
 # ── 검색 (네이버 API → MongoDB) ───────────────────────────
 def _crawl_task(limit: int):
-    """백그라운드 실행 — 키워드 풀 처음 N개로 검색"""
-    from intelligence.knowin_crawler import crawl_to_mongo
-    pool = build_keyword_pool()
-    crawl_to_mongo(pool[:limit])
+    """백그라운드 실행 — 키워드 풀 처음 N개로 검색.
+
+    예외는 catch 후 로그만. ASGI 에러로 전파 X.
+    """
+    import logging
+    log = logging.getLogger("knowin.crawl")
+    try:
+        from intelligence.knowin_crawler import crawl_to_mongo
+        pool = build_keyword_pool()
+        if not pool:
+            log.warning("키워드 풀이 비어있음 — vault 파일 부재 또는 general keywords 미정의")
+            return
+        log.info("크롤 시작: %d / %d 키워드", min(limit, len(pool)), len(pool))
+        stats = crawl_to_mongo(pool[:limit])
+        log.info("크롤 완료: %s", stats)
+    except RuntimeError as e:
+        # NAVER_CLIENT_ID/SECRET 미설정 등 환경 문제
+        log.error("크롤 실패 (환경): %s", e)
+    except Exception as e:
+        log.exception("크롤 실패 (예상 외): %s", e)
 
 
 @router.post("/crawl")
