@@ -75,6 +75,50 @@ resp = client.chat.completions.create(
 - ⚠️ d4win 서버 접속 전 사용자 승인 받기 (`feedback_d4win_access.md` 정책)
 - 용도: 광고 카피 20개 대량 변형, 바이럴 댓글, 캐릭터 대화
 
+### 2.2 RAG 도메인 지식 (qcat-rag) — 2026-05-30 신규
+
+QCat 도메인 (배터리·트럭·캠핑·정비·법률) **57,359 chunks** 검색·답변.
+서버: d4win `qcat-rag` 컨테이너 — 공개 URL `http://d4win.iptime.org:3900`.
+
+```python
+import sys; sys.path.insert(0, r"D:\0_Dotcell\ad-optimizer")
+from agent.rag_client import get_rag
+
+rag = get_rag()
+rag.health()              # {'status': 'ok', 'chunks': 57359}
+rag.search("Q120 배터리 스펙", top_k=5, types=["product"])    # 벡터만, LLM 비용 0
+rag.query("무시동히터 연료 소비", top_k=5, domain_hint=None)  # 검색 + vLLM 답변
+rag.context_for_copy("Q120 포터블 배터리", target_surface="onemsg", top_k=5)
+                          # 광고 카피용 압축 context 문자열
+```
+
+| API | 비용 | 용도 |
+|---|---|---|
+| `rag.health()` | 0 | 서버 상태 + chunks 수 |
+| `rag.search(q, types=...)` | 임베딩 1 호출 | 벡터 검색만 (광고 카피 prompt enrichment) |
+| `rag.query(q)` | 임베딩 + vLLM 답변 | 직접 답변 필요 시 (지식인 답글 등) |
+| `rag.context_for_copy(q, surface)` | search 1회 | 표면별 type 자동 매핑 + 압축 |
+
+**도메인 type 옵션**: `product` · `cs` · `truck-qa` · `truck-wiki` · `truck-law` · `camping`
+
+**표면 → type 자동 매핑** (`context_for_copy`):
+- `onemsg` → `[truck-qa, truck-wiki]` (트럭 운전자 타겟)
+- `guide` → `[product, truck-wiki]` (캠핑·배터리 가이드)
+- `shop` → `[product, cs]` (B2B 사업자)
+- `liveon` → `[product]` (셀러 모집)
+- `truck` → `[truck-qa, truck-wiki, truck-law]` (종합)
+
+**카탈로그 정확도 주의**: 제품명 쿼리 (Q120 등) 는 `types=["product"]` 명시 권장. 안 그러면 TruckQA 정비 27k chunks 가 결과 점유.
+
+**v2 hybrid+rerank 자료 수집 중** — 운영은 v1 (dense only). 카탈로그 정확도는 type 필터로 보강.
+
+**대시보드**: `/rag` 콘솔에서 쿼리 테스트 + 광고 카피 context 추출.
+
+**가드레일**:
+- 페르소나 도메인 격리 — `target_surface` 가 LiveOn 이면 도라미, QCat 이면 양자냥, OneMessage 면 자체 브랜드
+- 민감 도메인 (법률·의료) 은 사실 검증 추가 (RAG hallucination 위험)
+- LiveOn 측 별도 RAG (`rag-backend` port 8080) 는 LiveOn 세션 전담 — ad-optimizer 호출 X
+
 ### 2.2 광고 플랫폼 API
 
 | 플랫폼 | 클래스 | 상태 | env 변수 prefix |
@@ -358,3 +402,4 @@ QCat 감독 세션 측 결정 (2026-05-30):
 | 2026-05-30 | LiveOn cross-link — `D:\0_Dotcell\0_live_shopping_server\documents\liveon_capabilities.md` 작성됨. 도라미 메타휴먼 영상·TTS·셀러 funnel·페르소나 룰 카탈로그. 페르소나 도메인 격리 (도라미 ≠ 양자냥) 룰 적용 필수 — `feedback_persona_domain_isolation.md` 갱신됨 |
 | 2026-05-30 | Section 8 신설 — LiveOn + QCat 5 표면 + 자산 6건. 가드레일에 페르소나 격리 + OneMessage 인프라 금지 2건 추가. "광고 운영 = 표면 자율" 협업 원칙 명시 |
 | 2026-05-30 | **Cross-Surface 협업이 framework 로 격상** — (1) `docs/ad_guide/seo_pipeline_template.md` (truck 추상화). (2) `docs/ad_guide/cross_surface_framework.md` (4-Layer 모델 + 11단계 체크리스트). (3) 대시보드 nav 확장 — `/seo` SEO 최적화 + `/knowin` 지식인 답글 (둘 다 다중 표면 인벤토리 내장). 자매 세션과의 ad-hoc 액션 → 표준 패턴화. |
+| 2026-05-30 | **RAG capability 통합 (qcat-rag 57k chunks)** — (1) Section 2.2 RAG 도메인 지식 신설. (2) `agent/rag_client.py` (health/search/query/context_for_copy 4 메서드 + 표면별 type 매핑). (3) 대시보드 `/rag` 콘솔 (쿼리 테스트 + 광고 카피 context 추출). (4) `/ad-copy` 스킬 SKILL.md 에 RAG 사용 패턴 추가. v2 hybrid+rerank 는 자료 수집 중이라 미적용. |

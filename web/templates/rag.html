@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}RAG 콘솔 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>QCat RAG 콘솔 — 도메인 지식 검색 + 광고 prompt enrichment</h1>
+
+<!-- 상태 카드 -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="label">RAG 서버</div>
+    <div class="value" style="font-size:18px;">{{ health.status }}</div>
+    <div class="sub">{{ base_url }}</div>
+  </div>
+  <div class="stat">
+    <div class="label">색인 chunks</div>
+    <div class="value">{{ health.chunks }}</div>
+    <div class="sub">Products · CS · TruckQA · TruckLaw · Camping</div>
+  </div>
+  <div class="stat">
+    <div class="label">버전</div>
+    <div class="value" style="font-size:14px;">v1 (dense)</div>
+    <div class="sub">v2 hybrid+rerank 자료 수집 중</div>
+  </div>
+  <div class="stat">
+    <div class="label">표면 매핑</div>
+    <div class="value">{{ surfaces|length }}</div>
+    <div class="sub">onemsg · guide · shop · liveon · truck</div>
+  </div>
+</div>
+
+{% if health.error %}
+<div class="card" style="background:#5c1f1f; border:1px solid #7c2d2d; color:#ffe1cb;">
+  ⚠️ RAG 서버 연결 실패: <code>{{ health.error }}</code>
+</div>
+{% endif %}
+
+<!-- 쿼리 폼 -->
+<div class="card">
+  <h2>RAG 쿼리</h2>
+  <form method="post" action="/rag">
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-size:13px; color:#9ca3af; margin-bottom:4px;">질문 (한국어)</label>
+      <input name="query" type="text" value="{{ query|default('', true) }}"
+             placeholder="예: Q120 포터블 배터리 스펙, 5톤 윙탑 적재 한도, 무시동히터 연료 소비"
+             required
+             style="width:100%; padding:10px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:4px;" />
+    </div>
+
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+      <div style="flex:1; min-width:160px;">
+        <label style="display:block; font-size:13px; color:#9ca3af; margin-bottom:4px;">모드</label>
+        <select name="mode" style="width:100%; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+          <option value="search" {% if mode == 'search' %}selected{% endif %}>search (벡터만, 비용 0)</option>
+          <option value="query" {% if mode == 'query' %}selected{% endif %}>query (LLM 답변 포함)</option>
+        </select>
+      </div>
+      <div style="flex:1; min-width:160px;">
+        <label style="display:block; font-size:13px; color:#9ca3af; margin-bottom:4px;">표면 hint (자동 type 매핑)</label>
+        <select name="surface" style="width:100%; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+          <option value="">(없음 — 전체 도메인)</option>
+          {% for s in surfaces %}
+          <option value="{{ s }}" {% if selected_surface == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="flex:0 0 100px;">
+        <label style="display:block; font-size:13px; color:#9ca3af; margin-bottom:4px;">top_k</label>
+        <input name="top_k" type="number" min="1" max="20" value="{{ top_k }}"
+               style="width:100%; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="display:block; font-size:13px; color:#9ca3af; margin-bottom:4px;">수동 type 필터 (표면 hint 없을 때)</label>
+      <input name="types_csv" type="text"
+             placeholder="예: product, truck-wiki"
+             style="width:100%; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      <small style="color:#6b7280;">사용 가능: {{ all_types|join(', ') }}</small>
+    </div>
+
+    <button type="submit" class="btn btn-blue">실행</button>
+  </form>
+</div>
+
+<!-- 광고 카피 context 추출 폼 (별도) -->
+<div class="card">
+  <h2>광고 카피용 context 추출 (압축)</h2>
+  <p style="font-size:13px; color:#9ca3af;">
+    카피 LLM 프롬프트 앞에 박을 수 있게 압축된 context 문자열 반환.
+  </p>
+  <form method="post" action="/rag/copy-context">
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+      <input name="query" type="text" required
+             placeholder="제품·키워드 (예: Q120 포터블 배터리)"
+             style="flex:1; min-width:200px; padding:10px; background:#0f172a; border:1px solid #334155; color:#fff; border-radius:4px;" />
+      <select name="surface" style="padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;">
+        {% for s in surfaces %}
+        <option value="{{ s }}" {% if selected_surface == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <input name="top_k" type="number" min="1" max="10" value="5"
+             style="width:80px; padding:8px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      <button type="submit" class="btn btn-green">context 추출</button>
+    </div>
+  </form>
+</div>
+
+<!-- 결과 표시 -->
+{% if result %}
+<div class="card">
+  <h2>결과 — {{ result.mode }} 모드</h2>
+  {% if result.error %}
+  <div style="color:#ef4444;">❌ {{ result.error }}</div>
+  {% elif result.mode == 'query' %}
+    <div style="margin-bottom:12px;">
+      <span style="color:#9ca3af; font-size:13px;">domain:</span> <code>{{ result.domain }}</code>
+      &nbsp;
+      <span style="color:#9ca3af; font-size:13px;">intent:</span> <code>{{ result.intent }}</code>
+      &nbsp;
+      <span style="color:#9ca3af; font-size:13px;">needs_human:</span> <code>{{ result.needs_human }}</code>
+    </div>
+    {% if result.answer %}
+    <div style="background:#0f172a; padding:12px; border-left:3px solid #10b981; margin-bottom:12px;">
+      <strong style="color:#10b981;">LLM 답변:</strong><br>
+      <pre style="white-space:pre-wrap; color:#e5e7eb; margin-top:8px;">{{ result.answer }}</pre>
+    </div>
+    {% else %}
+    <div style="background:#5c1f1f; padding:12px; color:#ffe1cb;">
+      ⚠️ needs_human — 답변 생성 안 됨 (도메인 라우팅 또는 검색 결과 부족)
+    </div>
+    {% endif %}
+    <h3 style="margin-top:16px;">Sources ({{ result.sources|length }})</h3>
+    <ul style="font-size:13px;">
+      {% for s in result.sources %}<li><code>{{ s }}</code></li>{% endfor %}
+    </ul>
+  {% else %}
+    <p style="color:#9ca3af;">결과: <strong>{{ result.count }}</strong> chunks</p>
+  {% endif %}
+
+  {% if result.chunks %}
+  <h3 style="margin-top:16px;">Chunks</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>source</th><th>category</th><th>heading</th><th>score</th><th>text</th></tr>
+    </thead>
+    <tbody>
+      {% for c in result.chunks %}
+      <tr>
+        <td>{{ c.id }}</td>
+        <td style="font-size:11px;"><code>{{ c.source }}</code></td>
+        <td style="font-size:12px;">{{ c.category|default('-', true) }}</td>
+        <td style="font-size:12px;">{{ c.heading|default('-', true) }}</td>
+        <td style="text-align:right;">{{ '%.3f' | format(c.score|default(0, true)) }}</td>
+        <td style="font-size:11px; max-width:400px;">{{ (c.text|default('', true))[:200] }}{% if c.text and c.text|length > 200 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- 카피 context 결과 -->
+{% if copy_result %}
+<div class="card">
+  <h2>광고 카피 context ({{ copy_result.char_count|default(0) }} 자)</h2>
+  {% if copy_result.error %}
+  <div style="color:#ef4444;">❌ {{ copy_result.error }}</div>
+  {% else %}
+  <p style="font-size:13px; color:#9ca3af;">아래 텍스트를 카피 LLM 프롬프트 앞에 박으세요.</p>
+  <textarea readonly style="width:100%; height:240px; padding:10px; background:#0f172a; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:12px;">{{ copy_result.context }}</textarea>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- 가드레일 -->
+<div class="card" style="background:#1e3a5f; border:1px solid #2d4a7c; color:#cbe1ff;">
+  <h3 style="margin-top:0;">⚠ 가드레일</h3>
+  <ul style="font-size:13px; line-height:1.7;">
+    <li>카탈로그 쿼리 (제품명) 는 표면 hint <code>guide</code>/<code>shop</code> 또는 수동 <code>product</code> type 권장 — TruckQA 27k chunks 결과 점유 회피</li>
+    <li>페르소나 격리: surface=liveon → 도라미, surface=onemsg/truck/guide/shop → 양자냥/자체 브랜드</li>
+    <li>v2 hybrid+rerank 자료 수집 중. 운영은 v1 (dense). 카탈로그 정확도는 type 필터로 보강</li>
+    <li>법률·의료 도메인 답변은 사실 검증 추가 (RAG hallucination 위험)</li>
+    <li>가이드: <code>docs/ad_guide/cross_surface_framework.md</code> + <code>marketing_capabilities.md Section 2.2</code></li>
+  </ul>
+</div>
+{% endblock %}

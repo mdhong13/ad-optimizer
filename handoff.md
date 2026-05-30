@@ -48,6 +48,13 @@
   - `docs/ad_guide/cross_surface_framework.md` — 4-Layer 모델 + 새 capability 추가 11단계 체크리스트 + 표면×capability 매트릭스
   - 대시보드 `/seo` `/knowin` 라우트 + 페이지 신설 (다중 표면 인벤토리 내장). nav 항목 추가.
   - `web/main.py` 라우터 등록. base.html nav 확장.
+- **RAG capability 통합 — qcat-rag 57,359 chunks 활용 가능** —
+  - `agent/rag_client.py` 신규 (`get_rag()` 싱글톤 + health/search/query/context_for_copy)
+  - `web/routes/rag.py` + `templates/rag.html` — `/rag` 콘솔 (쿼리 테스트 + 광고 카피 context 추출 + 표면별 type 자동 매핑)
+  - `~/.claude/skills/ad-copy/SKILL.md` 에 RAG 사용 패턴 추가 (target_surface 별 정확도 보강)
+  - `marketing_capabilities.md` Section 2.2 RAG 도메인 지식 신설
+  - 서버: d4win qcat-rag (외부 3900 ↔ 내부 3901), v1 dense. v2 hybrid+rerank 자료 수집 중 (사용자 결정 — 미적용)
+  - LiveOn 측 rag-backend (port 8080) 는 LiveOn 세션 전담 — ad-optimizer 호출 X
 - **차단 해소** — git commit/push 완료 (`52105c6` collab framework + DB guard 커밋). Railway DRY_RUN=true 사용자 세팅 완료.
 
 ### 2026-05-28
