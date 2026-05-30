@@ -92,6 +92,41 @@ ad-optimizer/
 | Meta (Facebook+IG) | P0 | ✅ 연동 완료 | `launch_kr_*_meta.py` (미작성) | App ID 결정 대기 |
 | Twitter/X | P1 | ✅ Ads API 승인됨 | 미작성 | 대기 |
 
+### 3.1 비-광고 마케팅 capability (cross-surface)
+
+| Capability | 라우트 | 표면 | 상태 |
+|---|---|---|---|
+| **SEO 최적화** | `/seo` | truck (완료) · guide·wiki (대기) · 기타 (미진입) | 7 표면 인벤토리 |
+| **네이버 지식인 자동 답글** | `/knowin` | truck (운영) · guide·liveon·onemsg (대기) | **Day-1 운영 시작 (2026-05-30)** |
+| **RAG 도메인 지식** | `/rag` | 모든 표면 | qcat-rag 57k chunks v1 dense |
+
+#### 3.1.1 네이버 지식인 자동 답글 — 상세 흐름 (Phase 1 수동 검토)
+
+```
+키워드 풀 (build_keyword_pool)
+        ↓
+[POST /knowin/crawl] 네이버 공식 API → MongoDB knowin_questions (dedup by question_id)
+        ↓                                  종료 status (posted/rejected) 자동 skip
+[POST /knowin/match] RAG search (truck-wiki/truck-qa, threshold 0.55)
+        ↓
+matched → 즉시 generate_answer (gemma4-e4b-it via d4win vLLM)
+        ↓
+knowin_answers (draft) — 가드레일 자동 검증
+        ↓
+[GET /knowin/draft/{qid}] 사용자 검토 → 클립보드 복사
+        ↓
+네이버에서 수동 게시
+        ↓
+[POST /knowin/posted/{qid}] status=posted (재수집 시 자동 skip)
+```
+
+**관련 코드**:
+- `agent/knowin_keyword_pool.py` — 위키 names + RAG headings + 일반어 (현재 67, 목표 ~2,700)
+- `intelligence/knowin_crawler.py` — 네이버 공식 API 호출 + dedup upsert
+- `agent/knowin_matcher.py` — RAG 매칭 + wiki URL 변환
+- `agent/knowin_answerer.py` — 젬마4 답변 + 출처 박스 + 가드레일 7종
+- `web/routes/knowin.py` — UI + 백그라운드 태스크 진행 추적
+
 ---
 
 ## 5. 외부 자원 통합 (cross-project, 2026-05-30 신설)

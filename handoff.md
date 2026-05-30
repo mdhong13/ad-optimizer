@@ -16,6 +16,17 @@
 
 ---
 
+## 🎯 신규 세션 진입 시 — 즉시 우선순위
+
+새 마케팅 세션이 들어오면 **이 순서대로** 처리:
+
+1. **`/knowin` 운용 시작 가능** — 357+ 질문 수집됨. matched 10건은 자동 draft 완료. 사용자가 클립보드 복사 → 네이버 게시 → "📌 네이버 게시 완료" 버튼.
+2. **키워드 풀 확장 (P0 막힘 해소)** — 현재 풀 67개 (위키 0 + RAG meta 0 + 일반어 82 dedup), 일반어 편향으로 "녹스센서" 등 한 키워드가 결과 독식 (reject 80%). 해결: `D:\2_QuantumCat\qcat\truck\src\data\wiki\*.json` 5개 → `ad-optimizer/data/truck_wiki/` 복사 + `agent/knowin_keyword_pool.py` path 후보에 repo 내부 경로 추가. 풀 67 → ~2,700.
+3. **Google Ads API Basic Access 재신청** — 도메인 이메일 (`google-ads-api@dotcell.net`) 만든 후. dotcell.net 푸터 + schema.org 사업자 정보 박기.
+4. **Meta Business 계정 reputation 점검** — 5/28 Railway 자동 사고로 거절 480건 누적. 계정 알림 확인.
+
+---
+
 ## 차단 사항 / 대기 (Blocked / Waiting)
 
 해결되어야 다음 단계 가능한 항목.
@@ -41,6 +52,15 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-05-30
+- **knowin Phase 1 Day-1 실운용 — 357 질문 수집, matched 10 자동 draft** —
+  - 네이버 공식 검색 API + RAG 매칭 + LLM 답변 자동 흐름 완성 (`pending → matched → approved → posted`)
+  - 자동 draft: matched 처리 시 즉시 `generate_answer` 호출 → `knowin_answers` 컬렉션 insert. 사용자 액션 = 검토·복사·게시·`📌 게시 완료` 클릭만
+  - 종료 status (posted/rejected) 재수집 자동 skip + skipped 카운터
+  - 진행도 실시간 표시 (`/knowin/tasks` 폴링, 3s)
+  - **검증 결과**: 377 수집 / 327 pending / matched 10 / rejected 40 — reject 80%
+  - **발견된 막힘**: Railway 환경에 vault 파일 없어서 키워드 풀 67개 (위키 0 + RAG meta 0 + 일반어 82 dedup). 일반어 편향으로 "녹스센서" 같은 한 키워드가 결과 독식. **다음 세션 P0 작업**: `D:\2_QuantumCat\qcat\truck\src\data\wiki\*.json` 5개를 `ad-optimizer/data/truck_wiki/` 로 복사 + `knowin_keyword_pool.py` 가 repo 내부 경로 fallback 으로 읽도록 수정 → 풀 67 → ~2,700.
+  - **Railway 빌드 OOM 회피**: `requirements.txt` 에 `--prefer-binary` + `grpcio` 명시 (wheel 강제). 이후 정상 배포.
+  - **TemplateResponse 시그니처 일괄 통일** (knowin/seo/rag) — 옛 시그니처가 starlette 최신에서 jinja2 cache key 에러 일으킴.
 - **marketing_capabilities.md 신규 작성** — 다른 Claude Code 세션 (OneMessage 앱·qcat-shop·LiveOn 등) 이 ad-optimizer 의 자원(LLM·플랫폼 API·DB·스킬·분석 산출물) 을 활용 가능한지 확인하는 카탈로그. handoff.md(상태)·ad_pipeline.md(구조) 와 별개 역할.
 - **자매 세션 협업 시작 — LiveOn + QCat 감독** — (1) LiveOn 세션이 `D:\0_Dotcell\0_live_shopping_server\documents\liveon_capabilities.md` mirror 카탈로그 작성 (commit `6adf585`). (2) QCat 감독 세션이 5 표면 + 6 자산 양방향 협업안 제출. (3) marketing_capabilities.md 에 Section 8 (자매 세션 협업 카탈로그) 신설. (4) 페르소나 도메인 격리 + OneMessage 인프라 마케팅 금지 가드레일 2건 추가. **협업 원칙**: 광고 운영권 = 표면 자율, ad-optimizer = 인프라·실행·모니터링 제공자 (위임 X, 의뢰 O).
 - **Cross-Surface 협업 framework 격상** — ad-hoc 액션을 반복 가능한 패턴으로 표준화:
