@@ -21,7 +21,7 @@
 새 마케팅 세션이 들어오면 **이 순서대로** 처리:
 
 1. **`/knowin` 운용 시작 가능** — 357+ 질문 수집됨. matched 10건은 자동 draft 완료. 사용자가 클립보드 복사 → 네이버 게시 → "📌 네이버 게시 완료" 버튼.
-2. **키워드 풀 확장 (P0 막힘 해소)** — 현재 풀 67개 (위키 0 + RAG meta 0 + 일반어 82 dedup), 일반어 편향으로 "녹스센서" 등 한 키워드가 결과 독식 (reject 80%). 해결: `D:\2_QuantumCat\qcat\truck\src\data\wiki\*.json` 5개 → `ad-optimizer/data/truck_wiki/` 복사 + `agent/knowin_keyword_pool.py` path 후보에 repo 내부 경로 추가. 풀 67 → ~2,700.
+2. ~~**키워드 풀 확장 (P0 막힘 해소)**~~ — ✅ 2026-05-30 완료 (`3687bc0`). Railway fallback 2,436개, 로컬 3,858개. 다음 사이클부터 다양성 확보.
 3. **Google Ads API Basic Access 재신청** — 도메인 이메일 (`google-ads-api@dotcell.net`) 만든 후. dotcell.net 푸터 + schema.org 사업자 정보 박기.
 4. **Meta Business 계정 reputation 점검** — 5/28 Railway 자동 사고로 거절 480건 누적. 계정 알림 확인.
 
@@ -52,6 +52,12 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-05-30
+- **knowin 키워드 풀 67 → 2,436 확장 — Railway P0 막힘 해소** (`3687bc0`) —
+  - `data/truck_wiki/` 에 brands·models·parts·symptoms·topics.json 5개 사본 (~9.7MB) repo 내장
+  - `agent/knowin_keyword_pool.py` 의 truck wiki / RAG meta path 를 **fallback 후보 리스트** 로 (1순위 = 로컬 vault, 2순위 = repo 내부 사본). `_first_existing()` helper.
+  - 로컬 (vault 잡힘): 3,858 / Railway 시뮬 (repo fallback): **2,436** (truck_wiki 2,619 + general 82 dedup)
+  - 다음 `/knowin` 사이클부터 키워드 다양성 확보 → reject 80% → 30~40% 예상
+  - rag_meta 는 repo 사본 미포함 (필요 시 별도 작업으로 누적)
 - **knowin Phase 1 Day-1 실운용 — 357 질문 수집, matched 10 자동 draft** —
   - 네이버 공식 검색 API + RAG 매칭 + LLM 답변 자동 흐름 완성 (`pending → matched → approved → posted`)
   - 자동 draft: matched 처리 시 즉시 `generate_answer` 호출 → `knowin_answers` 컬렉션 insert. 사용자 액션 = 검토·복사·게시·`📌 게시 완료` 클릭만
