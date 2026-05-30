@@ -42,6 +42,18 @@ INDEXES = {
     "daily_reports": [
         {"keys": [("date", 1)], "unique": True},
     ],
+    # 네이버 지식인 질문 (검색 결과 적재)
+    "knowin_questions": [
+        {"keys": [("question_id", 1)], "unique": True},
+        {"keys": [("status", 1), ("created_at", -1)]},
+        {"keys": [("matched_score", -1)]},   # 점수 순 큐 정렬
+        {"keys": [("dir_id", 1)]},           # 카테고리 필터
+    ],
+    # 지식인 답변 초안
+    "knowin_answers": [
+        {"keys": [("question_id", 1)]},
+        {"keys": [("status", 1), ("created_at", -1)]},
+    ],
 }
 
 

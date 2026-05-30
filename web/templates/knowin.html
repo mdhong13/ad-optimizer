@@ -2,48 +2,87 @@
 {% block title %}네이버 지식인 답글 — OneMessage Ad Optimizer{% endblock %}
 
 {% block content %}
-<h1>네이버 지식인 자동 답글 — 다중 표면 캠페인</h1>
+<h1>네이버 지식인 자동 답글 — Phase 1 (수동 검토)</h1>
 
 <div class="card" style="background:#5c1f1f; border:1px solid #7c2d2d; color:#ffe1cb;">
-  <strong>⚠️ 가드레일 필독</strong> — 네이버 비공식 endpoint 자동화는 자기 데이터·정식 라인 병행·인증 보안 원칙 준수.
-  스팸 의심 패턴 회피 (속도·다양성·투명성).
+  <strong>⚠️ 가드레일 필독</strong> — 공식 검색 API 사용. 일 5~10건 한도. 본문 5문장+ 구체 정보 + 출처 박스. 수동 검토 첫 2주.
 </div>
 
-<!-- 전체 통계 -->
+<!-- 큐 통계 -->
 <div class="stat-grid">
-  <div class="stat">
-    <div class="label">총 캠페인</div>
-    <div class="value">{{ total_count }}</div>
+  <div class="stat"><div class="label">총 수집</div><div class="value">{{ stats.total }}</div></div>
+  <div class="stat"><div class="label">pending</div><div class="value">{{ stats.pending }}</div><div class="sub">매칭 대기</div></div>
+  <div class="stat"><div class="label">matched</div><div class="value">{{ stats.matched }}</div><div class="sub">RAG 통과 — 답변 후보</div></div>
+  <div class="stat"><div class="label">rejected</div><div class="value">{{ stats.rejected }}</div><div class="sub">매칭 미달</div></div>
+  <div class="stat"><div class="label">answered</div><div class="value">{{ stats.answered }}</div><div class="sub">답변 완료</div></div>
+</div>
+
+<!-- 액션 -->
+<div class="card">
+  <h2>액션</h2>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+    <form method="post" action="/knowin/crawl" style="display:inline-flex; gap:8px; align-items:center;">
+      <input type="number" name="limit" value="20" min="1" max="500"
+             style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      <button type="submit" class="btn btn-blue">키워드 검색 (네이버 API)</button>
+    </form>
+    <form method="post" action="/knowin/match" style="display:inline-flex; gap:8px; align-items:center;">
+      <input type="number" name="limit" value="50" min="1" max="500"
+             style="width:80px; padding:6px; background:#0f172a; border:1px solid #334155; color:#fff;" />
+      <button type="submit" class="btn btn-green">pending 매칭 (RAG)</button>
+    </form>
   </div>
-  <div class="stat">
-    <div class="label">활성</div>
-    <div class="value">{{ active_count }}</div>
-  </div>
-  <div class="stat">
-    <div class="label">대기</div>
-    <div class="value">{{ total_count - active_count }}</div>
+  <div style="margin-top:10px; font-size:12px; color:#9ca3af;">
+    키워드 풀: 위키 {{ kw_stats.from_truck_wiki_json }} + RAG meta {{ kw_stats.from_rag_meta }} + 일반어 {{ kw_stats.general_keywords }} = <strong>{{ kw_stats.total_after_dedup_filter }}</strong> 키워드
   </div>
 </div>
 
-<!-- 표면별 캠페인 -->
+<!-- 매칭 큐 -->
 <div class="card">
-  <h2>표면별 지식인 캠페인</h2>
+  <h2>답변 후보 큐 ({{ queue|length }} / 매칭 점수 순)</h2>
+  {% if queue %}
   <table>
     <thead>
+      <tr><th>score</th><th>제목</th><th>위키 매칭</th><th>키워드</th><th>날짜</th><th>액션</th></tr>
+    </thead>
+    <tbody>
+      {% for q in queue %}
       <tr>
-        <th>표면</th>
-        <th>키워드</th>
-        <th>답글 페르소나</th>
-        <th>상태</th>
-        <th>예상 볼륨</th>
-        <th>비고</th>
+        <td style="text-align:right;">{{ '%.3f' | format(q.matched_score|default(0, true)) }}</td>
+        <td style="font-size:12px;">
+          <a href="{{ q.link }}" target="_blank" style="color:#60a5fa;">{{ q.title_plain[:60] }}</a>
+        </td>
+        <td style="font-size:12px;">
+          {% if q.matched_url %}
+          <a href="{{ q.matched_url }}" target="_blank" style="color:#10b981;">{{ q.matched_title|default('?', true) }}</a>
+          {% else %}-{% endif %}
+        </td>
+        <td style="font-size:11px; color:#9ca3af;">{{ q.keyword }}</td>
+        <td style="font-size:11px;">{{ q.post_date }}</td>
+        <td>
+          <a href="/knowin/draft/{{ q.question_id }}" class="btn btn-blue" style="font-size:11px; padding:4px 8px;">답변 초안</a>
+        </td>
       </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#9ca3af;">큐 비어있음. "키워드 검색" → "pending 매칭" 순으로 실행.</p>
+  {% endif %}
+</div>
+
+<!-- 표면별 캠페인 (메타데이터) -->
+<div class="card">
+  <h2>표면별 캠페인</h2>
+  <table>
+    <thead>
+      <tr><th>표면</th><th>키워드 풀</th><th>답변 페르소나</th><th>상태</th><th>볼륨</th><th>비고</th></tr>
     </thead>
     <tbody>
       {% for c in campaigns %}
       <tr>
         <td><strong>{{ c.surface }}</strong></td>
-        <td style="font-size:12px;">{{ c.keywords|join(' · ') }}</td>
+        <td style="font-size:12px;">{{ c.keywords_count_est }}</td>
         <td>{{ c.persona }}</td>
         <td>{{ c.status }}</td>
         <td style="font-size:12px;">{{ c.expected_volume }}</td>
@@ -56,33 +95,11 @@
 
 <!-- 가드레일 -->
 <div class="card">
-  <h2>운영 가드레일 (위반 금지)</h2>
+  <h2>운영 가드레일</h2>
   <ol style="line-height:1.8;">
     {% for g in guardrails %}
     <li>{{ g }}</li>
     {% endfor %}
   </ol>
-</div>
-
-<!-- 액션 -->
-<div class="card">
-  <h2>캠페인 시작 전 체크리스트</h2>
-  <ul style="line-height:1.8;">
-    <li>표면 페르소나 확정 (도라미 / 양자냥 / 자체 / 중립 중)</li>
-    <li>키워드 5~10개로 시작 (너무 넓으면 노이즈, 너무 좁으면 볼륨 부족)</li>
-    <li>답글 템플릿 3종 이상 준비 (LLM 변형 필수, 반복 금지)</li>
-    <li>throttle 설정 (30분 간격, 일 최대 20건)</li>
-    <li>답변 끝 '본인 운영 사이트' 명시 (네이버 광고 규정)</li>
-    <li>첫 주는 수동 검토 모드 (자동 게시 X)</li>
-  </ul>
-</div>
-
-<!-- 분업 협의 -->
-<div class="card">
-  <h2>분업 협의 중</h2>
-  <p style="color:#9ca3af; font-size:13px;">
-    truck 세션과 인프라 분업 논의 중. 결정되면 <code>handoff.md</code> "차단 사항" 에 반영.<br>
-    QCat 표면들은 표면 자율 운영 원칙 → 표면 세션이 직접 결정.
-  </p>
 </div>
 {% endblock %}

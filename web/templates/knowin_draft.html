@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}지식인 답변 초안 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>답변 초안 검토</h1>
+
+<div style="margin-bottom:16px;">
+  <a href="/knowin" style="color:#60a5fa;">← 큐로 돌아가기</a>
+</div>
+
+{% if error %}
+<div class="card" style="background:#5c1f1f; color:#ffe1cb;">❌ {{ error }}</div>
+{% endif %}
+
+{% if question %}
+<div class="card">
+  <h2>질문 ({{ question.question_id }})</h2>
+  <p style="font-size:15px;"><strong>{{ question.title_plain }}</strong></p>
+  {% if question.description_plain %}
+  <p style="font-size:13px; color:#cbd5e1;">{{ question.description_plain }}</p>
+  {% endif %}
+  <div style="font-size:12px; color:#9ca3af;">
+    날짜: {{ question.post_date|default('?', true) }} ·
+    키워드: {{ question.keyword|default('?', true) }} ·
+    카테고리: dir_{{ question.dir_id|default('?', true) }} ·
+    <a href="{{ question.link }}" target="_blank" style="color:#60a5fa;">원본 보기 →</a>
+  </div>
+</div>
+{% endif %}
+
+{% if draft %}
+<div class="card">
+  <h2>매칭 위키</h2>
+  <p>
+    <a href="{{ draft.source_url }}" target="_blank" style="color:#10b981; font-size:15px;">
+      📘 {{ draft.source_title }}
+    </a>
+    <span style="font-size:12px; color:#9ca3af;">(score {{ '%.3f' | format(draft.match_score) }})</span>
+  </p>
+</div>
+
+<div class="card">
+  <h2>답변 초안 ({{ draft.word_count }}자, {{ draft.sentence_count }}문장, {{ draft.llm_model }})</h2>
+
+  {% if draft.warnings %}
+  <div style="background:#5c1f1f; padding:10px; margin-bottom:12px; color:#ffe1cb; font-size:13px;">
+    <strong>⚠️ 가드레일 경고:</strong>
+    <ul style="margin:6px 0 0 20px;">
+      {% for w in draft.warnings %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <div style="background:#1f3a2f; padding:8px; margin-bottom:12px; color:#a7f3d0; font-size:13px;">
+    ✅ 가드레일 통과 — 게시 안전.
+  </div>
+  {% endif %}
+
+  <h3 style="margin-top:16px;">본문</h3>
+  <div style="background:#0f172a; padding:14px; border-left:3px solid #10b981; white-space:pre-wrap; font-size:14px; line-height:1.7;">{{ draft.body }}</div>
+
+  <h3 style="margin-top:16px;">게시용 전체 텍스트 (본문 + 출처 박스)</h3>
+  <textarea readonly id="full-text"
+            style="width:100%; height:280px; padding:12px; background:#0f172a; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:13px; line-height:1.6;">{{ draft.full_text }}</textarea>
+  <div style="margin-top:8px;">
+    <button onclick="copyText()" class="btn btn-blue">📋 클립보드 복사</button>
+    <span id="copy-status" style="margin-left:12px; color:#10b981; font-size:13px;"></span>
+  </div>
+
+  <div style="margin-top:20px; padding-top:16px; border-top:1px solid #334155;">
+    <h3>액션</h3>
+    <form method="post" action="/knowin/approve/{{ question.question_id }}" style="display:inline;">
+      <button type="submit" class="btn btn-green">✅ 승인 (수동 게시 준비)</button>
+    </form>
+    <form method="post" action="/knowin/reject/{{ question.question_id }}" style="display:inline; margin-left:8px;">
+      <button type="submit" class="btn" style="background:#dc2626; color:#fff;">❌ 거절</button>
+    </form>
+    <a href="{{ question.link }}" target="_blank" class="btn" style="background:#374151; color:#fff; margin-left:8px;">원본 지식인 열기 →</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="background:#1e3a5f; color:#cbe1ff;">
+  <h3 style="margin-top:0;">게시 절차 (Phase 1 수동)</h3>
+  <ol style="line-height:1.8; font-size:13px;">
+    <li>경고 없을 때 ✅ "클립보드 복사"</li>
+    <li>"원본 지식인 열기" → 답변 작성</li>
+    <li>복사한 텍스트 붙여넣기 → 게시</li>
+    <li>여기로 돌아와 "승인" 클릭 (status 갱신)</li>
+  </ol>
+</div>
+<script>
+function copyText() {
+  const ta = document.getElementById('full-text');
+  ta.select();
+  document.execCommand('copy');
+  document.getElementById('copy-status').textContent = '✓ 복사됨';
+  setTimeout(() => document.getElementById('copy-status').textContent = '', 2000);
+}
+</script>
+{% endblock %}

@@ -48,6 +48,15 @@
   - `docs/ad_guide/cross_surface_framework.md` — 4-Layer 모델 + 새 capability 추가 11단계 체크리스트 + 표면×capability 매트릭스
   - 대시보드 `/seo` `/knowin` 라우트 + 페이지 신설 (다중 표면 인벤토리 내장). nav 항목 추가.
   - `web/main.py` 라우터 등록. base.html nav 확장.
+- **네이버 지식인 자동 답글 Phase 1 (수동 검토)** —
+  - `agent/knowin_keyword_pool.py` 키워드 풀 자동 생성 (위키 names + RAG headings + 일반어 = 3,858개)
+  - `intelligence/knowin_crawler.py` 네이버 공식 검색 API (openapi.naver.com/v1/search/kin.json) — 일 25,000 호출 한도, link 기반 dedup, MongoDB `knowin_questions` upsert
+  - `agent/knowin_matcher.py` 질문 → RAG 매칭 → `truck.qcat.kr/wiki/{type}/{slug}` URL 변환 (URL 매핑 부품/차종/증상/Topic/TruckBrand)
+  - `agent/knowin_answerer.py` 답변 초안 LLM (local vLLM 우선, Claude 폴백) + 출처 박스 박음 + 가드레일 자동 검증 (5문장+, 광고성 표현 X, 페르소나 박지 X, URL 본문 X)
+  - `/knowin` UI 확장 — 큐 통계 + 키워드 검색 트리거 + RAG 매칭 트리거 + 매칭 후보 큐 (점수 정렬)
+  - `/knowin/draft/{question_id}` — 답변 초안 생성·표시 + 클립보드 복사 + 승인/거절 액션
+  - storage/models.py 인덱스 추가 (`knowin_questions`, `knowin_answers`)
+  - Phase 2 자동 게시는 보류 — 첫 2주 수동 검토 + 트럭 카테고리 답변자 전문성 누적 후
 - **RAG capability 통합 — qcat-rag 57,359 chunks 활용 가능** —
   - `agent/rag_client.py` 신규 (`get_rag()` 싱글톤 + health/search/query/context_for_copy)
   - `web/routes/rag.py` + `templates/rag.html` — `/rag` 콘솔 (쿼리 테스트 + 광고 카피 context 추출 + 표면별 type 자동 매핑)

@@ -1,92 +1,237 @@
 """
-네이버 지식인 자동 답글 — 바이럴 확장 (다중 표면 지원)
+네이버 지식인 자동 답글 — Phase 1 (수동 검토)
 
-목표: 각 표면의 도메인 키워드로 지식인 질문 모니터링 + 자동 답글 생성·게시 (옵션).
+흐름:
+  1. /knowin       — 큐 현황 + 검색 트리거 + 매칭 트리거
+  2. /knowin/match — 미매칭 큐 → RAG 매칭 → 점수 갱신
+  3. /knowin/draft?qid=... — 답변 초안 생성
+  4. /knowin/approve?qid=... — 승인 (게시는 수동)
+  5. /knowin/crawl  — 키워드 풀로 batch 검색 (수동 트리거)
 
-표면별 활용:
-- truck    — 화물·정비·법률 QA → 위키 페이지 링크
-- guide    — 캠핑·배터리·히터 QA → 가이드 페이지 링크
-- liveon   — 라이브 쇼호스트 솔루션 QA → 셀러 모집 LP
-- onemsg   — 안심메시지·고독사 예방 QA → 앱 스토어
-
-⚠️ 네이버 비공식 endpoint 사용 시 [[feedback_naver_unofficial_caution]] 원칙:
-   - 자기 데이터만 자동화
-   - 정식 라인 (공식 답변자) 병행
-   - 인증·보안 원칙
-   - 스팸 의심 패턴 회피 (속도 throttle, 다양성)
+⚠️ 자동 게시 X — 첫 단계는 검토 큐만.
 """
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Form, BackgroundTasks
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+from datetime import datetime, timezone
+from typing import Optional
+
+from storage.db import get_collection
+from agent.knowin_matcher import match_question
+from agent.knowin_answerer import generate_answer
+from agent.knowin_keyword_pool import build_keyword_pool, keyword_pool_stats
 
 router = APIRouter(prefix="/knowin")
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 
-# 표면별 지식인 작전 — 추후 MongoDB `knowin_campaigns` 컬렉션으로 이관
+# 표면별 지식인 작전 — 추후 MongoDB knowin_campaigns 컬렉션으로 이관
 SURFACE_CAMPAIGNS = [
     {
         "id": "truck",
         "surface": "truck.qcat.kr",
-        "keywords": ["화물차 정비", "트럭 부품", "DPF", "EGR", "5톤 카고", "노부스", "마이티"],
+        "keywords_count_est": "3,858 (위키 + 일반어)",
         "answer_link_base": "https://truck.qcat.kr/wiki",
-        "persona": "양자냥",
-        "status": "🟢 미가동 (인프라 분업 협의 중)",
-        "expected_volume": "주 50~100 질문",
-        "notes": "truck 세션과 인프라 분업 논의 중",
+        "persona": "양자냥 (X — 답변 익명)",
+        "status": "🟡 Phase 1 (수동 검토)",
+        "expected_volume": "일 5~10건 답변",
+        "notes": "공식 검색 API 활용, 수동 검토 후 클립보드 복사 게시",
     },
     {
         "id": "qcat-guide",
         "surface": "qcat-guide",
-        "keywords": ["캠핑 배터리", "무시동 히터", "차박 전원", "파워뱅크", "디젤 히터"],
+        "keywords_count_est": "Phase 2 예정",
         "answer_link_base": "https://guide.qcat.kr",
-        "persona": "양자냥",
+        "persona": "양자냥 (X — 답변 익명)",
         "status": "🟢 미가동",
-        "expected_volume": "주 30~50 질문",
-        "notes": "캠핑 시즌(3~10월) 집중 운영",
+        "expected_volume": "캠핑 시즌 집중",
+        "notes": "캠핑·배터리·히터 키워드 별도 풀",
     },
     {
         "id": "liveon",
         "surface": "shoppingliveon.com",
-        "keywords": ["라이브 커머스", "쇼호스트 솔루션", "AI 호스트", "라이브 자동화"],
+        "keywords_count_est": "Phase 2 예정",
         "answer_link_base": "https://shoppingliveon.com",
-        "persona": "도라미",
+        "persona": "도라미 (X — 답변 익명)",
         "status": "🟢 미가동 (페이업 통과 후)",
-        "expected_volume": "주 10~20 질문",
-        "notes": "베타 단계라 답변 조심스럽게",
-    },
-    {
-        "id": "onemsg",
-        "surface": "onemsg.net",
-        "keywords": ["고독사 예방", "독거 노인 안심", "휴대폰 미사용 알림", "자녀에게 자동 메시지"],
-        "answer_link_base": "https://onemsg.net",
-        "persona": "자체 브랜드",
-        "status": "🟢 미가동",
-        "expected_volume": "주 5~15 질문",
-        "notes": "민감 주제 — 카피 검수 필수, OneMessage 메시지 본문 노출 금지",
+        "expected_volume": "주 10~20건",
+        "notes": "베타 — 답변 보수적",
     },
 ]
 
 
 GUARDRAILS = [
-    "네이버 비공식 endpoint 자동화 시 자기 데이터·정식 라인 병행·인증 보안 원칙 (feedback_naver_unofficial_caution)",
-    "페르소나 박기 전 표면 확인 — truck/guide=양자냥, liveon=도라미, onemsg=자체 브랜드 (feedback_persona_domain_isolation)",
-    "답글에 OneMessage 메시지 본문 노출 금지 (feedback_onemsg_no_body_exposure)",
-    "throttle — 답변 간 최소 30분 간격, 일일 최대 20건",
-    "다양성 — 동일 카피 반복 금지. LLM 변형 필수",
-    "투명성 — 답변 끝 '본인이 운영하는 사이트' 명시 (네이버 광고 규정)",
+    "네이버 공식 검색 API 사용 (feedback_naver_unofficial_caution 정책 준수)",
+    "답변 본문 5문장 이상 + 구체 정보 — '자세한 건 링크' 금지",
+    "출처 박스 형식 통일 (트럭의 기사 위키 [URL])",
+    "일 5~10건 한도 (반복 패턴 회피)",
+    "페르소나 박지 X — 익명 정보 제공자 톤",
+    "광고성 표현 금지 ('최고', '1위', '절대 안전' 등)",
+    "수동 검토 첫 2주 (자동 게시 X)",
+    "답변자 계정 트럭 카테고리 전문성 누적",
 ]
 
 
+# ── 큐 현황 ─────────────────────────────────────────────────
 @router.get("")
 async def knowin_overview(request: Request):
+    coll = get_collection("knowin_questions")
+    stats = {
+        "total": coll.estimated_document_count(),
+        "pending": coll.count_documents({"status": "pending"}),
+        "matched": coll.count_documents({"status": "matched"}),
+        "rejected": coll.count_documents({"status": "rejected"}),
+        "answered": coll.count_documents({"status": "answered"}),
+    }
+    # 매칭 점수 높은 후보 큐 (상위 20)
+    queue = list(
+        coll.find({"status": "matched"}, {"_id": 0}).sort("matched_score", -1).limit(20)
+    )
+    kw_stats = keyword_pool_stats()
+
     return templates.TemplateResponse(
         "knowin.html",
         {
             "request": request,
             "campaigns": SURFACE_CAMPAIGNS,
             "guardrails": GUARDRAILS,
-            "active_count": sum(1 for c in SURFACE_CAMPAIGNS if c["status"].startswith("🟢") is False),
+            "stats": stats,
+            "queue": queue,
+            "kw_stats": kw_stats,
+            "active_count": sum(1 for c in SURFACE_CAMPAIGNS if not c["status"].startswith("🟢")),
             "total_count": len(SURFACE_CAMPAIGNS),
         },
     )
+
+
+# ── 검색 (네이버 API → MongoDB) ───────────────────────────
+def _crawl_task(limit: int):
+    """백그라운드 실행 — 키워드 풀 처음 N개로 검색"""
+    from intelligence.knowin_crawler import crawl_to_mongo
+    pool = build_keyword_pool()
+    crawl_to_mongo(pool[:limit])
+
+
+@router.post("/crawl")
+async def knowin_crawl(
+    background: BackgroundTasks,
+    limit: int = Form(20),
+):
+    """키워드 풀 batch 검색 (백그라운드)"""
+    background.add_task(_crawl_task, limit)
+    return RedirectResponse("/knowin?msg=crawl-started", status_code=303)
+
+
+# ── 매칭 (pending 큐 → RAG score) ───────────────────────────
+def _match_task(limit: int):
+    """pending 질문들 → RAG 매칭 → status 갱신"""
+    coll = get_collection("knowin_questions")
+    cursor = coll.find({"status": "pending"}).limit(limit)
+    for q in cursor:
+        # title + description 합쳐서 매칭
+        text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
+        text = text.strip()
+        if not text:
+            coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected"}})
+            continue
+        m = match_question(text)
+        if m.matched:
+            coll.update_one(
+                {"_id": q["_id"]},
+                {"$set": {
+                    "status": "matched",
+                    "matched_url": m.url,
+                    "matched_score": m.top_score,
+                    "matched_title": m.title,
+                    "matched_at": datetime.now(timezone.utc),
+                }},
+            )
+        else:
+            coll.update_one({"_id": q["_id"]}, {"$set": {"status": "rejected", "matched_score": m.top_score}})
+
+
+@router.post("/match")
+async def knowin_match(
+    background: BackgroundTasks,
+    limit: int = Form(50),
+):
+    """pending 큐 매칭 실행 (백그라운드)"""
+    background.add_task(_match_task, limit)
+    return RedirectResponse("/knowin?msg=match-started", status_code=303)
+
+
+# ── 답변 초안 생성 ──────────────────────────────────────────
+@router.get("/draft/{question_id}")
+async def knowin_draft(request: Request, question_id: str):
+    coll = get_collection("knowin_questions")
+    q = coll.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return templates.TemplateResponse(
+            "knowin_draft.html",
+            {"request": request, "error": "질문 없음", "question_id": question_id},
+        )
+
+    # 답변 초안 — 이미 생성된 게 있으면 가져오고, 없으면 새로 생성
+    answers = get_collection("knowin_answers")
+    existing = answers.find_one({"question_id": question_id}, {"_id": 0})
+
+    draft = None
+    if existing:
+        draft = existing
+    else:
+        text = (q.get("title_plain") or "") + " " + (q.get("description_plain") or "")
+        m = match_question(text)
+        if not m.matched:
+            return templates.TemplateResponse(
+                "knowin_draft.html",
+                {"request": request, "error": "RAG 매칭 미달", "question": q},
+            )
+        try:
+            llm = "local"  # 로컬 vLLM 우선 (비용 0)
+            answer = generate_answer(text, m, llm=llm)
+        except Exception as e:
+            return templates.TemplateResponse(
+                "knowin_draft.html",
+                {"request": request, "error": f"LLM 호출 실패: {e}", "question": q},
+            )
+        draft = {
+            "question_id": question_id,
+            "body": answer.body,
+            "full_text": answer.full_text,
+            "source_url": answer.source_url,
+            "source_title": answer.source_title,
+            "match_score": answer.match_score,
+            "word_count": answer.word_count,
+            "sentence_count": answer.sentence_count,
+            "llm_model": answer.llm_model,
+            "warnings": answer.warnings,
+            "status": "draft",
+            "created_at": datetime.now(timezone.utc),
+        }
+        answers.insert_one(dict(draft))
+
+    return templates.TemplateResponse(
+        "knowin_draft.html",
+        {"request": request, "question": q, "draft": draft},
+    )
+
+
+# ── 승인·거절 ────────────────────────────────────────────────
+@router.post("/approve/{question_id}")
+async def knowin_approve(question_id: str):
+    get_collection("knowin_questions").update_one(
+        {"question_id": question_id}, {"$set": {"status": "approved"}}
+    )
+    get_collection("knowin_answers").update_one(
+        {"question_id": question_id}, {"$set": {"status": "approved"}}
+    )
+    return RedirectResponse(f"/knowin/draft/{question_id}?msg=approved", status_code=303)
+
+
+@router.post("/reject/{question_id}")
+async def knowin_reject(question_id: str):
+    get_collection("knowin_questions").update_one(
+        {"question_id": question_id}, {"$set": {"status": "rejected"}}
+    )
+    return RedirectResponse("/knowin?msg=rejected", status_code=303)
