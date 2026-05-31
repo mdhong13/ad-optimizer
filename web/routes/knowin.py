@@ -778,15 +778,16 @@ async def knowin_draft(request: Request, question_id: str):
 
 
 # ── 승인 trace 빌더 (Claude 세션 디버그용) ────────────────
-def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
-    """승인 단계별 trace — 텍스트 dump + 구조화 객체.
+def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta, action_label: str = "승인") -> dict:
+    """단계별 trace — 텍스트 dump + 구조화 객체.
 
+    action_label: "승인" | "게시 완료" | "재검수" 등. 헤더에 박힘.
     사용자가 trace.text 를 클립보드 복사 → Claude 채팅에 박음 → 클로드 분석.
     """
     body_plain = q.get("body_plain") or ""
     desc = q.get("description_plain") or ""
     lines: list[str] = []
-    lines.append(f"=== knowin 승인 trace (qid={q.get('question_id')}) ===")
+    lines.append(f"=== knowin {action_label} trace (qid={q.get('question_id')}) ===")
     lines.append(f"timestamp: {datetime.now(timezone.utc).isoformat()}")
     lines.append("")
     lines.append("[질문]")
@@ -888,7 +889,7 @@ async def knowin_approve(question_id: str):
     q["status"] = "approved"
 
     draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
-    return JSONResponse(_build_approve_trace(q, draft, None))
+    return JSONResponse(_build_approve_trace(q, draft, None, action_label="승인"))
 
 
 @router.post("/verify/{question_id}")
@@ -1167,7 +1168,7 @@ async def knowin_posted(question_id: str):
         q["status"] = "posted"
 
     draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
-    return JSONResponse(_build_approve_trace(q, draft, verify_meta))
+    return JSONResponse(_build_approve_trace(q, draft, verify_meta, action_label="게시 완료"))
 
 
 @router.post("/mark-posted")
