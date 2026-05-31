@@ -821,7 +821,7 @@ def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
         lines.append("")
     lines.append("[게시 검수 (직후 페이지 fetch)]")
     if verify_meta is None:
-        lines.append("  (skip — link 없음 또는 fetch 실패)")
+        lines.append("  (skip — 게시 후 📌 게시 완료 버튼이 검수 박음)")
     else:
         lines.append(f"  fetch URL        : {verify_meta.fetch_url or '?'}")
         lines.append(f"  fetched_at       : {verify_meta.fetched_at or '?'}")
@@ -850,7 +850,7 @@ def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
     elif verify_meta is not None:
         final_status = "approved (게시 대기 또는 ghost — 네이버 차단/캐시/실패)"
     else:
-        final_status = "approved (검수 skip)"
+        final_status = "approved (검수 skip — 게시 후 📌 클릭 시 검수)"
     lines.append(f"  status   : approved → {final_status}")
     lines.append(f"  verified : {(verify_meta.already_answered if verify_meta else None)}")
 
@@ -868,72 +868,27 @@ def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
 # ── 승인·거절·게시완료 ──────────────────────────────────────
 @router.post("/approve/{question_id}")
 async def knowin_approve(question_id: str):
-    """승인 + 즉시 게시 검수 + 단계별 trace JSON (Claude 세션 디버그용)"""
+    """승인 = 답변 검토 통과 마킹만. 검수 fetch X (게시 후 📌 게시 완료 가 박음).
+
+    빠른 1초 응답. trace 출력에서 [게시 검수] 섹션은 'skip' 으로 박힘.
+    """
     coll = get_collection("knowin_questions")
     q = coll.find_one({"question_id": question_id}, {"_id": 0})
     if not q:
         return JSONResponse({"ok": False, "error": "질문 없음"}, status_code=404)
 
-    # status 갱신
     now = datetime.now(timezone.utc)
-    coll.update_one({"question_id": question_id}, {"$set": {"status": "approved", "approved_at": now}})
+    coll.update_one(
+        {"question_id": question_id},
+        {"$set": {"status": "approved", "approved_at": now}},
+    )
     get_collection("knowin_answers").update_one(
         {"question_id": question_id}, {"$set": {"status": "approved"}}
     )
     q["status"] = "approved"
 
-    # 즉시 게시 검수 시도 (페이지에 본인 ID 답변 박혔는지)
-    verify_meta = None
-    link = q.get("link") or ""
-    if link:
-        try:
-            verify_meta = fetch_question_meta(link)
-        except Exception as e:  # noqa: BLE001
-            import logging
-            logging.getLogger("knowin").warning("approve verify fetch 실패 (qid=%s): %s", question_id, e)
-            verify_meta = None
-
-        if verify_meta is not None:
-            # 우선순위: already_answered > answer_blocked > 일반 verify(ghost)
-            if verify_meta.already_answered:
-                update = {
-                    "verified": True,
-                    "verified_at": now,
-                    "status": "posted",
-                    "posted_at": now,
-                    "answered_by": verify_meta.answered_by,
-                    "manual_posted": True,
-                }
-                get_collection("knowin_answers").update_one(
-                    {"question_id": question_id},
-                    {"$set": {"status": "posted", "posted_at": now}},
-                )
-                q["status"] = "posted"
-            elif verify_meta.answer_blocked:
-                # 차단 영역 — ghost 아님. status=blocked 로 격리
-                update = {
-                    "verified": False,
-                    "verified_at": now,
-                    "status": "blocked",
-                    "answer_blocked": True,
-                    "blocked_reason": verify_meta.blocked_reason,
-                }
-                get_collection("knowin_answers").update_one(
-                    {"question_id": question_id},
-                    {"$set": {"status": "blocked"}},
-                )
-                q["status"] = "blocked"
-                q["answer_blocked"] = True
-                q["blocked_reason"] = verify_meta.blocked_reason
-            else:
-                update = {"verified": False, "verified_at": now}
-            coll.update_one(
-                {"question_id": question_id},
-                {"$set": update, "$inc": {"verify_attempts": 1}},
-            )
-
     draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
-    return JSONResponse(_build_approve_trace(q, draft, verify_meta))
+    return JSONResponse(_build_approve_trace(q, draft, None))
 
 
 @router.post("/verify/{question_id}")

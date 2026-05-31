@@ -416,7 +416,7 @@ function renderTrace(qid, data) {
   } else if (data.verified === false) {
     verdict = '<span style="color:#ef4444; font-weight:600;">👻 Ghost — 페이지에 본인 답변 안 박힘 (네이버 차단·캐시 지연 가능)</span>';
   } else {
-    verdict = '<span style="color:#9ca3af;">— 검수 skip</span>';
+    verdict = '<span style="color:#9ca3af;">⏸ 승인됨 (검수 skip) — 네이버 게시 후 <strong>📌 게시 완료</strong> 클릭 시 검수 박힘</span>';
   }
   const bodySrcWarn = data.body_source === 'description-only'
     ? '<div style="background:#3a2c1f; padding:6px 10px; color:#fbbf24; font-size:11px; margin-bottom:6px;">⚠️ body_source=description-only — 검색 발췌 기반 답변. 본문 백필 + 재생성 권장.</div>'
