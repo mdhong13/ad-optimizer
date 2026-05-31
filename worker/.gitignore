@@ -1,0 +1,4 @@
+.env
+.kin_state_*.json
+*.pyc
+__pycache__/

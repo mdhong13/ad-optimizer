@@ -10,12 +10,13 @@
 
 ⚠️ 자동 게시 X — 첫 단계는 검토 큐만.
 """
-from fastapi import APIRouter, Request, Form, BackgroundTasks
+from fastapi import APIRouter, Request, Form, BackgroundTasks, Header, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
+import os
 import uuid
 
 from storage.db import get_collection
@@ -1227,3 +1228,210 @@ async def knowin_reject(question_id: str):
         {"question_id": question_id}, {"$set": {"status": "rejected"}}
     )
     return RedirectResponse("/knowin?msg=rejected", status_code=303)
+
+
+# ════════════════════════════════════════════════════════════
+# 자동 게시 Worker API (본인 PC Playwright worker 가 호출)
+# ════════════════════════════════════════════════════════════
+#
+# 흐름:
+#   1. 사용자가 카드 '🤖 자동 게시 큐' 클릭 → POST /knowin/queue-post/{qid}
+#      → knowin_post_queue insert (status=queued)
+#   2. 본인 PC worker 가 poll → GET /knowin/post-queue/next
+#      → 한 건 dequeue (status=in_progress, worker_id 박힘)
+#   3. worker 가 Playwright 로 네이버 form 박기 + 등록
+#   4. 결과 보고 → POST /knowin/post-queue/report/{job_id}
+#      → status=done/failed/captcha-stop. done 이면 knowin_questions 도 검수 트리거.
+#
+# 인증: X-Worker-Key 헤더 — env KNOWIN_WORKER_API_KEY 와 비교
+# 미설정 시 모든 endpoint 401
+
+def _check_worker_auth(x_worker_key: Optional[str]) -> None:
+    expected = os.getenv("KNOWIN_WORKER_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="KNOWIN_WORKER_API_KEY 미설정 (Railway env)")
+    if not x_worker_key or x_worker_key != expected:
+        raise HTTPException(status_code=401, detail="invalid worker key")
+
+
+@router.post("/queue-post/{question_id}")
+async def knowin_queue_post(question_id: str, account: str = Form("auto")):
+    """카드에서 '🤖 자동 게시 큐' 누르면 호출. 큐에 작업 박음.
+
+    account: 'auto' (worker 가 결정) | 'nors' | 'live'
+    """
+    coll_q = get_collection("knowin_questions")
+    q = coll_q.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return RedirectResponse("/knowin?msg=queue-error&reason=notfound", status_code=303)
+
+    # 답변 초안 있어야 함
+    draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
+    if not draft or not draft.get("full_text"):
+        return RedirectResponse("/knowin?msg=queue-error&reason=nodraft", status_code=303)
+
+    # 차단 영역·이미 답변·off_topic 큐에 박지 X
+    if q.get("answer_blocked") or q.get("already_answered") or q.get("status") in ("blocked", "off_topic", "posted"):
+        return RedirectResponse(
+            f"/knowin?msg=queue-error&reason=status&status={q.get('status')}",
+            status_code=303,
+        )
+
+    # 이미 큐에 있는지 (queued or in_progress)
+    qcoll = get_collection("knowin_post_queue")
+    existing = qcoll.find_one({
+        "question_id": question_id,
+        "status": {"$in": ["queued", "in_progress"]},
+    })
+    if existing:
+        return RedirectResponse(
+            f"/knowin?msg=queue-error&reason=dup&job={existing.get('job_id')}",
+            status_code=303,
+        )
+
+    job_id = uuid.uuid4().hex[:12]
+    now = datetime.now(timezone.utc)
+    qcoll.insert_one({
+        "job_id": job_id,
+        "question_id": question_id,
+        "link": q.get("link"),
+        "title_plain": q.get("title_plain"),
+        "full_text": draft.get("full_text"),
+        "account": account,         # auto | nors | live
+        "status": "queued",
+        "queued_at": now,
+        "started_at": None,
+        "finished_at": None,
+        "worker_id": None,
+        "error": None,
+        "captcha_at": None,
+    })
+    return RedirectResponse(f"/knowin?msg=queued&job={job_id}#q-{question_id}", status_code=303)
+
+
+@router.get("/post-queue/next")
+async def knowin_post_queue_next(
+    worker_id: str,
+    account: str = "any",
+    x_worker_key: Optional[str] = Header(None, alias="X-Worker-Key"),
+):
+    """Worker poll — 다음 작업 dequeue.
+
+    account: 'any' | 'nors' | 'live' — worker 가 로그인한 계정 명시.
+    """
+    _check_worker_auth(x_worker_key)
+    qcoll = get_collection("knowin_post_queue")
+
+    # 조건: status=queued. account='any' 면 모두, 그 외엔 account=='auto' or 일치
+    filt: dict = {"status": "queued"}
+    if account != "any":
+        filt["account"] = {"$in": ["auto", account]}
+
+    now = datetime.now(timezone.utc)
+    doc = qcoll.find_one_and_update(
+        filt,
+        {"$set": {"status": "in_progress", "started_at": now, "worker_id": worker_id}},
+        sort=[("queued_at", 1)],
+        return_document=True,  # type: ignore
+    )
+    if not doc:
+        return JSONResponse({"job": None})
+    doc.pop("_id", None)
+    for k in ("queued_at", "started_at", "finished_at", "captcha_at"):
+        if doc.get(k) and hasattr(doc[k], "isoformat"):
+            doc[k] = doc[k].isoformat()
+    return JSONResponse({"job": doc})
+
+
+@router.post("/post-queue/report/{job_id}")
+async def knowin_post_queue_report(
+    job_id: str,
+    result: str = Form(...),   # 'done' | 'failed' | 'captcha-stop'
+    error: str = Form(""),
+    posted_account: str = Form(""),   # worker 가 실제 박은 계정 (nors/live)
+    x_worker_key: Optional[str] = Header(None, alias="X-Worker-Key"),
+):
+    """Worker 결과 보고. done 이면 knowin_questions 도 검수 트리거."""
+    _check_worker_auth(x_worker_key)
+    if result not in ("done", "failed", "captcha-stop"):
+        raise HTTPException(status_code=400, detail="invalid result")
+
+    qcoll = get_collection("knowin_post_queue")
+    now = datetime.now(timezone.utc)
+    update: dict = {"status": result, "finished_at": now}
+    if error:
+        update["error"] = error
+    if posted_account:
+        update["posted_account"] = posted_account
+    if result == "captcha-stop":
+        update["captcha_at"] = now
+    qcoll.update_one({"job_id": job_id}, {"$set": update})
+
+    job = qcoll.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+
+    # done 이면 knowin_questions 도 fetch + verify 트리거
+    if result == "done":
+        qid = job.get("question_id")
+        link = job.get("link") or ""
+        if link:
+            try:
+                meta = fetch_question_meta(link)
+            except Exception:
+                meta = None
+            if meta is not None:
+                update_q: dict = {"verified_at": now}
+                if meta.already_answered:
+                    update_q.update({
+                        "status": "posted",
+                        "posted_at": now,
+                        "verified": True,
+                        "answered_by": meta.answered_by,
+                        "auto_posted": True,
+                    })
+                    get_collection("knowin_answers").update_one(
+                        {"question_id": qid},
+                        {"$set": {"status": "posted", "posted_at": now}},
+                    )
+                else:
+                    # worker 가 등록 성공했다고 보고했는데 페이지엔 안 박힘 = 노출 지연 또는 보류
+                    update_q["verified"] = False
+                get_collection("knowin_questions").update_one(
+                    {"question_id": qid}, {"$set": update_q, "$inc": {"verify_attempts": 1}}
+                )
+
+    return JSONResponse({"ok": True, "job_id": job_id, "status": result})
+
+
+@router.get("/post-queue/list")
+async def knowin_post_queue_list():
+    """UI 용 큐 상태 조회 (auth 불요 — 내부 모니터링)"""
+    qcoll = get_collection("knowin_post_queue")
+
+    # 최근 50건 (모든 status)
+    rows = list(
+        qcoll.find({}, {"_id": 0}).sort("queued_at", -1).limit(50)
+    )
+    for r in rows:
+        for k in ("queued_at", "started_at", "finished_at", "captcha_at"):
+            if r.get(k) and hasattr(r[k], "isoformat"):
+                r[k] = r[k].isoformat()
+        # full_text 너무 길어서 잘라 보냄
+        if r.get("full_text"):
+            r["full_text_preview"] = r["full_text"][:200]
+            del r["full_text"]
+
+    # 통계
+    counts = {
+        s: qcoll.count_documents({"status": s})
+        for s in ("queued", "in_progress", "done", "failed", "captcha-stop")
+    }
+    # 오늘 done 카운트 (일 한도 추적)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    counts["today_done"] = qcoll.count_documents({
+        "status": "done",
+        "finished_at": {"$gte": today_start},
+    })
+
+    return JSONResponse({"jobs": rows, "counts": counts})

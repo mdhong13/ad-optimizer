@@ -22,6 +22,12 @@
   <div class="stat"><div class="label">off_topic</div><div class="value" data-stat="off_topic">{{ stats.off_topic|default(0, true) }}</div><div class="sub">트럭 아님 (승용차 등)</div></div>
 </div>
 
+<!-- 🤖 자동 게시 worker 큐 -->
+<div class="card" id="post-queue-card" style="display:none; background:#0f172a; border:1px solid #16a34a;">
+  <h2 style="color:#86efac;">🤖 자동 게시 worker 큐 <span id="pq-counts" style="font-size:12px; font-weight:normal; color:#9ca3af;"></span></h2>
+  <div id="pq-list" style="font-size:12px;"></div>
+</div>
+
 {% if ghosts %}
 <!-- 👻 ghost 경고 — 게시 시도했지만 페이지에 본인 답변 박혀있지 않음 -->
 <div class="card" style="background:#5c1f1f; border:1px solid #b91c1c; color:#fee2e2;">
@@ -183,6 +189,11 @@
       <button type="button" onclick="postedNow('{{ q.question_id }}')"
               class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;"
               title="네이버에 직접 게시 완료 마킹 + 즉시 검수 (페이지 fetch 후 본인 답변 박힘 확인)">📌 게시 완료</button>
+      <form method="post" action="/knowin/queue-post/{{ q.question_id }}" style="display:inline;"
+            onsubmit="return confirm('자동 게시 큐에 박습니다 (worker 가 네이버에 답변 자동 등록). 진행할까요?');"
+            title="본인 PC worker 가 자동으로 네이버에 답변 등록">
+        <button type="submit" class="btn" style="background:#16a34a; color:#fff; font-size:12px; padding:6px 12px;">🤖 자동 게시 큐</button>
+      </form>
       <form method="post" action="/knowin/reject/{{ q.question_id }}" style="display:inline;"
             onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
         <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
@@ -543,6 +554,8 @@ function copyReverifyText(qid) {
     'recheck-done': '🚫 토픽 재검사 완료',
     'restored': '↩️ 큐로 복원 완료 — status=approved + 검수 흔적 리셋',
     'restore-notfound': '❌ 복원 실패 — question_id 없음',
+    'queued': '🤖 자동 게시 큐 박힘 — worker 가 처리합니다',
+    'queue-error': '❌ 자동 게시 큐 실패 (이미 차단·중복·답변 없음 등)',
   };
   // recheck-done 은 moved/kept 추가 표시
   if (msg === 'recheck-done') {
@@ -640,5 +653,51 @@ function escapeHtml(s) {
 // 3초마다 폴링
 pollTasks();
 setInterval(pollTasks, 3000);
+
+// 자동 게시 worker 큐 폴링 (5초)
+async function pollPostQueue() {
+  try {
+    const r = await fetch('/knowin/post-queue/list');
+    const data = await r.json();
+    const card = document.getElementById('post-queue-card');
+    const jobs = data.jobs || [];
+    const counts = data.counts || {};
+    const total = jobs.length;
+    if (total === 0) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'block';
+    const countLabel = `· queued ${counts.queued || 0} · in_progress ${counts.in_progress || 0} · done ${counts.done || 0} · failed ${counts.failed || 0} · captcha-stop ${counts['captcha-stop'] || 0} · 오늘 done ${counts.today_done || 0}`;
+    document.getElementById('pq-counts').textContent = countLabel;
+
+    const list = document.getElementById('pq-list');
+    list.innerHTML = jobs.slice(0, 20).map(j => {
+      const statusColor = {
+        'queued': '#fbbf24',
+        'in_progress': '#3b82f6',
+        'done': '#10b981',
+        'failed': '#ef4444',
+        'captcha-stop': '#f59e0b',
+      }[j.status] || '#9ca3af';
+      const ts = j.queued_at ? new Date(j.queued_at).toLocaleString('ko-KR') : '?';
+      return `
+        <div style="border-left:3px solid ${statusColor}; padding:6px 10px; margin-bottom:4px; background:#0a0f1a;">
+          <strong style="color:${statusColor};">${escapeHtml(j.status)}</strong>
+          · ${escapeHtml((j.title_plain || '').slice(0,60))}
+          · acct=${escapeHtml(j.account || '?')}
+          ${j.posted_account ? '→' + escapeHtml(j.posted_account) : ''}
+          · ${escapeHtml(ts)}
+          ${j.error ? `<div style="color:#ef4444; margin-top:2px;">err: ${escapeHtml(j.error)}</div>` : ''}
+          ${j.link ? `<a href="${escapeHtml(j.link)}" target="_blank" style="color:#60a5fa; font-size:11px; margin-left:8px;">원본 →</a>` : ''}
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('post queue poll failed', e);
+  }
+}
+pollPostQueue();
+setInterval(pollPostQueue, 5000);
 </script>
 {% endblock %}
