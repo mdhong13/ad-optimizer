@@ -180,9 +180,9 @@
               class="btn btn-green" style="font-size:12px; padding:6px 12px;"
               title="승인 + 즉시 페이지 검수 + Claude 디버그 trace 출력">✅ 승인</button>
       {% endif %}
-      <form method="post" action="/knowin/posted/{{ q.question_id }}" style="display:inline;">
-        <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
-      </form>
+      <button type="button" onclick="postedNow('{{ q.question_id }}')"
+              class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;"
+              title="네이버에 직접 게시 완료 마킹 + 즉시 검수 (페이지 fetch 후 본인 답변 박힘 확인)">📌 게시 완료</button>
       <form method="post" action="/knowin/reject/{{ q.question_id }}" style="display:inline;"
             onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
         <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
@@ -338,9 +338,7 @@ function renderAnswerArea(qid, d) {
       <form method="post" action="/knowin/approve/${qid}" style="display:inline;">
         <button type="submit" class="btn btn-green" style="font-size:12px; padding:6px 12px;">✅ 승인</button>
       </form>
-      <form method="post" action="/knowin/posted/${qid}" style="display:inline;">
-        <button type="submit" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
-      </form>
+      <button type="button" onclick="postedNow('${qid}')" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
       <form method="post" action="/knowin/reject/${qid}" style="display:inline;" onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
         <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
       </form>
@@ -357,6 +355,30 @@ function renderAnswerArea(qid, d) {
     await generateNow(qid);
   }
 })();
+
+// 게시 완료 — 즉시 검수 + trace 출력 (사용자가 직접 게시 후 누름)
+async function postedNow(qid) {
+  const panel = document.getElementById('trace-' + qid);
+  if (panel) {
+    panel.style.display = 'block';
+    panel.innerHTML = '<div style="background:#1e3a5f; padding:8px 12px; color:#cbe1ff; font-size:12px;">⏳ 게시 검수 중 (페이지 fetch 5~10초)...</div>';
+  }
+  try {
+    const res = await fetch(`/knowin/posted/${qid}`, { method: 'POST' });
+    const data = await res.json();
+    if (!data.ok) {
+      if (panel) panel.innerHTML = `<div style="background:#5c1f1f; padding:8px 12px; color:#fee2e2;">❌ ${escapeHtml(data.error || 'unknown')}</div>`;
+      return;
+    }
+    renderTrace(qid, data);
+    const card = document.getElementById('q-' + qid);
+    if (card) {
+      card.style.borderLeftColor = data.verified ? '#10b981' : (/answer_blocked\s*:\s*True/i.test(data.text || '') ? '#f59e0b' : '#ef4444');
+    }
+  } catch (e) {
+    if (panel) panel.innerHTML = `<div style="background:#5c1f1f; padding:8px 12px; color:#fee2e2;">❌ 요청 실패: ${escapeHtml(String(e))}</div>`;
+  }
+}
 
 // 승인 — 즉시 검수 + trace 출력 (Claude 세션 디버그용)
 async function approveNow(qid) {

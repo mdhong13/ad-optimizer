@@ -1123,17 +1123,96 @@ async def knowin_recheck_topic():
 
 @router.post("/posted/{question_id}")
 async def knowin_posted(question_id: str):
-    """실제 네이버 게시 완료 — 종료 상태 (재수집 시 자동 skip)"""
+    """사용자가 네이버에 직접 게시했다 마킹 + 즉시 검수.
+
+    검수 결과에 따라 status 분기:
+      - 본인 답변 박힘 → posted + verified=true
+      - 차단 영역 → blocked
+      - 안 박힘 (ghost) → approved 유지 + verified=false (ghost 경고에 뜸)
+    """
+    coll = get_collection("knowin_questions")
+    q = coll.find_one({"question_id": question_id}, {"_id": 0})
+    if not q:
+        return JSONResponse({"ok": False, "error": "질문 없음"}, status_code=404)
+
     now = datetime.now(timezone.utc)
-    get_collection("knowin_questions").update_one(
-        {"question_id": question_id},
-        {"$set": {"status": "posted", "posted_at": now}},
-    )
-    get_collection("knowin_answers").update_one(
-        {"question_id": question_id},
-        {"$set": {"status": "posted", "posted_at": now}},
-    )
-    return RedirectResponse("/knowin?msg=posted", status_code=303)
+    link = q.get("link") or ""
+    verify_meta = None
+    if link:
+        try:
+            verify_meta = fetch_question_meta(link)
+        except Exception as e:  # noqa: BLE001
+            import logging
+            logging.getLogger("knowin").warning("posted verify fetch 실패 (qid=%s): %s", question_id, e)
+            verify_meta = None
+
+    if verify_meta is not None and verify_meta.already_answered:
+        # ✅ 검수 통과 — 본인 답변 박힘 확인
+        coll.update_one(
+            {"question_id": question_id},
+            {
+                "$set": {
+                    "status": "posted",
+                    "posted_at": now,
+                    "verified": True,
+                    "verified_at": now,
+                    "answered_by": verify_meta.answered_by,
+                    "manual_posted": True,
+                },
+                "$inc": {"verify_attempts": 1},
+            },
+        )
+        get_collection("knowin_answers").update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "posted", "posted_at": now}},
+        )
+        q["status"] = "posted"
+    elif verify_meta is not None and verify_meta.answer_blocked:
+        # 🚫 차단 영역
+        coll.update_one(
+            {"question_id": question_id},
+            {
+                "$set": {
+                    "status": "blocked",
+                    "answer_blocked": True,
+                    "blocked_reason": verify_meta.blocked_reason,
+                    "verified": False,
+                    "verified_at": now,
+                },
+                "$inc": {"verify_attempts": 1},
+            },
+        )
+        get_collection("knowin_answers").update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "blocked"}},
+        )
+        q["status"] = "blocked"
+        q["answer_blocked"] = True
+        q["blocked_reason"] = verify_meta.blocked_reason
+    elif verify_meta is not None:
+        # 👻 Ghost — 페이지 fetch OK 했지만 본인 답변 안 박힘. status=approved 유지.
+        coll.update_one(
+            {"question_id": question_id},
+            {
+                "$set": {"verified": False, "verified_at": now},
+                "$inc": {"verify_attempts": 1},
+            },
+        )
+        # status 그대로 (approved 또는 matched) — ghost 경고에 뜸
+    else:
+        # fetch 실패 — 옛 동작 폴백 (단순 posted 마킹)
+        coll.update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "posted", "posted_at": now, "manual_posted": True}},
+        )
+        get_collection("knowin_answers").update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "posted", "posted_at": now}},
+        )
+        q["status"] = "posted"
+
+    draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
+    return JSONResponse(_build_approve_trace(q, draft, verify_meta))
 
 
 @router.post("/mark-posted")
