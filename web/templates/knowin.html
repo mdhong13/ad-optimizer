@@ -162,6 +162,8 @@
     <!-- 액션 (인라인) -->
     <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <button onclick="copyFt('{{ q.question_id }}')" class="btn btn-blue" style="font-size:12px; padding:6px 12px;">📋 복사</button>
+      <button onclick="copyFtNoUrl('{{ q.question_id }}')" class="btn" style="background:#475569; color:#fff; font-size:12px; padding:6px 12px;"
+              title="출처 박스(URL) 제거하고 본문만 복사 — URL 보류 가설 검증용">📋 URL 없이</button>
       <span id="cs-{{ q.question_id }}" style="color:#10b981; font-size:12px;"></span>
       <a href="{{ q.link }}" target="_blank" class="btn" style="background:#374151; color:#fff; font-size:12px; padding:6px 12px;">원본 지식인 열기 →</a>
       <button type="button" onclick="regenerateNow('{{ q.question_id }}')" class="btn"
@@ -247,6 +249,24 @@ function copyFt(qid) {
   }
 }
 
+// 출처 박스(━━━ 영역) 제거 후 본문만 복사 — URL 보류 가설 검증용
+function copyFtNoUrl(qid) {
+  const ta = document.getElementById('ft-' + qid);
+  if (!ta) return;
+  const original = ta.value;
+  // ━ 5개 이상 라인부터 끝까지 제거 (출처 박스 통째)
+  const cleaned = original.split(/\n*━{5,}[\s\S]*$/m)[0].trimEnd();
+  ta.value = cleaned;
+  ta.select();
+  document.execCommand('copy');
+  ta.value = original;
+  const cs = document.getElementById('cs-' + qid);
+  if (cs) {
+    cs.textContent = '✓ URL 제거 복사됨 (' + cleaned.length + '자)';
+    setTimeout(() => { cs.textContent = ''; }, 2500);
+  }
+}
+
 // 미생성 카드 → 그 자리에서 답변 생성 (POST /knowin/generate/{qid})
 async function generateNow(qid) {
   const div = document.querySelector(`.answer-pending[data-qid="${qid}"]`);
@@ -306,6 +326,7 @@ function renderAnswerArea(qid, d) {
               style="width:100%; height:200px; padding:10px; background:#020617; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:12px; line-height:1.6;">${escapeHtml(d.full_text || '')}</textarea>
     <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <button onclick="copyFt('${qid}')" class="btn btn-blue" style="font-size:12px; padding:6px 12px;">📋 복사</button>
+      <button onclick="copyFtNoUrl('${qid}')" class="btn" style="background:#475569; color:#fff; font-size:12px; padding:6px 12px;" title="출처 박스 제거">📋 URL 없이</button>
       <span id="cs-${qid}" style="color:#10b981; font-size:12px;"></span>
       <button type="button" onclick="regenerateNow('${qid}')" class="btn" style="background:#0ea5e9; color:#fff; font-size:12px; padding:6px 12px;">🔄 재생성</button>
       <span style="flex:1;"></span>
