@@ -1060,6 +1060,39 @@ async def knowin_verify_all(background: BackgroundTasks):
     return RedirectResponse("/knowin?msg=verify-started", status_code=303)
 
 
+@router.post("/restore/{question_id}")
+async def knowin_restore(question_id: str):
+    """ghost·posted·blocked·off_topic 카드를 큐로 복원 (status=approved).
+
+    verify 흔적 (verified/verified_at/posted_at/answered_by/manual_posted/verify_attempts)
+    전부 unset. answers 컬렉션도 동기.
+    """
+    coll = get_collection("knowin_questions")
+    r1 = coll.update_one(
+        {"question_id": question_id},
+        {
+            "$set": {"status": "approved"},
+            "$unset": {
+                "verified": "",
+                "verified_at": "",
+                "posted_at": "",
+                "manual_posted": "",
+                "answered_by": "",
+                "verify_attempts": "",
+                "answer_blocked": "",
+                "blocked_reason": "",
+            },
+        },
+    )
+    get_collection("knowin_answers").update_one(
+        {"question_id": question_id},
+        {"$set": {"status": "approved"}, "$unset": {"posted_at": ""}},
+    )
+    if r1.modified_count == 0:
+        return RedirectResponse("/knowin?msg=restore-notfound", status_code=303)
+    return RedirectResponse(f"/knowin?msg=restored#q-{question_id}", status_code=303)
+
+
 @router.post("/recheck-topic")
 async def knowin_recheck_topic():
     """body 가진 matched/approved 항목들 토픽 재검사 (page fetch 없이, 빠름).

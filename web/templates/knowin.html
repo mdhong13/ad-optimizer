@@ -36,6 +36,11 @@
             onsubmit="event.preventDefault(); reverifyGhost('{{ g.question_id }}'); return false;">
         <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:11px; padding:2px 8px;">🔍 재검수</button>
       </form>
+      <form method="post" action="/knowin/restore/{{ g.question_id }}" style="display:inline; margin-left:4px;"
+            onsubmit="return confirm('카드를 큐로 복원합니다 (status=approved, 검수 흔적 리셋). 진행할까요?');"
+            title="카드를 매칭 큐로 복원 (다시 게시·검수 가능)">
+        <button type="submit" class="btn" style="background:#0ea5e9; color:#fff; font-size:11px; padding:2px 8px;">↩️ 큐로 복원</button>
+      </form>
     </li>
     {% endfor %}
   </ul>
@@ -514,6 +519,8 @@ function copyReverifyText(qid) {
     'mark-posted-error': '❌ link 또는 docId 입력 필요',
     'verify-started': '🔍 게시 검수 백그라운드 시작 — verified/ghost 갱신됩니다',
     'recheck-done': '🚫 토픽 재검사 완료',
+    'restored': '↩️ 큐로 복원 완료 — status=approved + 검수 흔적 리셋',
+    'restore-notfound': '❌ 복원 실패 — question_id 없음',
   };
   // recheck-done 은 moved/kept 추가 표시
   if (msg === 'recheck-done') {
