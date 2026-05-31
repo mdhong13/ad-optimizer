@@ -23,7 +23,8 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
@@ -79,12 +80,18 @@ _OWN_ANSWERER_PATTERNS = [
 
 @dataclass
 class FetchedQuestion:
-    """페이지 fetch 결과 — body + 답변 차단 + 본인 이미 답변 여부"""
+    """페이지 fetch 결과 — body + 답변 차단 + 본인 이미 답변 여부 + 디버그"""
     body: Optional[str] = None
     answer_blocked: bool = False
     blocked_reason: Optional[str] = None
     already_answered: bool = False
     answered_by: Optional[str] = None   # 매칭된 prefix (nors 또는 live)
+    # 디버그 정보 (trace·verify 응답용)
+    masked_answerers: list = field(default_factory=list)   # 페이지에서 감지한 답변자 마스킹 전체
+    page_size: int = 0
+    fetch_url: Optional[str] = None
+    fetched_at: Optional[str] = None
+    http_status: Optional[int] = None
 
     @property
     def ok(self) -> bool:
@@ -119,6 +126,22 @@ def _detect_own_answer(page_text: str) -> tuple[bool, Optional[str]]:
         if pattern.search(page_text):
             return True, prefix
     return False, None
+
+
+# 네이버 답변자 마스킹 표준 패턴: `prefix****` (영문 3~12자 + 별표 4개)
+_MASKED_ANSWERER_PATTERN = re.compile(r"\b[a-zA-Z][\w]{2,11}\*{2,}")
+
+
+def _extract_masked_answerers(page_text: str) -> list:
+    """페이지에서 답변자 마스킹 전부 추출 (중복 제거, 등장 순서 유지)"""
+    found = _MASKED_ANSWERER_PATTERN.findall(page_text)
+    seen = set()
+    out = []
+    for m in found:
+        if m not in seen:
+            seen.add(m)
+            out.append(m)
+    return out
 
 
 def _detect_answer_blocked(soup, page_text: str) -> tuple[bool, Optional[str]]:
@@ -169,16 +192,23 @@ def fetch_question_meta(
         return result
 
     url = to_mobile_url(link)
+    result.fetch_url = url
+    result.fetched_at = datetime.now(timezone.utc).isoformat()
     sess = session or requests
     try:
         r = sess.get(url, headers=DEFAULT_HEADERS, timeout=timeout)
+        result.http_status = r.status_code
         r.raise_for_status()
     except requests.RequestException as e:
         logger.warning("body fetch '%s' failed: %s", link, e)
         return result
 
+    result.page_size = len(r.text)
     soup = BeautifulSoup(r.text, "html.parser")
     page_text = soup.get_text(" ", strip=True)
+
+    # 마스킹 답변자 전체 추출 (디버그용)
+    result.masked_answerers = _extract_masked_answerers(page_text)
 
     # 본인 이미 답변 검출 (norsunglae/livecanvas) — 가장 강한 종료 신호
     own, prefix = _detect_own_answer(page_text)

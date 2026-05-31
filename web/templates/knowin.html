@@ -402,21 +402,76 @@ function copyTrace(qid) {
   }
 }
 
-// Ghost 항목 재검수 (캐시 지연 회피)
+// Ghost 항목 재검수 — 디버그 정보 같이 출력 (Claude 채팅용)
 async function reverifyGhost(qid) {
   try {
     const res = await fetch(`/knowin/verify/${qid}`, { method: 'POST' });
     const data = await res.json();
-    if (data.ok && data.verified) {
-      alert('✅ 검수 통과 — 답변 박힘 확인 (page reload)');
-      window.location.reload();
-    } else if (data.ok) {
-      alert(`👻 여전히 ghost — 답변 안 박힘 (시도 누적, page_fetch_ok=${data.page_fetch_ok})`);
-    } else {
+    if (!data.ok) {
       alert('❌ ' + (data.error || 'unknown'));
+      return;
     }
+    if (data.verified) {
+      alert('✅ 검수 통과 — 답변 박힘 확인. 페이지 새로고침.');
+      window.location.reload();
+      return;
+    }
+    // ghost — 디버그 정보 dump
+    const masked = data.masked_answerers || [];
+    const lines = [
+      `=== knowin 재검수 trace (qid=${qid}) ===`,
+      `fetched_at  : ${data.fetched_at || '?'}`,
+      `fetch URL   : ${data.fetch_url || '?'}`,
+      `HTTP status : ${data.http_status || '?'}`,
+      `page size   : ${(data.page_size || 0).toLocaleString()} bytes`,
+      `page_fetch_ok    : ${data.page_fetch_ok}`,
+      `answer_blocked   : ${data.answer_blocked} (${data.blocked_reason || '-'})`,
+      `답변자 마스킹    : ${masked.length}명`,
+      ...masked.slice(0, 20).map(m => `  · ${m}`),
+      (masked.length > 20 ? `  ... (+${masked.length - 20}명)` : ''),
+      `본인 매칭 (nors/live): ${data.answered_by || '(매칭 0건)'}`,
+      `→ verified : ${data.verified}`,
+    ].filter(Boolean).join('\n');
+
+    // textarea 박은 모달로 출력 (복사 가능)
+    showReverifyDebug(qid, lines);
   } catch (e) {
     alert('요청 실패: ' + e);
+  }
+}
+
+function showReverifyDebug(qid, text) {
+  // 기존 모달 제거
+  const old = document.getElementById('reverify-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'reverify-modal';
+  modal.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10000; display:flex; align-items:center; justify-content:center; padding:20px;';
+  modal.innerHTML = `
+    <div style="background:#0f172a; border:1px solid #334155; max-width:700px; width:100%; padding:20px; max-height:80vh; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <strong style="color:#ef4444;">👻 여전히 Ghost — 디버그 trace</strong>
+        <button onclick="document.getElementById('reverify-modal').remove()" style="background:#374151; color:#fff; border:none; padding:4px 10px; cursor:pointer;">닫기</button>
+      </div>
+      <textarea readonly id="rv-text-${qid}" style="flex:1; min-height:280px; padding:10px; background:#020617; border:1px solid #334155; color:#e5e7eb; font-family:monospace; font-size:11px; line-height:1.5;">${escapeHtml(text)}</textarea>
+      <div style="margin-top:8px;">
+        <button onclick="copyReverifyText('${qid}')" class="btn" style="background:#0ea5e9; color:#fff; font-size:12px; padding:6px 12px;">📋 Claude 채팅에 박기 (복사)</button>
+        <span id="rv-cs-${qid}" style="margin-left:8px; color:#10b981; font-size:11px;"></span>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function copyReverifyText(qid) {
+  const ta = document.getElementById('rv-text-' + qid);
+  if (!ta) return;
+  ta.select();
+  document.execCommand('copy');
+  const cs = document.getElementById('rv-cs-' + qid);
+  if (cs) {
+    cs.textContent = '✓ 복사됨';
+    setTimeout(() => { cs.textContent = ''; }, 2500);
   }
 }
 

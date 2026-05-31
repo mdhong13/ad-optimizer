@@ -823,10 +823,23 @@ def _build_approve_trace(q: dict, draft: Optional[dict], verify_meta) -> dict:
     if verify_meta is None:
         lines.append("  (skip — link 없음 또는 fetch 실패)")
     else:
+        lines.append(f"  fetch URL        : {verify_meta.fetch_url or '?'}")
+        lines.append(f"  fetched_at       : {verify_meta.fetched_at or '?'}")
+        lines.append(f"  HTTP status      : {verify_meta.http_status or '?'}")
+        lines.append(f"  page size        : {verify_meta.page_size:,} bytes")
         lines.append(f"  body fetch ok    : {bool(verify_meta.body)}")
-        lines.append(f"  already_answered : {verify_meta.already_answered}")
-        lines.append(f"  answered_by      : {verify_meta.answered_by or '(none — 본인 ID 답변 미발견)'}")
-        lines.append(f"  answer_blocked   : {verify_meta.answer_blocked}")
+        # 페이지에서 감지한 모든 답변자 마스킹 — 핵심 디버그 정보
+        m_list = verify_meta.masked_answerers or []
+        lines.append(f"  답변자 마스킹    : {len(m_list)}명")
+        if m_list:
+            for m in m_list[:20]:
+                lines.append(f"    · {m}")
+            if len(m_list) > 20:
+                lines.append(f"    ... (+{len(m_list)-20}명)")
+        else:
+            lines.append("    (감지된 답변자 0명 — 답변 없는 페이지 또는 lazy-load)")
+        lines.append(f"  본인 매칭 (nors/live): {verify_meta.answered_by or '(매칭 0건)'}")
+        lines.append(f"  answer_blocked   : {verify_meta.answer_blocked} ({verify_meta.blocked_reason or '-'})")
         lines.append(f"  → verified       : {verify_meta.already_answered}")
     lines.append("")
     lines.append("[DB update]")
@@ -962,6 +975,13 @@ async def knowin_verify_one(question_id: str):
         "verified": meta.already_answered,
         "answered_by": meta.answered_by,
         "page_fetch_ok": bool(meta.body),
+        "answer_blocked": meta.answer_blocked,
+        "blocked_reason": meta.blocked_reason,
+        "masked_answerers": meta.masked_answerers,
+        "page_size": meta.page_size,
+        "fetch_url": meta.fetch_url,
+        "fetched_at": meta.fetched_at,
+        "http_status": meta.http_status,
     })
 
 
