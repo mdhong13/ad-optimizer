@@ -20,12 +20,17 @@
 
 새 마케팅 세션이 들어오면 **이 순서대로** 처리:
 
-1. **🚨 Railway env 박기** — TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID 두 개. 안 박으면 Railway 측 알림 동작 X. 값은 `.env.global` 끝부분 참조 (2026-06-01 박힘).
-2. **Telegram 첫 통합 지점 결정** — knowin / daily-report / anomaly 중 어느 것부터. 권장 = `anomaly-alert` (5/28 같은 사고 즉시 감지). 사용자에게 옵션 A/B/C/D 제시 후 진행.
-3. **`/knowin` 일 5건 수동 게시 운영** — 사용자 결정 (2026-06-01): worker 자동 게시 보류. 매일 5개 답변 생성 후 사용자가 클립보드 복사 → 네이버 게시 → `📌 게시 완료` 버튼.
-4. ~~**키워드 풀 확장**~~ ✅ 완료 (`3687bc0`)
-5. **Google Ads API Basic Access 재신청** — `google-ads-api@dotcell.net` 만든 후
-6. **Meta Business 계정 reputation 점검** — 5/28 사고 거절 480건 영향
+1. **🚨 외부 cron 박을지 결정** — `/alerts/anomaly`·`/alerts/daily-summary`·`/alerts/spend-audit` endpoint 박혔지만 (`22b5511`) 호출자 없음. 옵션:
+   - A. cron-job.org (무료, 매시간 trigger) — 가장 빠름
+   - B. GitHub Actions (workflow_dispatch + schedule) — 통합 깔끔
+   - C. Railway scheduler 봉인 해제 + 가드 (5/28 사고 가드 박힌 채) — 위험
+   - 권장 A — 안전·빠름. ALERT_API_KEY 박은 후 cron 등록.
+2. **Railway env 확인** — `TELEGRAM_BOT_TOKEN`·`TELEGRAM_CHAT_ID`·`ALERT_API_KEY` 다 박혀있는지. 사용자 박았다 함 (2026-06-01).
+3. **`/knowin` 일 5건 수동 게시 운영** — 사용자 결정 (2026-06-01): worker 자동 게시 보류. 매일 5개 답변 생성 후 클립보드 복사 → 네이버 게시 → `📌 게시 완료`. 게시 완료 시점 Telegram 알림 박힘 (검수 결과).
+4. **Phase 3 광고 카피 daily 자동 생성** — 미시작. 메타·구글 카피 N개 매일 → DRY_RUN 박음 → Telegram 검토 큐 → ✅/❌
+5. ~~**키워드 풀 확장**~~ ✅ 완료 (`3687bc0`)
+6. **Google Ads API Basic Access 재신청** — `google-ads-api@dotcell.net` 만든 후
+7. **Meta Business 계정 reputation 점검** — 5/28 사고 거절 480건 영향
 
 ---
 
@@ -54,12 +59,18 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-01
-- **Telegram 봇 통합 시작 — Phase 1 (Snow W. Lee AI 마케팅팀 패턴 적용)**
+- **Telegram 봇 통합 완료 — Phase 1 (Snow W. Lee AI 마케팅팀 패턴 적용)** (`22b5511`)
   - 채널: "Dotcell 마케팅" (비공개, chat_id=`-1004226271829`)
   - 봇: `@dotcell_mkt_bot`, 토큰 `.env.global` 박힘
-  - 헬퍼: `agent/telegram.py` — `notify(text, sender)` 패턴. silent no-op (env 미설정 시), DRY_RUN 옵션, 예외 안전
-  - 첫 메시지 박힘 (smoke test 통과)
-  - **다음**: Railway env 박기 + 첫 통합 지점 (anomaly/daily/knowin 중)
+  - 헬퍼: `agent/telegram.py` — `notify(text, sender)` + `notify_safe`. silent no-op (env 미설정 시), DRY_RUN 옵션, 예외 안전, plain text (Markdown escape 함정 회피)
+  - **knowin 통합**: `_task_finish` 가 crawl/match/backfill/verify 완료 시 통계 요약 알림 (silent), failed 시 큰 알림. `knowin_posted` 가 검수 결과 alert (✅ verified / 🚫 차단 / 👻 ghost / 📌 검수 skip)
+  - **alerts endpoint 박힘** (`web/routes/alerts.py`, 215줄):
+    - `POST /alerts/anomaly` — knowin ghost 비율·차단 임계·spend 폭증 룰 검사
+    - `POST /alerts/daily-summary` — 어제 광고 성과 요약
+    - `POST /alerts/spend-audit` — DAILY_BUDGET_CAP 위반 감시
+    - 인증: `X-Alert-Key` 헤더 (env `ALERT_API_KEY` 미설정 시 우회)
+  - Railway env 박음 (사용자 확인): TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID + (선택) ALERT_API_KEY + (선택) DAILY_BUDGET_CAP
+  - **다음**: 외부 cron 박을지 (cron-job.org 권장)
 - **Snow W. Lee 패턴 적용 결정** — ad-optimizer 가 이미 Snow 패턴 80% 박혀있음 결론. 처음부터 다시 빌드 X.
   - Phase 1 (Telegram 통합) → 진행 중 ⏳
   - Phase 2 (knowin 자동화) → 사용자 결정: worker 보류, 일 5건 수동
