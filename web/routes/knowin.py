@@ -201,8 +201,9 @@ def _task_update(task_id: str, **fields):
 
 
 def _task_finish(task_id: str, status: str = "completed", error: str = None):
-    """태스크 종료 — finished_at + 최종 status"""
-    get_collection("knowin_tasks").update_one(
+    """태스크 종료 — finished_at + 최종 status + Telegram 알림"""
+    coll = get_collection("knowin_tasks")
+    coll.update_one(
         {"task_id": task_id},
         {"$set": {
             "status": status,
@@ -210,6 +211,35 @@ def _task_finish(task_id: str, status: str = "completed", error: str = None):
             "error": error,
         }},
     )
+
+    # Telegram 알림 — task 결과 요약
+    try:
+        from agent.telegram import notify_safe
+        t = coll.find_one({"task_id": task_id}, {"_id": 0})
+        if not t:
+            return
+        ttype = t.get("type", "task")
+        emoji = {"crawl": "🔍", "match": "🎯", "backfill": "📝", "verify": "✅"}.get(ttype, "🧩")
+        if status == "failed":
+            notify_safe(
+                f"{emoji} {ttype} 실패 — {error or 'unknown'}",
+                sender="knowin",
+            )
+        else:
+            # 통계 요약 — type 별 다른 필드
+            if ttype == "crawl":
+                msg = f"발견 {t.get('found',0)} · 신규 {t.get('inserted',0)} · skip {t.get('skipped',0)}"
+            elif ttype == "match":
+                msg = f"matched {t.get('matched',0)} · rejected {t.get('rejected',0)} · draft {t.get('draft_ok',0)}/{(t.get('draft_ok',0)+t.get('draft_fail',0))}"
+            elif ttype == "backfill":
+                msg = f"body ok {t.get('found',0)} · 차단 {t.get('rejected',0)} · 본인답 {t.get('matched',0)} · fail {t.get('skipped',0)}"
+            elif ttype == "verify":
+                msg = f"verified {t.get('matched',0)} · ghost {t.get('rejected',0)} · fail {t.get('skipped',0)}"
+            else:
+                msg = f"processed {t.get('processed',0)}/{t.get('total',0)}"
+            notify_safe(f"{emoji} {ttype} 완료 — {msg}", sender="knowin", silent=True)
+    except Exception:
+        pass
 
 router = APIRouter(prefix="/knowin")
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -1185,6 +1215,22 @@ async def knowin_posted(question_id: str):
         q["status"] = "posted"
 
     draft = get_collection("knowin_answers").find_one({"question_id": question_id}, {"_id": 0})
+
+    # Telegram 알림 — 게시 결과
+    try:
+        from agent.telegram import notify_safe
+        title = (q.get("title_plain") or "")[:60]
+        if verify_meta is None:
+            notify_safe(f"📌 게시 마킹 (검수 skip) — {title}", sender="knowin", silent=True)
+        elif verify_meta.already_answered:
+            notify_safe(f"✅ 게시 확인 — {title} (답변자: {verify_meta.answered_by})", sender="knowin")
+        elif verify_meta.answer_blocked:
+            notify_safe(f"🚫 차단 영역 — {title} ({verify_meta.blocked_reason})", sender="knowin")
+        else:
+            notify_safe(f"👻 Ghost (게시 후 안 박힘) — {title} · 원본: {q.get('link','')}", sender="knowin")
+    except Exception:
+        pass
+
     return JSONResponse(_build_approve_trace(q, draft, verify_meta, action_label="게시 완료"))
 
 
