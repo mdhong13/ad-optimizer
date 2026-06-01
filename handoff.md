@@ -20,10 +20,12 @@
 
 새 마케팅 세션이 들어오면 **이 순서대로** 처리:
 
-1. **`/knowin` 운용 시작 가능** — 357+ 질문 수집됨. matched 10건은 자동 draft 완료. 사용자가 클립보드 복사 → 네이버 게시 → "📌 네이버 게시 완료" 버튼.
-2. ~~**키워드 풀 확장 (P0 막힘 해소)**~~ — ✅ 2026-05-30 완료 (`3687bc0`). Railway fallback 2,436개, 로컬 3,858개. 다음 사이클부터 다양성 확보.
-3. **Google Ads API Basic Access 재신청** — 도메인 이메일 (`google-ads-api@dotcell.net`) 만든 후. dotcell.net 푸터 + schema.org 사업자 정보 박기.
-4. **Meta Business 계정 reputation 점검** — 5/28 Railway 자동 사고로 거절 480건 누적. 계정 알림 확인.
+1. **🚨 Railway env 박기** — TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID 두 개. 안 박으면 Railway 측 알림 동작 X. 값은 `.env.global` 끝부분 참조 (2026-06-01 박힘).
+2. **Telegram 첫 통합 지점 결정** — knowin / daily-report / anomaly 중 어느 것부터. 권장 = `anomaly-alert` (5/28 같은 사고 즉시 감지). 사용자에게 옵션 A/B/C/D 제시 후 진행.
+3. **`/knowin` 일 5건 수동 게시 운영** — 사용자 결정 (2026-06-01): worker 자동 게시 보류. 매일 5개 답변 생성 후 사용자가 클립보드 복사 → 네이버 게시 → `📌 게시 완료` 버튼.
+4. ~~**키워드 풀 확장**~~ ✅ 완료 (`3687bc0`)
+5. **Google Ads API Basic Access 재신청** — `google-ads-api@dotcell.net` 만든 후
+6. **Meta Business 계정 reputation 점검** — 5/28 사고 거절 480건 영향
 
 ---
 
@@ -50,6 +52,40 @@
 ## 최근 변경 (Recent Changes, 누적)
 
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
+
+### 2026-06-01
+- **Telegram 봇 통합 시작 — Phase 1 (Snow W. Lee AI 마케팅팀 패턴 적용)**
+  - 채널: "Dotcell 마케팅" (비공개, chat_id=`-1004226271829`)
+  - 봇: `@dotcell_mkt_bot`, 토큰 `.env.global` 박힘
+  - 헬퍼: `agent/telegram.py` — `notify(text, sender)` 패턴. silent no-op (env 미설정 시), DRY_RUN 옵션, 예외 안전
+  - 첫 메시지 박힘 (smoke test 통과)
+  - **다음**: Railway env 박기 + 첫 통합 지점 (anomaly/daily/knowin 중)
+- **Snow W. Lee 패턴 적용 결정** — ad-optimizer 가 이미 Snow 패턴 80% 박혀있음 결론. 처음부터 다시 빌드 X.
+  - Phase 1 (Telegram 통합) → 진행 중 ⏳
+  - Phase 2 (knowin 자동화) → 사용자 결정: worker 보류, 일 5건 수동
+  - Phase 3 (광고 카피 daily 자동 생성 + Telegram 검토 큐) → 미시작
+  - Phase 4 (자율 cron, 안전망 박힌 채) → 미시작. handoff 가드레일 #4 "수동 검토 첫 2주" 후
+- **knowin 자동 게시 worker 박음 — 보류 결정** (`6aafe69`)
+  - `worker/knowin_auto_poster.py` — Playwright sync + 본인 PC 로컬
+  - 셀렉터 디버그 (네이버 모바일 답변 form 못 찾음 — `answer form not found`) 어려워서 사용자 보류 결정
+  - 일 5개 수동 게시로 대체. 코드는 박혀있어서 향후 셀렉터 잡힌 시점에 재개 가능
+  - worker README, .env.example, .gitignore 박힘
+- **knowin 거절 → 삭제 + 종료 상태 영구 보호** (`4ac5c96`)
+  - 라벨 변경 ❌ 거절 → 🗑 삭제
+  - answer-pending 카드 (차단·RAG 미달 등 답변 없는 카드) 에도 삭제 버튼
+  - `TERMINAL_STATUSES` 확장: `{posted, rejected, blocked, off_topic}` — 재수집 시 자동 skip
+  - 백필 candidates 에서 종료 상태 제외 — status 덮어쓰기 방지
+  - knowin_generate 자동 격리: 차단 → status=blocked, RAG 미달 → status=rejected
+- **knowin Phase 1 → 1.5 진화** (5/30~6/1 누적 — `3687bc0` 부터 `4ac5c96` 까지 19개 커밋)
+  - 인라인 카드 (큐 표 → 카드 리스트, 본문·textarea·액션 다 메인에)
+  - 본문 fetcher (description 발췌 동문서답 fix) — `intelligence/knowin_body_fetcher.py`
+  - 지식파트너/FAQ 차단 영역 자동 감지 + 격리
+  - 본인 ID (nors/live) 답변 자동 감지 → posted 마킹
+  - 토픽 필터 (외제 승용차 negative + 트럭 positive) — 8/8 단위 통과
+  - 메타 발화 가드레일 ("저희가 보유한 자료" 등 8 패턴 차단)
+  - RAG 임계점 0.55 → 0.60
+  - 승인 trace + 게시 검수 시스템 (모달 + 클립보드 복사 → Claude 채팅 분석)
+  - 페이지 마스킹 list 디버그 (ghost 원인 좁히기)
 
 ### 2026-05-30
 - **knowin 키워드 풀 67 → 2,436 확장 — Railway P0 막힘 해소** (`3687bc0`) —
@@ -122,6 +158,18 @@
 ## 의사결정 로그 (Decisions, 비자명한 것만)
 
 > 코드/git log로 추적되지 않는 **"왜"** 정보.
+
+### 2026-06-01 / Snow W. Lee AI 마케팅팀 패턴 — 처음부터 다시 빌드 X
+**무엇**: Snow W. Lee 의 "Claude Code 로 코드 한 줄 없이 마케팅팀 만들기" 글 읽고 ad-optimizer 와 비교. 인프라 80% 이미 박혀있음 결론. Telegram 통합 + Slack 의 cron 박는 거만 갭. 4 Phase 점진 적용.
+**왜 그랬나**: Snow 의 `.claude/agents/` 5개 ≈ ad-optimizer 8 광고 스킬. CLAUDE.md·docs/·scripts/·MCP 다 박혀있음. 단 Slack(Telegram) 가시화 + 자율 cron 안전망 부족. 5/28 사고 (Meta 480건 자동 거절) 가 cron 봉인 원인 — Telegram 알림 박혀있었으면 즉시 차단 가능.
+**결과**: Phase 1 = Telegram + Phase 2 = knowin 자동화 (보류) + Phase 3 = 광고 카피 daily 자동 + Phase 4 = 자율 cron. 작게 시작.
+**교훈**: 기존 인프라 위에 갭만 메우는 게 효율적. Snow 패턴 그대로 베끼지 말고 자기 코드 안의 강점 살리기.
+
+### 2026-06-01 / knowin 자동 게시 worker 박았지만 보류
+**무엇**: Playwright + 본인 PC 로컬 worker (`worker/knowin_auto_poster.py`) 박았는데 첫 작업에서 `answer form not found` 에러. 네이버 모바일 답변 form 셀렉터 미스.
+**왜 보류**: 셀렉터 디버그 시간 든다 + captcha 위험 + 일 5개면 수동도 충분. 사용자 결정.
+**결과**: 일 5개 수동 게시 + worker 코드는 박혀있음. 향후 셀렉터 잡으면 재개.
+**교훈**: 자동화 ROI 계산 — 일 5건이면 수동 5분 vs worker 디버그 N시간 + 운영 위험. 작은 양은 수동이 빠를 수도.
 
 ### 2026-05-30 / 페르소나 도메인 격리 lock — 광고 자동화 첫 검수 항목 격상
 **무엇**: 광고 카피·이미지·TTS 만들 때 페르소나 이름 박기 전 **target_product 확인 의무**. `/ad-copy`·`/creative-brief` 호출 시 필수 입력. 카피 검수 시 페르소나 이름 grep 더블 체크. ad_pipeline.md § "[2] 크리에이티브 단계 — 페르소나 도메인 격리" + marketing_capabilities.md Section 8 가드레일.
