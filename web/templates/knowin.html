@@ -195,8 +195,9 @@
         <button type="submit" class="btn" style="background:#16a34a; color:#fff; font-size:12px; padding:6px 12px;">🤖 자동 게시 큐</button>
       </form>
       <form method="post" action="/knowin/reject/{{ q.question_id }}" style="display:inline;"
-            onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
-        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
+            onsubmit="return confirm('이 카드를 삭제합니다 (큐에서 제거 + 재수집 시 skip).');">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;"
+                title="큐에서 삭제 — 종료 상태(rejected)">🗑 삭제</button>
       </form>
     </div>
 
@@ -206,10 +207,15 @@
     {% else %}
     <!-- 답변 초안 미생성 — 메인 안에서 자동 생성 (페이지 로드 시 직렬 fetch) -->
     <div class="answer-pending" data-qid="{{ q.question_id }}" data-link="{{ q.link }}"
-         style="background:#1e3a5f; padding:10px 12px; color:#cbe1ff; font-size:12px;">
-      <span class="status-text">⏳ 답변 초안 자동 생성 대기 중...</span>
+         style="background:#1e3a5f; padding:10px 12px; color:#cbe1ff; font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span class="status-text" style="flex:1; min-width:200px;">⏳ 답변 초안 자동 생성 대기 중...</span>
       <button type="button" onclick="generateNow('{{ q.question_id }}')"
-              class="btn" style="margin-left:12px; background:#3b82f6; color:#fff; font-size:11px; padding:4px 10px;">🔄 지금 생성</button>
+              class="btn" style="background:#3b82f6; color:#fff; font-size:11px; padding:4px 10px;">🔄 지금 생성</button>
+      <form method="post" action="/knowin/reject/{{ q.question_id }}" style="display:inline;"
+            onsubmit="return confirm('이 카드를 삭제합니다 (재수집 시 자동 skip).');">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:11px; padding:4px 10px;"
+                title="큐에서 삭제 — 종료 상태 박혀서 재수집 차단">🗑 삭제</button>
+      </form>
     </div>
     {% endif %}
   </div>
@@ -350,8 +356,8 @@ function renderAnswerArea(qid, d) {
         <button type="submit" class="btn btn-green" style="font-size:12px; padding:6px 12px;">✅ 승인</button>
       </form>
       <button type="button" onclick="postedNow('${qid}')" class="btn" style="background:#7c3aed; color:#fff; font-size:12px; padding:6px 12px;">📌 게시 완료</button>
-      <form method="post" action="/knowin/reject/${qid}" style="display:inline;" onsubmit="return confirm('이 질문을 거절하시겠습니까?');">
-        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">❌ 거절</button>
+      <form method="post" action="/knowin/reject/${qid}" style="display:inline;" onsubmit="return confirm('이 카드를 삭제합니다 (큐에서 제거 + 재수집 시 skip).');">
+        <button type="submit" class="btn" style="background:#dc2626; color:#fff; font-size:12px; padding:6px 12px;">🗑 삭제</button>
       </form>
     </div>
   `;
@@ -542,7 +548,8 @@ function copyReverifyText(qid) {
   const labels = {
     'approved': '✅ 승인됨 — 클립보드 복사 후 네이버 게시',
     'posted': '📌 네이버 게시 완료 처리됨 (재수집 skip)',
-    'rejected': '❌ 거절됨',
+    'rejected': '🗑 삭제됨 — 재수집 시 자동 skip',
+    'deleted': '🗑 삭제됨 — 재수집 시 자동 skip',
     'crawl-started': '🔍 크롤 시작됨',
     'match-started': '🎯 매칭 시작됨',
     'backfill-started': '📝 본문 백필 시작됨 (페이지 fetch, 분 단위)',

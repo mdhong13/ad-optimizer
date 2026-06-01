@@ -347,7 +347,9 @@ def _crawl_task(limit: int):
         api = NaverKinSearch()
 
         # 종료 status — 자동 skip 대상 (재수집 시 큐 오염 방지)
-        TERMINAL_STATUSES = {"posted", "rejected"}
+        # 사용자가 삭제(rejected)·차단(blocked)·트럭아님(off_topic) 처리한 카드는
+        # 같은 question_id 가 다른 키워드로 잡혀도 재처리 X.
+        TERMINAL_STATUSES = {"posted", "rejected", "blocked", "off_topic"}
 
         for i, kw in enumerate(keywords):
             _task_update(task_id, current_item=kw, processed=i)
@@ -523,10 +525,13 @@ def _backfill_body_task(limit: int):
     coll = get_collection("knowin_questions")
 
     # matched/approved 우선 + pending 다음 (limit 안에서)
+    # 종료 상태 (rejected/posted/blocked/off_topic) 카드는 백필 skip — status 보호
+    _TERMINAL = ["rejected", "posted", "blocked", "off_topic"]
     filt = {
         "$and": [
             {"$or": [{"body_plain": {"$exists": False}}, {"body_plain": ""}, {"body_plain": None}]},
             {"link": {"$exists": True, "$ne": ""}},
+            {"status": {"$nin": _TERMINAL}},
         ]
     }
     candidates = list(
@@ -688,16 +693,27 @@ async def knowin_generate(question_id: str):
 
     q = _ensure_body(q)
     if q.get("answer_blocked"):
+        # 차단 영역 — status=blocked 로 즉시 격리 (큐에서 자동 제거)
+        coll.update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "blocked"}},
+        )
         return JSONResponse(
             {"ok": False, "error": f"답변 차단 영역: {q.get('blocked_reason') or '외부 답변 불가'}"},
             status_code=400,
         )
     text = _question_text(q)
     if not text:
+        coll.update_one({"question_id": question_id}, {"$set": {"status": "rejected"}})
         return JSONResponse({"ok": False, "error": "질문 본문 비어있음"}, status_code=400)
 
     m = match_question(text)
     if not m.matched:
+        # RAG 미달 — status=rejected 로 격리 (큐에서 자동 제거)
+        coll.update_one(
+            {"question_id": question_id},
+            {"$set": {"status": "rejected", "matched_score": m.top_score}},
+        )
         return JSONResponse(
             {"ok": False, "error": f"RAG 매칭 미달 (score={m.top_score:.3f})"},
             status_code=400,
@@ -1224,10 +1240,14 @@ async def knowin_mark_posted(link: str = Form(""), question_id: str = Form("")):
 
 @router.post("/reject/{question_id}")
 async def knowin_reject(question_id: str):
+    """카드 삭제 — status=rejected 박음. 종료 상태라 재수집 시 자동 skip.
+
+    답변 차단/RAG 미달/일반 거절 모두 동일 흐름 — 큐에서 사라짐.
+    """
     get_collection("knowin_questions").update_one(
         {"question_id": question_id}, {"$set": {"status": "rejected"}}
     )
-    return RedirectResponse("/knowin?msg=rejected", status_code=303)
+    return RedirectResponse("/knowin?msg=deleted", status_code=303)
 
 
 # ════════════════════════════════════════════════════════════
