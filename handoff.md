@@ -59,6 +59,15 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-02
+- **Phase 3 카피 batch — chunk 1 (백엔드) 완료·라이브 검증** (`a050de5`)
+  - 기존 `/creative/copy/generate` 는 생성만·휘발(저장 X). 갭=[저장→검토큐→Telegram]. knowin 검토 흐름 복제.
+  - `creative/copy_briefs.json` brief 풀 (시드 2: 무시동히터·트럭배터리 KR). 보이스·앵글=노대표 편집 영역. routine 이 last_used 순 로테이션(상태=copy_brief_state 컬렉션).
+  - `POST /creative/copy/batch` — brief 1건 → generate_copy(**local-vllm 무료 d4win**) → copy_review_queue insert(pending) → Telegram "✍️ 검토 대기 N건".
+  - `GET /creative/copy/review/list` (JSON) + `POST /creative/copy/review/{vid}/{accept|reject}`.
+  - **라이브 검증**: batch 3변형 생성·저장·Telegram·accept 상태전이 전부 OK (batch e03a5087).
+  - DRY_RUN 본질: 생성물은 검토 큐까지만. 게시는 사람 ✅ 후(5/28 가드 유지).
+  - **남은 chunk**: ② 검토 카드 UI(copy_review.html, knowin 패턴 복제) ③ routine daily 트리거(ad-daily-checks 에 batch POST 추가 or 별 routine). brief 풀 확장(노대표 보이스).
+  - 결정 기록: brief 소스=풀 파일(제품DB자동/온디맨드 중). 생성 provider=local-vllm(무료).
 - **외부 cron 결정 → Claude `/schedule` 채택 (cron-job.org 폐기)** —
   - alerts endpoint 호출자 문제를 외부 cron 대신 Claude Code `/schedule` remote routine 으로 해결.
   - 근거: 빈도 낮으면(일 1~2회) 비용 논리 증발 → 시스템 1개(Claude) > 2개(Claude+cron-job.org). 외부 의존 0, endpoint 실패 시 맥락까지 보고, Phase 3 확장 공짜.
