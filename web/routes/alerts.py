@@ -40,6 +40,25 @@ def _check_alert_auth(x_alert_key: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="invalid alert key")
 
 
+# ── Copy batch 트리거 (기계용 — daily routine) ──────────────
+@router.post("/copy-batch")
+async def alert_copy_batch(x_alert_key: Optional[str] = Header(None, alias="X-Alert-Key")):
+    """daily routine 이 호출 — 카피 brief 풀 로테이션 생성 → 검토 큐 → Telegram.
+
+    /creative/copy/batch 와 동일 코어. 단 여기는 /alerts prefix (Basic 미들웨어 제외)
+    + X-Alert-Key 인증이라 routine 이 운영자 비번 없이 호출 가능.
+    """
+    _check_alert_auth(x_alert_key)
+    from creative.copy_batch import run_copy_batch
+    try:
+        result = await run_copy_batch()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse(result)
+
+
 # ── Anomaly 검사 ────────────────────────────────────────────
 @router.post("/anomaly")
 async def alert_anomaly(x_alert_key: Optional[str] = Header(None, alias="X-Alert-Key")):

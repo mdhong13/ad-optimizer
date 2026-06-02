@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}카피 검토 큐 — OneMessage Ad Optimizer{% endblock %}
+
+{% block content %}
+<h1>카피 검토 큐 — Phase 3 (DRY_RUN · 게시 X)</h1>
+
+<div class="card" style="background:#1a2e1a; border:1px solid #276749; color:#c6f6d5;">
+  <strong>✍️ 흐름</strong> — 생성(local-vllm 무료) → 검토 큐 → ✅채택 / 🗑버림. 채택본은 실제 게시 시 사람이 직접 사용 (자동 게시 X).
+</div>
+
+<!-- 통계 -->
+<div class="stat-grid" id="copy-stats">
+  <div class="stat"><div class="label">pending</div><div class="value" data-cstat="pending">0</div><div class="sub">검토 대기</div></div>
+  <div class="stat" style="border-left:2px solid #10b981;"><div class="label">✅ accepted</div><div class="value" data-cstat="accepted">0</div><div class="sub">채택</div></div>
+  <div class="stat" style="border-left:2px solid #ef4444;"><div class="label">🗑 rejected</div><div class="value" data-cstat="rejected">0</div><div class="sub">버림</div></div>
+</div>
+
+<!-- 생성 액션 -->
+<div class="card">
+  <h2>지금 생성</h2>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <select id="brief-select" style="padding:7px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:13px;">
+      <option value="">(brief 풀 로테이션 — 자동 선택)</option>
+      {% for b in briefs %}
+      <option value="{{ b.id }}">{{ b.campaign }} · {{ b.platform }}/{{ b.language }}</option>
+      {% endfor %}
+    </select>
+    <select id="provider-select" style="padding:7px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:13px;">
+      {% for p in providers %}
+      <option value="{{ p.id }}" {% if p.id == default_provider %}selected{% endif %}>{{ p.label }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" id="gen-btn" class="btn btn-green" onclick="runBatch()">✍️ 카피 생성</button>
+    <span id="gen-status" style="font-size:12px; color:#9ca3af;"></span>
+  </div>
+</div>
+
+<!-- 검토 큐 (탭: pending / 전체) -->
+<div class="card">
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+    <h2 style="margin:0;">검토 대기</h2>
+    <label style="font-size:12px; color:#9ca3af;">
+      <input type="checkbox" id="show-all" onchange="loadQueue()"> 채택·버림도 보기
+    </label>
+    <span style="flex:1;"></span>
+    <button type="button" class="btn btn-gray" onclick="loadQueue()">↻ 새로고침</button>
+  </div>
+  <div id="copy-cards"><p style="color:#9ca3af;">불러오는 중...</p></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function variantBlock(v){
+  // kr/en 둘 다 있으면 둘 다, 없는 건 생략
+  const rows=[];
+  const langs=[['kr','🇰🇷'],['en','🇬🇧']];
+  for(const [lc,flag] of langs){
+    const hl=v['headline_'+lc], bd=v['body_'+lc], ct=v['cta_'+lc];
+    if(!(hl||bd||ct)) continue;
+    rows.push(`<div style="margin-top:6px;">
+      <div style="font-size:11px; color:#6b7280;">${flag} ${lc.toUpperCase()}</div>
+      ${hl?`<div style="font-size:15px; font-weight:600; color:#e2e8f0;">${esc(hl)}</div>`:''}
+      ${bd?`<div style="font-size:13px; color:#cbd5e1; margin:3px 0;">${esc(bd)}</div>`:''}
+      ${ct?`<div style="font-size:12px; color:#86efac;">▸ ${esc(ct)}</div>`:''}
+    </div>`);
+  }
+  return rows.join('') || '<div style="color:#6b7280; font-size:12px;">(빈 변형)</div>';
+}
+
+function card(r){
+  const v=r.variant||{};
+  const angle = v.angle || v.hypothesis || '';
+  const isPending = r.status==='pending';
+  const badge = r.status==='accepted' ? '<span style="font-size:11px;background:#276749;padding:2px 8px;border-radius:10px;">✅ 채택</span>'
+              : r.status==='rejected' ? '<span style="font-size:11px;background:#742a2a;padding:2px 8px;border-radius:10px;">🗑 버림</span>' : '';
+  return `<div id="cv-${r.variant_id}" style="background:#0f172a; border:1px solid #334155; padding:14px; margin-bottom:12px; border-left:3px solid ${isPending?'#3b82f6':'#475569'};">
+    <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;">
+      <strong style="color:#fbbf24; font-size:13px;">${esc(r.campaign||'(brief)')}</strong>
+      <span style="font-size:11px; color:#9ca3af;">${esc(r.platform||'')} / ${esc(r.language||'')}</span>
+      ${angle?`<span style="font-size:11px; color:#a78bfa;">· ${esc(angle)}</span>`:''}
+      <span style="flex:1;"></span>${badge}
+    </div>
+    ${variantBlock(v)}
+    ${isPending?`<div style="margin-top:10px; display:flex; gap:8px;">
+      <button class="btn btn-green" style="font-size:12px;" onclick="act('${r.variant_id}','accept')">✅ 채택</button>
+      <button class="btn btn-red" style="font-size:12px;" onclick="act('${r.variant_id}','reject')">🗑 버림</button>
+      <button class="btn btn-gray" style="font-size:12px;" onclick="copyText('${r.variant_id}')">📋 복사</button>
+    </div>`:''}
+  </div>`;
+}
+
+let _rows=[];
+async function loadQueue(){
+  const all=document.getElementById('show-all').checked;
+  const r=await fetch('/creative/copy/review/list?status='+(all?'all':'pending')+'&limit=80');
+  const d=await r.json();
+  _rows=d.rows||[];
+  const c=d.counts||{};
+  for(const k of ['pending','accepted','rejected']){
+    const el=document.querySelector(`[data-cstat="${k}"]`); if(el) el.textContent=c[k]||0;
+  }
+  const box=document.getElementById('copy-cards');
+  box.innerHTML = _rows.length ? _rows.map(card).join('') : '<p style="color:#9ca3af;">큐 비어있음. "카피 생성" 으로 시작.</p>';
+}
+
+async function act(vid, action){
+  const el=document.getElementById('cv-'+vid);
+  if(el) el.style.opacity='0.4';
+  const r=await fetch(`/creative/copy/review/${vid}/${action}`,{method:'POST'});
+  if(r.ok){ loadQueue(); } else { if(el) el.style.opacity='1'; alert('실패: '+action); }
+}
+
+function copyText(vid){
+  const r=_rows.find(x=>x.variant_id===vid); if(!r) return;
+  const v=r.variant||{};
+  const parts=[];
+  for(const lc of ['kr','en']){
+    const hl=v['headline_'+lc],bd=v['body_'+lc],ct=v['cta_'+lc];
+    if(hl||bd||ct) parts.push([hl,bd,ct].filter(Boolean).join('\n'));
+  }
+  navigator.clipboard.writeText(parts.join('\n\n')).then(()=>{
+    const el=document.getElementById('cv-'+vid);
+    if(el){const b=el.querySelector('button:last-child'); if(b){const t=b.textContent; b.textContent='✓ 복사됨'; setTimeout(()=>b.textContent=t,1500);}}
+  });
+}
+
+async function runBatch(){
+  const btn=document.getElementById('gen-btn'), st=document.getElementById('gen-status');
+  btn.disabled=true; st.textContent='생성 중... (local-vllm, 10~30초)';
+  const body={ provider_id: document.getElementById('provider-select').value };
+  const bid=document.getElementById('brief-select').value; if(bid) body.brief_id=bid;
+  try{
+    const r=await fetch('/creative/copy/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(r.ok){ st.textContent=`✓ ${d.count}건 생성 — ${d.brief_id}`; loadQueue(); }
+    else { st.textContent='❌ '+(d.detail||'실패'); }
+  }catch(e){ st.textContent='❌ '+e; }
+  finally{ btn.disabled=false; setTimeout(()=>st.textContent='',6000); }
+}
+
+loadQueue();
+</script>
+{% endblock %}

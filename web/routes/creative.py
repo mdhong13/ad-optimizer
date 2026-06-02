@@ -25,12 +25,9 @@ from creative.models import (
     VIDEO_MODELS, VIDEO_DEFAULT_ID,
 )
 from storage.db import get_collection
-from agent.telegram import notify_safe
+from creative.copy_batch import run_copy_batch, load_briefs
 
 log = logging.getLogger(__name__)
-
-# 카피 batch brief 풀 (정의는 read-only 파일, 로테이션 상태는 DB)
-BRIEFS_PATH = Path(__file__).resolve().parents[2] / "creative" / "copy_briefs.json"
 
 router = APIRouter(prefix="/creative")
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -85,88 +82,31 @@ async def api_copy_generate(payload: dict):
 
 
 # ---------- API: Copy batch (검토 큐 + Telegram, DRY_RUN — 게시 X) ----------
-# Phase 3: 기존 generate 에 [저장 → 검토 큐 → Telegram] 한 겹.
-# routine 이 매일 트리거 → brief 풀 로테이션 → 검토 카드 → 사람 ✅/🗑.
-# 절대 자동 게시 X — 생성물은 copy_review_queue 까지만.
-
-def _load_briefs() -> List[dict]:
-    if not BRIEFS_PATH.exists():
-        return []
-    data = json.loads(BRIEFS_PATH.read_text(encoding="utf-8"))
-    return [b for b in (data.get("briefs") or []) if b.get("id")]
-
-
-def _pick_brief(briefs: List[dict], brief_id: Optional[str]) -> dict:
-    """brief_id 지정 시 그것, 아니면 last_used 오래된 순(미사용 우선) 로테이션."""
-    if brief_id:
-        for b in briefs:
-            if b.get("id") == brief_id:
-                return b
-    state = {s["brief_id"]: s.get("last_used_at")
-             for s in get_collection("copy_brief_state").find({}, {"_id": 0})}
-    _floor = datetime.min.replace(tzinfo=timezone.utc)
-    return sorted(briefs, key=lambda b: (state.get(b["id"]) is not None,
-                                         state.get(b["id"]) or _floor))[0]
-
+# 코어는 creative/copy_batch.py (사람=여기 Basic, 기계=/alerts/copy-batch 키 공유).
 
 @router.post("/copy/batch")
 async def api_copy_batch(payload: Optional[dict] = None):
-    """brief 풀 1건 → 카피 생성 → copy_review_queue 저장 → Telegram 검토 알림.
-
-    payload(선택): {"brief_id": "...", "brief": {...직접...}, "provider_id": "local-vllm"}
-    payload 없으면 풀에서 로테이션. provider 기본 = local-vllm (무료 d4win).
-    """
+    """brief 풀 1건 → 카피 생성 → copy_review_queue → Telegram. UI '카피 생성' 버튼."""
     payload = payload or {}
-    provider_id = payload.get("provider_id") or "local-vllm"
-    brief = payload.get("brief")
-    brief_id = payload.get("brief_id")
-    if not brief:
-        briefs = _load_briefs()
-        if not briefs:
-            raise HTTPException(status_code=400, detail="brief 풀 비어있음 (creative/copy_briefs.json)")
-        brief = _pick_brief(briefs, brief_id)
-        brief_id = brief.get("id")
-
     try:
-        result = await copy_gen.generate_copy(brief, provider_id)
+        return await run_copy_batch(
+            brief_id=payload.get("brief_id"),
+            brief=payload.get("brief"),
+            provider_id=payload.get("provider_id") or "local-vllm",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        log.exception("[creative.copy.batch] generate failed")
-        notify_safe(f"❌ 카피 batch 생성 실패 — {brief.get('campaign', brief_id)}: {e}", sender="copy")
         raise HTTPException(status_code=500, detail=str(e))
 
-    variants = result.get("variants") or []
-    now = datetime.now(timezone.utc)
-    batch_id = uuid.uuid4().hex[:12]
-    docs = []
-    for v in variants:
-        docs.append({
-            "variant_id": uuid.uuid4().hex[:12],
-            "batch_id": batch_id,
-            "brief_id": brief_id,
-            "campaign": brief.get("campaign"),
-            "platform": brief.get("platform"),
-            "language": brief.get("language"),
-            "variant": v,
-            "model": result.get("_meta", {}).get("model"),
-            "provider_id": result.get("_meta", {}).get("provider_id"),
-            "status": "pending",   # pending → accepted | rejected (게시는 별도, 사람 수동)
-            "created_at": now,
-        })
-    if docs:
-        get_collection("copy_review_queue").insert_many(docs)
-    get_collection("copy_brief_state").update_one(
-        {"brief_id": brief_id}, {"$set": {"last_used_at": now}}, upsert=True
-    )
 
-    notify_safe(
-        f"✍️ 카피 검토 대기 {len(docs)}건\n"
-        f"· {brief.get('campaign', '(brief)')}\n"
-        f"· {brief.get('platform')} / {brief.get('language')}\n"
-        f"검토: /creative/copy/review",
-        sender="copy",
-    )
-    return {"ok": True, "batch_id": batch_id, "count": len(docs),
-            "brief_id": brief_id, "model": result.get("_meta", {}).get("model")}
+@router.get("/copy/review")
+async def page_copy_review(request: Request):
+    """카피 검토 큐 카드 UI (knowin 패턴). 데이터는 JS 가 /review/list 폴링."""
+    return templates.TemplateResponse(request, "copy_review.html", {
+        "briefs": load_briefs(),
+        "providers": COPY_PROVIDERS, "default_provider": "local-vllm",
+    })
 
 
 @router.get("/copy/review/list")
