@@ -111,18 +111,43 @@ def match_question(
     if not chunks:
         return WikiMatch(url=None, wiki_type=None, slug=None, title="(no match)", top_score=0.0)
 
-    # 최상위 truck-wiki chunk 찾기
-    wiki_hits = [c for c in chunks if c.get("type") == "truck-wiki"]
-    primary = wiki_hits[0] if wiki_hits else chunks[0]
+    # ── 관련도 게이트 = 전체 최상위 chunk 점수 (wiki/qa 무관) ──
+    # 이 인덱스에선 truck-qa(실제 Q&A) chunk 가 위키보다 항상 높게·정확하게 깔림.
+    # 과거엔 wiki chunk 점수로 게이트해서, top-k 가 QA 우세면 강한 트럭 매칭을
+    # "위키 인용 없음" 이유로 전멸시켰음 (요소수 QA 0.593인데 wiki 0.538 보고 거절,
+    # 5톤윙바디 0.591인데 top5 전부 QA → url=None 거절). 전체 top 으로 게이트.
+    top_score = float(chunks[0].get("score", 0.0))
 
-    source = primary.get("source", "")
-    url, wiki_type, slug = source_to_wiki_url(source)
-    top_score = float(primary.get("score", 0.0))
+    # ── 인용 위키 URL: top-k 안의 매핑가능 truck-wiki 최상위 ──
+    url = wiki_type = slug = None
+    title: Optional[str] = None
+    for c in chunks:
+        if c.get("type") != "truck-wiki":
+            continue
+        u, wt, sl = source_to_wiki_url(c.get("source", ""))
+        if u:
+            url, wiki_type, slug = u, wt, sl
+            title = c.get("heading") or sl
+            break
 
-    # title — heading 우선, 없으면 slug, 없으면 source basename
-    title = primary.get("heading") or slug or source.split("\\")[-1].split("/")[-1]
+    # top-k 에 매핑 위키 없으면(QA 우세) 위키 전용 검색으로 인용 페이지 1건 확보.
+    # 게이트(top_score)는 위에서 이미 결정 — 여기선 citation URL 보강만.
+    if url is None:
+        try:
+            wiki_only = rag.search(question_text, top_k=3, types=["truck-wiki"])
+        except RAGError:
+            wiki_only = []
+        for c in wiki_only:
+            u, wt, sl = source_to_wiki_url(c.get("source", ""))
+            if u:
+                url, wiki_type, slug = u, wt, sl
+                title = c.get("heading") or sl
+                break
 
-    # 답변 생성용 context — top-k 본문 압축 (max 200자/chunk)
+    if not title:
+        title = chunks[0].get("heading") or slug or "(match)"
+
+    # 답변 생성용 context — top-k 본문 압축 (max 300자/chunk)
     ctx_lines = []
     for c in chunks[:top_k]:
         h = c.get("heading") or ""
