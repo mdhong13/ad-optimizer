@@ -59,6 +59,13 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-02
+- **Phase 3 카피 batch — chunk 2(UI)+chunk 3(daily) 완료 → Phase 3 종료** (`71fd073`)
+  - chunk 2: `copy_review.html` 카드 UI (헤드라인·본문·CTA kr/en, ✅채택/🗑버림/📋복사, 통계, '카피 생성' 버튼). `GET /creative/copy/review` (Basic 보호).
+  - chunk 3: 코어를 `creative/copy_batch.py` 로 추출(run_copy_batch). `POST /alerts/copy-batch` (X-Alert-Key, Basic 제외) — routine 이 운영자 비번 없이 호출. routine `ad-daily-checks` 에 3번째 curl 추가 → 매일 09:04 KST anomaly+daily-summary+copy-batch.
+  - **전 루프 라이브 검증**: UI cred 200/none 401, copy-batch key 200(3변형 생성)/none 401.
+  - **완성된 자동 루프**: 매일 09:04 생성(d4win 무료)→검토 큐→Telegram→사람 /creative/copy/review 로그인 후 ✅/🗑. 게시는 사람 수동(가드 유지).
+  - 검토 큐에 검증 batch 잔존(qcat-heater 3 pending) — UI 데모 데이터, 둬도/지워도 무방.
+  - 다음(선택): brief 풀 보이스 다듬기(노대표), 채택본 → 실제 게시 연결, 플랫폼 확장.
 - **운영자 로그인(HTTP Basic) — 공개였던 UI 보호** (`78e5b0a`)
   - 발견: ad-optimizer UI(/knowin·/creative·/dashboard…) 가 **무인증 공개**였음 (ADMIN_USERNAME/PASSWORD 가 .env.global 엔 있으나 코드 0 사용). alert 키보다 큰 구멍.
   - 기존 운영자 자격증명 재사용(신규 비번 X). web/main.py @app.middleware Basic, secrets.compare_digest. ADMIN_USERNAME/PASSWORD Railway env 박음.
