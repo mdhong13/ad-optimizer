@@ -8,8 +8,12 @@
 - GET  /creative/video/status       Veo 작업 폴링
 """
 from __future__ import annotations
+import json
 import logging
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import List, Optional
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.templating import Jinja2Templates
@@ -20,8 +24,13 @@ from creative.models import (
     IMAGE_MODELS, IMAGE_DEFAULT_ID,
     VIDEO_MODELS, VIDEO_DEFAULT_ID,
 )
+from storage.db import get_collection
+from agent.telegram import notify_safe
 
 log = logging.getLogger(__name__)
+
+# 카피 batch brief 풀 (정의는 read-only 파일, 로테이션 상태는 DB)
+BRIEFS_PATH = Path(__file__).resolve().parents[2] / "creative" / "copy_briefs.json"
 
 router = APIRouter(prefix="/creative")
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -73,6 +82,121 @@ async def api_copy_generate(payload: dict):
         log.exception("[creative.copy] generate failed")
         raise HTTPException(status_code=500, detail=str(e))
     return result
+
+
+# ---------- API: Copy batch (검토 큐 + Telegram, DRY_RUN — 게시 X) ----------
+# Phase 3: 기존 generate 에 [저장 → 검토 큐 → Telegram] 한 겹.
+# routine 이 매일 트리거 → brief 풀 로테이션 → 검토 카드 → 사람 ✅/🗑.
+# 절대 자동 게시 X — 생성물은 copy_review_queue 까지만.
+
+def _load_briefs() -> List[dict]:
+    if not BRIEFS_PATH.exists():
+        return []
+    data = json.loads(BRIEFS_PATH.read_text(encoding="utf-8"))
+    return [b for b in (data.get("briefs") or []) if b.get("id")]
+
+
+def _pick_brief(briefs: List[dict], brief_id: Optional[str]) -> dict:
+    """brief_id 지정 시 그것, 아니면 last_used 오래된 순(미사용 우선) 로테이션."""
+    if brief_id:
+        for b in briefs:
+            if b.get("id") == brief_id:
+                return b
+    state = {s["brief_id"]: s.get("last_used_at")
+             for s in get_collection("copy_brief_state").find({}, {"_id": 0})}
+    _floor = datetime.min.replace(tzinfo=timezone.utc)
+    return sorted(briefs, key=lambda b: (state.get(b["id"]) is not None,
+                                         state.get(b["id"]) or _floor))[0]
+
+
+@router.post("/copy/batch")
+async def api_copy_batch(payload: Optional[dict] = None):
+    """brief 풀 1건 → 카피 생성 → copy_review_queue 저장 → Telegram 검토 알림.
+
+    payload(선택): {"brief_id": "...", "brief": {...직접...}, "provider_id": "local-vllm"}
+    payload 없으면 풀에서 로테이션. provider 기본 = local-vllm (무료 d4win).
+    """
+    payload = payload or {}
+    provider_id = payload.get("provider_id") or "local-vllm"
+    brief = payload.get("brief")
+    brief_id = payload.get("brief_id")
+    if not brief:
+        briefs = _load_briefs()
+        if not briefs:
+            raise HTTPException(status_code=400, detail="brief 풀 비어있음 (creative/copy_briefs.json)")
+        brief = _pick_brief(briefs, brief_id)
+        brief_id = brief.get("id")
+
+    try:
+        result = await copy_gen.generate_copy(brief, provider_id)
+    except Exception as e:
+        log.exception("[creative.copy.batch] generate failed")
+        notify_safe(f"❌ 카피 batch 생성 실패 — {brief.get('campaign', brief_id)}: {e}", sender="copy")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    variants = result.get("variants") or []
+    now = datetime.now(timezone.utc)
+    batch_id = uuid.uuid4().hex[:12]
+    docs = []
+    for v in variants:
+        docs.append({
+            "variant_id": uuid.uuid4().hex[:12],
+            "batch_id": batch_id,
+            "brief_id": brief_id,
+            "campaign": brief.get("campaign"),
+            "platform": brief.get("platform"),
+            "language": brief.get("language"),
+            "variant": v,
+            "model": result.get("_meta", {}).get("model"),
+            "provider_id": result.get("_meta", {}).get("provider_id"),
+            "status": "pending",   # pending → accepted | rejected (게시는 별도, 사람 수동)
+            "created_at": now,
+        })
+    if docs:
+        get_collection("copy_review_queue").insert_many(docs)
+    get_collection("copy_brief_state").update_one(
+        {"brief_id": brief_id}, {"$set": {"last_used_at": now}}, upsert=True
+    )
+
+    notify_safe(
+        f"✍️ 카피 검토 대기 {len(docs)}건\n"
+        f"· {brief.get('campaign', '(brief)')}\n"
+        f"· {brief.get('platform')} / {brief.get('language')}\n"
+        f"검토: /creative/copy/review",
+        sender="copy",
+    )
+    return {"ok": True, "batch_id": batch_id, "count": len(docs),
+            "brief_id": brief_id, "model": result.get("_meta", {}).get("model")}
+
+
+@router.get("/copy/review/list")
+async def api_copy_review_list(status: str = "pending", limit: int = 60):
+    """검토 큐 조회 (JSON). chunk 2 에서 카드 UI 가 소비."""
+    coll = get_collection("copy_review_queue")
+    filt = {} if status == "all" else {"status": status}
+    rows = list(coll.find(filt, {"_id": 0}).sort("created_at", -1).limit(limit))
+    for r in rows:
+        if r.get("created_at") and hasattr(r["created_at"], "isoformat"):
+            r["created_at"] = r["created_at"].isoformat()
+        if r.get("reviewed_at") and hasattr(r["reviewed_at"], "isoformat"):
+            r["reviewed_at"] = r["reviewed_at"].isoformat()
+    counts = {s: coll.count_documents({"status": s}) for s in ("pending", "accepted", "rejected")}
+    return {"rows": rows, "counts": counts}
+
+
+@router.post("/copy/review/{variant_id}/{action}")
+async def api_copy_review_action(variant_id: str, action: str):
+    """카피 변형 채택/버림. action: accept | reject."""
+    if action not in ("accept", "reject"):
+        raise HTTPException(status_code=400, detail="action은 accept 또는 reject")
+    new_status = "accepted" if action == "accept" else "rejected"
+    r = get_collection("copy_review_queue").update_one(
+        {"variant_id": variant_id},
+        {"$set": {"status": new_status, "reviewed_at": datetime.now(timezone.utc)}},
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="variant_id 없음")
+    return {"ok": True, "variant_id": variant_id, "status": new_status}
 
 
 # ---------- API: Storyboard (anchor extraction + 3-shot video prompts) ----------

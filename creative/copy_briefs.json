@@ -1,0 +1,27 @@
+{
+  "_comment": "daily 카피 batch 의 brief 풀. routine 이 last_used 오래된 순으로 1건씩 로테이션. 보이스·앵글은 노대표 직접 편집 영역. 언어는 kr/en 단일(한 프레임에 섞지 않음).",
+  "briefs": [
+    {
+      "id": "qcat-heater-kr",
+      "campaign": "QCat 무시동 히터 — 겨울 트럭 운전자",
+      "platform": "meta_feed",
+      "language": "kr",
+      "angle": "cost_saving",
+      "tone": "reassurance",
+      "audience": "장거리 화물 트럭 기사 (40~60대), 겨울 휴게소 차박 취침",
+      "n_variants": 3,
+      "story": "한겨울 새벽 휴게소. 엔진을 끄고도 운전실이 따뜻하다. 공회전 단속도, 연료 낭비도 없이 푹 잔 기사가 개운하게 다시 핸들을 잡는다."
+    },
+    {
+      "id": "qcat-battery-kr",
+      "campaign": "QCat 트럭 보조배터리 (LiFePO4)",
+      "platform": "meta_feed",
+      "language": "kr",
+      "angle": "reliability",
+      "tone": "trust",
+      "audience": "냉동·윙바디 화물 트럭 기사, 보조배터리 방전 경험자",
+      "n_variants": 3,
+      "story": "납산 배터리가 한겨울 새벽에 또 방전됐다. 이번엔 다르다. 영하에도 시동 한 번에 걸리고, 몇 년을 갈아치울 일이 없다."
+    }
+  ]
+}
