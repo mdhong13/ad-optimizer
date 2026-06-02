@@ -59,6 +59,13 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-02
+- **운영자 로그인(HTTP Basic) — 공개였던 UI 보호** (`78e5b0a`)
+  - 발견: ad-optimizer UI(/knowin·/creative·/dashboard…) 가 **무인증 공개**였음 (ADMIN_USERNAME/PASSWORD 가 .env.global 엔 있으나 코드 0 사용). alert 키보다 큰 구멍.
+  - 기존 운영자 자격증명 재사용(신규 비번 X). web/main.py @app.middleware Basic, secrets.compare_digest. ADMIN_USERNAME/PASSWORD Railway env 박음.
+  - 제외 경로: /health(헬스체크)·/privacy·/alerts(X-Alert-Key 기계인증)·/assets(광고 이미지 fetch)·/static. 미설정 시 fail-open+경고.
+  - 검증: /knowin no-cred 401·cred 200·wrong 401, /health 200, /alerts key 200·none 401.
+  - 설계: 기계(routine)=키, 사람=로그인. "로그인 대신 키냐"는 기계 vs 사람 구분 — routine 에 운영자 비번 박는 건 키보다 위험해 키 유지.
+  - ⚠️ **chunk 3 주의**: /creative/copy/batch 도 이제 로그인 보호됨. daily routine 으로 batch 트리거하려면 (a) /creative/copy/batch 를 X-Alert-Key 인증으로 빼거나 (b) routine 이 Basic creds 전송. chunk 3 설계 시 반영.
 - **Phase 3 카피 batch — chunk 1 (백엔드) 완료·라이브 검증** (`a050de5`)
   - 기존 `/creative/copy/generate` 는 생성만·휘발(저장 X). 갭=[저장→검토큐→Telegram]. knowin 검토 흐름 복제.
   - `creative/copy_briefs.json` brief 풀 (시드 2: 무시동히터·트럭배터리 KR). 보이스·앵글=노대표 편집 영역. routine 이 last_used 순 로테이션(상태=copy_brief_state 컬렉션).
