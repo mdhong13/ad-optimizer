@@ -58,6 +58,22 @@
 
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
+### 2026-06-02
+- **외부 cron 결정 → Claude `/schedule` 채택 (cron-job.org 폐기)** —
+  - alerts endpoint 호출자 문제를 외부 cron 대신 Claude Code `/schedule` remote routine 으로 해결.
+  - 근거: 빈도 낮으면(일 1~2회) 비용 논리 증발 → 시스템 1개(Claude) > 2개(Claude+cron-job.org). 외부 의존 0, endpoint 실패 시 맥락까지 보고, Phase 3 확장 공짜.
+  - **routine 생성**: `ad-daily-summary` (id `trig_017HSnj8M8qCAdg6U2mwbxLb`) — 매일 KST 09:00(=UTC `0 0 * * *`), `POST https://adteam.onemsg.net/alerts/daily-summary`, sonnet-4-6, Bash only, repo 無. https://claude.ai/code/routines/trig_017HSnj8M8qCAdg6U2mwbxLb
+  - **검증**: 로컬 curl 200 + Telegram [daily] 도착 확인. run-now 접수됨. 정기 첫 실행 06-03 09:04 KST.
+  - 🚨 **발견**: ALERT_API_KEY 실효 안 됨 — endpoint 무인증 공개 (키 없이 200). production 굳히기 전 키 박는 것 권장.
+  - 🔌 routine 에 Google Drive 커넥터 자동 첨부됨 (curl 작업엔 불필요, 무해). 거슬리면 clear_mcp_connections.
+  - 비용 주의: routine 매 실행 = 풀 CCR 세션 (정액제 한도 소비). 빈도 = 비용. anomaly 추가 시 일 1회 권장 (매시간 X).
+- **knowin 매칭 "모두 실패" 회귀 fix — threshold 0.60→0.55 복귀** (`9700960`)
+  - 5/31 threshold 0.55→0.60 실험이 회귀. dense v1 RAG 에서 정상 truck-wiki 매칭이 0.55~0.60 구간(녹스센서 0.555·요소수 0.629)이라 0.60 컷이 정상 매칭 학살. RAG 자체는 정상(health ok, 57364 chunks).
+  - 실측 회복: 녹스센서·요소수 FAIL→PASS. 무관(adblue 0.466) 여전히 정상 거절.
+  - ⚠️ 잔존 recall 갭(별건): top_k=5 가 전부 truck-qa 면 wiki URL 못 만들어 url=None→reject (예: 5톤윙바디 0.603). 매처가 점수를 truck-wiki chunk 기준으로 매겨 체감 점수 눌림. 향후 개선 후보.
+  - ⚠️ 미검증: 매칭은 Railway 에서 도는데 RAG 는 d4win 홈 DDNS. threshold 내려도 Railway 에서 0건이면 Railway→d4win 도달성 의심 (단 어제 게시 6건 정황상 최근까진 닿음).
+- **자동 게시 worker 큐 전면 제거** (`9700960`) — 안 씀(일 5건 수동 게시). UI(카드·버튼·폴링·토스트) + 백엔드(queue-post·post-queue next/report/list·_check_worker_auth) 268줄 삭제. worker/knowin_auto_poster.py 로컬 스크립트만 잔존(웹앱 비의존).
+
 ### 2026-06-01
 - **Telegram 봇 통합 완료 — Phase 1 (Snow W. Lee AI 마케팅팀 패턴 적용)** (`22b5511`)
   - 채널: "Dotcell 마케팅" (비공개, chat_id=`-1004226271829`)
