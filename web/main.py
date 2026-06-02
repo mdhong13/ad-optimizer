@@ -1,9 +1,13 @@
 """
 FastAPI 웹 대시보드 진입점
 """
+import base64
 import logging
+import os
+import secrets
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -37,6 +41,43 @@ if STATIC_DIR.exists():
 # Generated assets (creative outputs, etc.)
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
+# ── 운영자 로그인 (HTTP Basic) — 사람용 UI 보호 ──
+# 2026-06-02: ad-optimizer UI 가 무인증 공개였음. 기존 운영자 자격증명
+# (ADMIN_USERNAME/ADMIN_PASSWORD) 재사용. 제외 경로:
+#   /health  — Railway 헬스체크 (railway.toml healthcheckPath)
+#   /privacy(-policy) — 공개 필수 (앱스토어·광고 플랫폼 심사)
+#   /alerts  — 기계 endpoint, 자체 X-Alert-Key 인증 (routine 호출)
+#   /assets  — 광고 플랫폼이 크리에이티브 이미지 public URL 로 fetch
+#   /static  — CSS/JS (민감정보 없음)
+_AUTH_EXEMPT_PREFIXES = ("/health", "/privacy", "/alerts", "/assets", "/static")
+
+
+@app.middleware("http")
+async def operator_basic_auth(request: Request, call_next):
+    path = request.url.path
+    if any(path.startswith(p) for p in _AUTH_EXEMPT_PREFIXES):
+        return await call_next(request)
+    user = os.getenv("ADMIN_USERNAME", "")
+    pw = os.getenv("ADMIN_PASSWORD", "")
+    if not user or not pw:
+        # 자격증명 미설정 — 잠금 사고 방지 위해 통과 (단 경고). 정상 운영은 env 설정됨.
+        logger.warning("ADMIN_USERNAME/PASSWORD 미설정 — UI 인증 우회 중 (env 확인 필요)")
+        return await call_next(request)
+    header = request.headers.get("Authorization", "")
+    if header.startswith("Basic "):
+        try:
+            u, _, p = base64.b64decode(header[6:]).decode("utf-8").partition(":")
+            if secrets.compare_digest(u, user) and secrets.compare_digest(p, pw):
+                return await call_next(request)
+        except Exception:  # noqa: BLE001 — 잘못된 헤더는 그냥 401
+            pass
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="ad-optimizer"'},
+        content="401 Unauthorized — 운영자 로그인 필요",
+    )
+
 
 app.include_router(dashboard.router)
 app.include_router(campaigns.router)
