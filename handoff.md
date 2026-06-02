@@ -73,7 +73,7 @@
   - 근거: 빈도 낮으면(일 1~2회) 비용 논리 증발 → 시스템 1개(Claude) > 2개(Claude+cron-job.org). 외부 의존 0, endpoint 실패 시 맥락까지 보고, Phase 3 확장 공짜.
   - **routine 생성**: `ad-daily-summary` (id `trig_017HSnj8M8qCAdg6U2mwbxLb`) — 매일 KST 09:00(=UTC `0 0 * * *`), `POST https://adteam.onemsg.net/alerts/daily-summary`, sonnet-4-6, Bash only, repo 無. https://claude.ai/code/routines/trig_017HSnj8M8qCAdg6U2mwbxLb
   - **검증**: 로컬 curl 200 + Telegram [daily] 도착 확인. run-now 접수됨. 정기 첫 실행 06-03 09:04 KST.
-  - 🚨 **발견**: ALERT_API_KEY 실효 안 됨 — endpoint 무인증 공개 (키 없이 200). production 굳히기 전 키 박는 것 권장.
+  - ✅ **ALERT_API_KEY 활성화 완료** (2026-06-02): 키 생성 → `.env.global` + Railway env 저장 → 검증(무헤더 401·헤더 200). routine `ad-daily-checks` 양쪽 curl 에 `X-Alert-Key` 헤더 박음 (cloud routine 은 env 접근 불가 → 키가 routine config 에 embed, low-blast-radius read/notify 전용). 키 값은 `.env.global` 참조 (handoff/memory 에 기록 금지).
   - 🔌 routine 에 Google Drive 커넥터 자동 첨부됨 (curl 작업엔 불필요, 무해). 거슬리면 clear_mcp_connections.
   - 비용 주의: routine 매 실행 = 풀 CCR 세션 (정액제 한도 소비). 빈도 = 비용. anomaly 추가 시 일 1회 권장 (매시간 X).
 - **knowin 매칭 "모두 실패" — 진짜 원인=매처 구조 결함 (`9f844d8`), threshold(`9700960`)는 부차적**
