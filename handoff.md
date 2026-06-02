@@ -59,6 +59,12 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-02
+- **🔑 카피 엔진은 OneMessage 전용 — brief 풀 OneMessage 로 확정** (`e3619ab`)
+  - 발견: `creative/prompts/copy_bilingual.txt` 시스템 프롬프트가 **OneMessage(생존감지 메시지 앱) 카피라이터**로 하드코딩. 4 앵글(crypto_inheritance·family_safety·emergency_ready·digital_legacy)·3 티어(안심메시지·원메시지·원메시지프로)·넘버앵커(100%·12h·1년)·Meta KR 죽음언급금지.
+  - 증상: QCat 트럭 brief(히터·배터리) 넣으니 vague story 시 LLM 이 OneMessage prior 로 드리프트("안심 메시지를" 등 엉뚱). 거친/구체 story 는 prior 누름(masking).
+  - 사용자 결정: **daily 카피 = OneMessage**. brief 풀을 OneMessage 3건(emergency/family/legacy, KR)으로 교체. 샘플 검증 on-brand.
+  - ⚠️ 향후 QCat 제품 광고도 하려면 → 엔진 brand-aware 화 필요(brief 에 brand/system_context 필드 + 프롬프트 분기). 지금은 보류.
+  - 부수 교훈: **story 가 보이스 레버** — 디테일 박힌 story 가 카피 질·on-brand 둘 다 끌어올림(배터리 인산철+주행충전기 디테일이 카피로 그대로 상승). 광고체보다 거친 기사말투가 우세.
 - **Phase 3 카피 batch — chunk 2(UI)+chunk 3(daily) 완료 → Phase 3 종료** (`71fd073`)
   - chunk 2: `copy_review.html` 카드 UI (헤드라인·본문·CTA kr/en, ✅채택/🗑버림/📋복사, 통계, '카피 생성' 버튼). `GET /creative/copy/review` (Basic 보호).
   - chunk 3: 코어를 `creative/copy_batch.py` 로 추출(run_copy_batch). `POST /alerts/copy-batch` (X-Alert-Key, Basic 제외) — routine 이 운영자 비번 없이 호출. routine `ad-daily-checks` 에 3번째 curl 추가 → 매일 09:04 KST anomaly+daily-summary+copy-batch.
