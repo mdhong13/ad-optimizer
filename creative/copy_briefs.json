@@ -1,27 +1,38 @@
 {
-  "_comment": "daily 카피 batch 의 brief 풀. routine 이 last_used 오래된 순으로 1건씩 로테이션. 보이스·앵글은 노대표 직접 편집 영역. 언어는 kr/en 단일(한 프레임에 섞지 않음).",
+  "_comment": "daily 카피 batch 의 brief 풀 — OneMessage (생존감지 메시지 앱) 전용. 카피 엔진(prompts/copy_bilingual.txt)이 OneMessage 카피라이터라 brief 도 OneMessage 제품/앵글에 맞춤. 앵글 enum: crypto_inheritance·family_safety·emergency_ready·digital_legacy. KR 에서 죽음/사망 직접 언급 금지('못 돌아올 때' 프레임). 보이스·story 는 노대표 편집 영역. routine 이 last_used 순 로테이션.",
   "briefs": [
     {
-      "id": "qcat-heater-kr",
-      "campaign": "QCat 무시동 히터 — 겨울 트럭 운전자",
+      "id": "onemsg-emergency-kr",
+      "campaign": "OneMessage 비상 대비 — 고위험 직군",
       "platform": "meta_feed",
       "language": "kr",
-      "angle": "cost_saving",
-      "tone": "reassurance",
-      "audience": "장거리 화물 트럭 기사 (40~60대), 겨울 휴게소 차박 취침",
+      "angle": "emergency_ready",
+      "tone": "quiet, protective, solemn",
+      "audience": "장거리 화물 기사·현장직 등 가족 둔 고위험 직군 40~50대",
       "n_variants": 3,
-      "story": "한겨울 새벽 휴게소. 시동을 껐지만 트럭 안은 따뜻하다. 공회전 단속도, 연료 낭비도 없이 푹 잔 기사가 개운하게 다시 핸들을 잡는다."
+      "story": "새벽 빙판길로 떠나기 전, 그는 휴대폰을 연다. 12시간 응답이 없으면 아내에게 미리 써둔 한마디가 100% 전달된다. '혹시 못 돌아오면'이라는 말을 입 밖에 내지 않아도, 준비는 끝났다."
     },
     {
-      "id": "qcat-battery-kr",
-      "campaign": "QCat 트럭 보조배터리 (LiFePO4)",
+      "id": "onemsg-family-kr",
+      "campaign": "OneMessage 안심 메시지 — 혼자 계신 부모님",
       "platform": "meta_feed",
       "language": "kr",
-      "angle": "reliability",
-      "tone": "trust",
-      "audience": "냉동·윙바디 화물 트럭 기사, 보조배터리 방전 경험자",
+      "angle": "family_safety",
+      "tone": "quiet reassurance, warm",
+      "audience": "홀로 지내는 노부모를 둔 40~50대 자녀, 타지·해외 거주",
       "n_variants": 3,
-      "story": "납산 배터리가 한겨울 새벽에 또 방전됐다. 올 겨울은 다르다. 트럭용 인산철 배터리와 양방향 주행충전기를 설치했다. 주차를 하면, 보조 배터리가 시동 배터리를 충전하고 최상의 상태로 유지시킨다. 영하에도 시동 한 번에 걸리고, 몇 년을 갈아치울 일이 없다."
+      "story": "멀리 사는 딸은 매일 전화하지 못한다. 대신 12시간 동안 아무 응답이 없으면 부모님께 안부 문자가 자동으로 간다. 매주, 조용히. 별일 없음을 확인하는 가장 가벼운 방법."
+    },
+    {
+      "id": "onemsg-legacy-kr",
+      "campaign": "OneMessage 디지털 유산 — 남기고 싶은 말",
+      "platform": "meta_feed",
+      "language": "kr",
+      "angle": "digital_legacy",
+      "tone": "literary, warm, slightly solemn",
+      "audience": "어린 자녀·배우자에게 편지·사진을 남기고 싶은 30~50대",
+      "n_variants": 3,
+      "story": "아이의 스무 살 생일에 도착할 편지를 오늘 써둔다. 사진도, 못다 한 말도. 정해진 날, 정해진 사람에게만 조용히 전해진다."
     }
   ]
 }
