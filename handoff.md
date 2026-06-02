@@ -67,11 +67,13 @@
   - 🚨 **발견**: ALERT_API_KEY 실효 안 됨 — endpoint 무인증 공개 (키 없이 200). production 굳히기 전 키 박는 것 권장.
   - 🔌 routine 에 Google Drive 커넥터 자동 첨부됨 (curl 작업엔 불필요, 무해). 거슬리면 clear_mcp_connections.
   - 비용 주의: routine 매 실행 = 풀 CCR 세션 (정액제 한도 소비). 빈도 = 비용. anomaly 추가 시 일 1회 권장 (매시간 X).
-- **knowin 매칭 "모두 실패" 회귀 fix — threshold 0.60→0.55 복귀** (`9700960`)
-  - 5/31 threshold 0.55→0.60 실험이 회귀. dense v1 RAG 에서 정상 truck-wiki 매칭이 0.55~0.60 구간(녹스센서 0.555·요소수 0.629)이라 0.60 컷이 정상 매칭 학살. RAG 자체는 정상(health ok, 57364 chunks).
-  - 실측 회복: 녹스센서·요소수 FAIL→PASS. 무관(adblue 0.466) 여전히 정상 거절.
-  - ⚠️ 잔존 recall 갭(별건): top_k=5 가 전부 truck-qa 면 wiki URL 못 만들어 url=None→reject (예: 5톤윙바디 0.603). 매처가 점수를 truck-wiki chunk 기준으로 매겨 체감 점수 눌림. 향후 개선 후보.
-  - ⚠️ 미검증: 매칭은 Railway 에서 도는데 RAG 는 d4win 홈 DDNS. threshold 내려도 Railway 에서 0건이면 Railway→d4win 도달성 의심 (단 어제 게시 6건 정황상 최근까진 닿음).
+- **knowin 매칭 "모두 실패" — 진짜 원인=매처 구조 결함 (`9f844d8`), threshold(`9700960`)는 부차적**
+  - ⚠️ 첫 진단 오진 정정: "threshold 0.60 회귀"는 cherry-pick 질문 탓 오진. 라이브 30건 돌려도 0.55 배포 후 여전히 0건 → 라이브 실측으로 진짜 원인 규명.
+  - **진짜 원인**: 매처가 관련도를 truck-wiki chunk 점수로 게이트. 이 인덱스는 truck-qa(실제 Q&A)가 위키보다 항상 높게 깔림 → ① top5 전부 QA면 url=None 거절(5톤윙바디 0.591) ② 위키가 낮게 깔리면 QA 0.593인데 wiki 0.538 보고 거절(요소수). 대부분 트럭질문이 QA 우세라 전멸. 과거 12건은 위키가 운좋게 0.55 넘은 소수.
+  - **RAG 도달성·threshold 둘 다 무죄**: Railway→d4win 정상(거절 항목 score 0.49~0.70 nonzero). threshold 0.55 복귀도 유효하나 부차.
+  - **수정**: 게이트=chunks[0] 전체 top 점수, 인용 위키 URL=top-k 매핑 우선+wiki 전용 검색 폴백. 라이브 시뮬 OLD 7→NEW 13(+86%), 회복분 전부 정상 트럭(4.5톤 프리마·중고화물차·15톤 덤프). 정크(이사·면허)는 거절 유지.
+  - **라이브 검증**: 배포 후 match 30건 → matched 3+ 증가 (직전 50/50 전멸 대비). 닫힘.
+  - 잔존 별건: 토픽 필터 negative 추가 이전의 승용차 잔재가 큐에 남음(신규 크롤은 필터됨).
 - **자동 게시 worker 큐 전면 제거** (`9700960`) — 안 씀(일 5건 수동 게시). UI(카드·버튼·폴링·토스트) + 백엔드(queue-post·post-queue next/report/list·_check_worker_auth) 268줄 삭제. worker/knowin_auto_poster.py 로컬 스크립트만 잔존(웹앱 비의존).
 
 ### 2026-06-01
