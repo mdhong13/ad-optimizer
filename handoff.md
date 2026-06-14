@@ -59,6 +59,12 @@
 > 신규 항목은 **상단에 추가**. 형식: `[YYYY-MM-DD] 한 줄 요약` + (선택) 세부.
 
 ### 2026-06-02
+- **🚨 인프라 자격증명 로테이션 점검 — MongoDB IP 변경 + Railway env 재동기**
+  - **MongoDB IP → 3.37.183.3** (LiveOn 과 공유하는 EC2. storage/db.py _FORBIDDEN_DBS=showhost_live·lastmessage 가 같은 서버 증거). .env.global URI=raw IP(SRV 아님)라 IP 변경 시 URI 수정 필수.
+  - ⚠️ **교훈**: 로테이션은 .env.global(로컬)만 바꿈 → **Railway env 는 별도 복사본**이라 재동기 안 하면 프로덕션이 옛 IP/옛 키로 죽음. 실제로 Railway Mongo 읽기 500(daily-summary) 발생 → MONGODB_URI 재동기로 복구(500→200).
+  - Railway 재동기 완료: MONGODB_URI·ANTHROPIC_API_KEY·GEMINI_API_KEY·OPENAI_API_KEY (variableUpsert). set_railway_vars.py KEYS_TO_SET 엔 GEMINI·NAVER 누락 — 수동 upsert 함.
+  - 점검 결과: 로컬 Mongo(새IP)·Anthropic·Gemini OK. ad-optimizer 는 gspread·JWT·Fernet 안 씀(로테이션 무관).
+  - ⚠️ **미해결 Naver**: knowin_crawler.py 가 `NAVER_CLIENT_ID`(=401 죽은 앱) 읽음. 유효 creds 는 `NAVER_OPENAPI_*`(200). 둘은 다른 앱. knowin 크롤 401 — 결정 대기(OPENAPI 로 repoint vs NAVER_CLIENT_ID 갱신).
 - **🔑 카피 엔진은 OneMessage 전용 — brief 풀 OneMessage 로 확정** (`e3619ab`)
   - 발견: `creative/prompts/copy_bilingual.txt` 시스템 프롬프트가 **OneMessage(생존감지 메시지 앱) 카피라이터**로 하드코딩. 4 앵글(crypto_inheritance·family_safety·emergency_ready·digital_legacy)·3 티어(안심메시지·원메시지·원메시지프로)·넘버앵커(100%·12h·1년)·Meta KR 죽음언급금지.
   - 증상: QCat 트럭 brief(히터·배터리) 넣으니 vague story 시 LLM 이 OneMessage prior 로 드리프트("안심 메시지를" 등 엉뚱). 거친/구체 story 는 prior 누름(masking).
