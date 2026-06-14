@@ -93,10 +93,14 @@ class NaverKinSearch:
     """네이버 지식인 검색 API 클라이언트"""
 
     def __init__(self, client_id: Optional[str] = None, client_secret: Optional[str] = None):
-        self.client_id = client_id or os.getenv("NAVER_CLIENT_ID", "")
-        self.client_secret = client_secret or os.getenv("NAVER_CLIENT_SECRET", "")
+        # NAVER_OPENAPI_* 우선 (전용 검색 OpenAPI 앱), 없으면 NAVER_CLIENT_* fallback.
+        # 2026-06-02: 로테이션으로 NAVER_CLIENT_ID 앱이 401(자동무효) → OPENAPI 앱(유효)로 우선.
+        self.client_id = (client_id or os.getenv("NAVER_OPENAPI_CLIENT_ID")
+                          or os.getenv("NAVER_CLIENT_ID", ""))
+        self.client_secret = (client_secret or os.getenv("NAVER_OPENAPI_CLIENT_SECRET")
+                              or os.getenv("NAVER_CLIENT_SECRET", ""))
         if not self.client_id or not self.client_secret:
-            raise RuntimeError("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 미설정")
+            raise RuntimeError("NAVER_OPENAPI_CLIENT_ID/SECRET (또는 NAVER_CLIENT_ID/SECRET) 미설정")
 
     def _headers(self) -> dict:
         return {
