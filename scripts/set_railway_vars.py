@@ -36,6 +36,23 @@ KEYS_TO_SET = [
     "REDDIT_REFRESH_TOKEN",
     "REDDIT_ADS_ACCOUNT_ID",
     "REDDIT_USER_AGENT",
+    # QCat RAG (2026-07-10 감사 · 광명 이전 후 raw IP 정본)
+    "QCAT_RAG_URL",
+    # Gemini (2026-07-10 감사 · handoff.md 06-02 자체 미커밋 지적 반영)
+    "GEMINI_API_KEY",
+    # NAVER OpenAPI (SEO 키워드 발견)
+    "NAVER_OPENAPI_CLIENT_ID",
+    "NAVER_OPENAPI_CLIENT_SECRET",
+    # Telegram (경보·알림 chatops)
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_CHAT_ID",
+    # Alerts (내부 알림 API)
+    "ALERT_API_KEY",
+    # Admin (adteam.onemsg.net 관리자)
+    "ADMIN_USERNAME",
+    "ADMIN_PASSWORD",
+    # Knowin worker (지식인 자동 답글 워커)
+    "KNOWIN_WORKER_API_KEY",
 ]
 
 

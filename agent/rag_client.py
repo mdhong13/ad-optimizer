@@ -2,7 +2,7 @@
 QCat RAG 클라이언트 — ad-optimizer 가 도메인 지식 (제품·트럭·법률·캠핑) 활용
 
 서버: d4win `qcat-rag` 컨테이너 (외부 3900 ↔ 내부 3901)
-공개 URL: http://d4win.iptime.org:3900
+공개 URL: http://106.253.105.18:3900
 인덱스: 57,359 chunks (Products · CS · TruckQA · TruckLaw · Camping)
 
 용도:
@@ -25,7 +25,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "http://d4win.iptime.org:3900"
+DEFAULT_BASE_URL = "http://106.253.105.18:3900"
 DEFAULT_TIMEOUT = 30  # /query 는 LLM 호출 포함이라 길어질 수 있음
 
 

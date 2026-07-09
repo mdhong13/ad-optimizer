@@ -161,7 +161,7 @@ def _call_claude(prompt: str) -> tuple[str, str]:
 def _call_local_llm(prompt: str) -> tuple[str, str]:
     """로컬 d4win vLLM 호출 → (답변 텍스트, model id)"""
     import requests
-    base = os.getenv("LOCAL_LLM_BASE_URL", "http://d4win.iptime.org:31088")
+    base = os.getenv("LOCAL_LLM_BASE_URL", "http://106.253.105.18:31088")
     url = base.rstrip("/") + "/v1/chat/completions"
     body = {
         "model": "host",  # vLLM 자동 (현재 gemma4-e4b-it)

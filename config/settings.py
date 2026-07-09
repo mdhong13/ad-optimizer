@@ -21,7 +21,7 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
     # --- 로컬 LLM (d4win) ---
-    LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "http://d4win.iptime.org:31088")
+    LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "http://106.253.105.18:31088")
     LOCAL_LLM_CHAT_ENDPOINT: str = os.getenv("LOCAL_LLM_CHAT_ENDPOINT", "/v1/chat/completions")
     LOCAL_LLM_MODELS_ENDPOINT: str = os.getenv("LOCAL_LLM_MODELS_ENDPOINT", "/v1/models")
 

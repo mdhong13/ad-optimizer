@@ -64,7 +64,7 @@ client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 # OpenAI 호환 인터페이스
 import openai
 client = openai.OpenAI(
-    base_url=os.getenv("LOCAL_LLM_BASE_URL"),  # http://d4win.iptime.org:31088
+    base_url=os.getenv("LOCAL_LLM_BASE_URL"),  # http://106.253.105.18:31088
     api_key="not-required",
 )
 resp = client.chat.completions.create(
@@ -78,7 +78,7 @@ resp = client.chat.completions.create(
 ### 2.2 RAG 도메인 지식 (qcat-rag) — 2026-05-30 신규
 
 QCat 도메인 (배터리·트럭·캠핑·정비·법률) **57,359 chunks** 검색·답변.
-서버: d4win `qcat-rag` 컨테이너 — 공개 URL `http://d4win.iptime.org:3900`.
+서버: d4win `qcat-rag` 컨테이너 — 공개 URL `http://106.253.105.18:3900`.
 
 ```python
 import sys; sys.path.insert(0, r"D:\0_Dotcell\ad-optimizer")
