@@ -23,7 +23,7 @@
 ### 플랫폼 연결
 | 플랫폼 | 상태 | 위치 |
 |---|---|---|
-| 네이버 검색광고 | ✅ 읽기·쓰기 검증(08-12 수리) | `qcat/truck/scripts/ads/` + `scripts/lib/naverAd.mjs` |
+| 네이버 검색광고 | ✅ 읽기·쓰기 검증(08-12 수리) · **08-17 읽기 전용 파이썬 클라이언트 추가 → 통합 대시보드에 연결** | 집행=`qcat/truck/scripts/ads/` + `scripts/lib/naverAd.mjs` · 조회=`ad-optimizer/platforms/naver_ads.py` |
 | Meta | ✅ 읽기 검증(08-14 `act_` 수리) — 캠페인 20개 | `ad-optimizer/platforms/meta.py` |
 | Google Ads | ❌ PERMISSION_DENIED — **@dotcell.net 이메일로 Basic Access 재신청** 필요(개인 Gmail 거절 이력) | `ad-optimizer/platforms/google_ads.py` |
 | X | ❌ Ads API 미승인 (`TWITTER_ADS_ACCOUNT_ID` 없음) | `ad-optimizer/platforms/twitter.py` |
@@ -46,9 +46,22 @@
 | ⚪ 빈 통 | 바이럴 · 배포 · 결정 | 0건. 돈도 사고도 안 남 → **그대로 둔다** |
 | 🟡 낡음 | 크립토 이벤트 | 마지막 기록 2026-04-15(4개월). 스케줄러엔 「매 1시간」 등록만 돼 있음 |
 
-**08-17 수리 착수** — 화면 둘이 거짓 신호를 내고 있었다:
-- `/settings` 「Google Ads 연결됨」 초록 = `bool(GOOGLE_ADS_DEVELOPER_TOKEN)`. **키 문자열 유무일 뿐** 실제로는 `PERMISSION_DENIED`. → 실측 프로브로 교체(§5 도구표)
-- `/` 「7일 총 지출 $0.00」 = 로컬 Mongo `performance_snapshots` 만 읽음. 그 표를 채우는 스케줄러는 5/28 사고 후 정지(옳음). **0 은 「안 썼다」가 아니라 「아무도 안 적었다」.** 정작 네이버 월 200만원이 화면 밖. → 네이버 파이썬 클라이언트 신설 + 원/달러 분리 표기
+**08-17 수리 완료·배포됨**(`439c10b`) — 화면 둘이 거짓 신호를 내고 있었다:
+- `/settings` 「Google Ads 연결됨」 초록 = `bool(GOOGLE_ADS_DEVELOPER_TOKEN)`. **키 문자열 유무일 뿐** 실제로는 `PERMISSION_DENIED`. → `web/services/platform_status.py` 신설. 초록은 **실호출 성공에만**, 키만 있으면 「키 있음 · 미점검」. 키/클라이언트/실호출 3축 분리 + 실패 사유 노출 + 「마지막 점검 N분 전」 + [지금 점검]
+- `/` 「7일 총 지출 $0.00」 = 로컬 Mongo `performance_snapshots` 만 읽음. 그 표를 채우는 스케줄러는 5/28 사고 후 정지(옳음). **0 은 「안 썼다」가 아니라 「아무도 안 적었다」.** 정작 네이버 월 180만원이 화면 밖. → `platforms/naver_ads.py` 신설(읽기 전용) + 원/달러 분리 + 0건이면 숫자 대신 「수집 안 함」
+- 🩸 **저장된 Meta 스냅샷도 원화인데 템플릿이 `$` 하드코딩**이었다(cpc 162.99 = 163원). `$0.00` 은 이중으로 틀린 값이었다. 컬렉션에 `currency` 필드가 없어 「통화 미기록」으로 표기
+
+**운영 실측(2026-08-17 16:42, adteam.onemsg.net)** — 실호출 성공 **7/8**, 실패 1건(Google Ads):
+
+| | 결과 |
+|---|---|
+| 네이버 검색광고 | 🟢 캠페인 28개 · 421ms · **7일 744,153원 / 30일 1,819,945원** (ROAS 31.4배 / 32.9배) |
+| Meta · MongoDB · QCat RAG · Local LLM | 🟢 전부 호출 성공 |
+| Google Ads | 🔴 `PERMISSION_DENIED` — **MCC 하위 계정 권한 문제**. `User doesn't have permission to access customer`(ClientCustomerId 7958648888, login-customer-id 4894234221). **Basic Access 재신청과 별개 건**이므로 같이 정리할 것 |
+
+**🎁 점검기가 첫날 잡은 것** — Railway 의 `LOCAL_LLM_BASE_URL` 이 `http://d4win.iptime.org:31088` 로 낡아 있었다. iptime DDNS 는 사무실 안에서만 열리므로 클라우드에서는 `No route to host` 로 영영 닿지 않는다. **로컬은 성공 · 운영은 실패** — 화면을 안 보면 알 수 없는 종류다(카피 엔진이 조용히 폴백 중이었을 가능성). `.env.global` 값(`https://api.shoppingliveon.com/infer/vllm`)으로 교정 → 🟢.
+
+⚠️ **Railway 변수는 스테이징된다** — Variables 에 넣기만 하면 반영 안 되고, 상단 배너의 **Deploy** 를 눌러야 적용된다. 누르기 전에는 GraphQL `variables` 조회에도 안 잡힌다(08-17 두 번 헛돌았다).
 
 ### 💰 MD홍 Meta 광고계정 — 08-17 발굴 (자산 지도에 없던 것)
 
@@ -94,7 +107,9 @@
 | `qcat/truck/scripts/ads/products.mjs` | 쇼핑광고 상품 단위 성과 | 08-14 |
 | `qcat/truck/scripts/ads/toggle_product.mjs` | 상품 ON/OFF (dry-run 기본) | 08-14 |
 | `qcat/truck/scripts/ads/set_product_bids.mjs` | 상품별 입찰 분리 (10원 단위·type 필수) | 08-14 |
-| `ad-optimizer/scripts/platform_healthcheck.py` | 전 플랫폼 읽기 점검 | 08-14 |
+| `ad-optimizer/scripts/platform_healthcheck.py` | 전 플랫폼 읽기 점검(CLI). 로직은 `web/services/platform_status.py` 공유 | 08-17 |
+| `ad-optimizer/web/services/platform_status.py` | **연결 상태 정본** — 실호출 판정·3축 분리·병렬·캐시. `/settings` 와 CLI 가 같은 것을 본다 | 08-17 운영 |
+| `ad-optimizer/platforms/naver_ads.py` | 네이버 지출·전환 조회(읽기 전용). `get_spend(days)` → 원화 | 08-17 운영 |
 | `liveon-leads/collect.py` | 셀러 리드 수집(차단감지 포함) | 08-12 |
 | `ad-optimizer/.../play-upload.mjs` | Play 스토어 리스팅 업로드 | 미검증(코드만) |
 | 스킬 8종(ad-copy·ab-test·spend-audit…) | 카피·실험·감사 | 문서 기반 — API 의존부는 위 상태 따름 |
@@ -113,7 +128,9 @@
 - [ ] 숨숨집 — 상품명 수정 확인됨(「퀀텀캣 고양이 숨숨집 터널형」). **여전히 PENDING** → 콘솔에서 「재검토요청」 버튼 눌러야 심사 시작. 입찰 1,300원 대기 중
 
 **대기 (노대표 액션)**
-- [ ] `google-ads-api@dotcell.net` 생성 → Google Ads Basic Access 재신청 (2026-08-16 「며칠 후에」)
+- [ ] `google-ads-api@dotcell.net` 생성 → Google Ads Basic Access 재신청 (2026-08-16 「며칠 후에」).
+      ⚠️ **08-17 추가 발견**: 승인과 별개로 **MCC 하위 계정 접근 권한 자체가 어긋나 있다**(`PERMISSION_DENIED`).
+      재신청할 때 login-customer-id ↔ ClientCustomerId 연결도 같이 정리해야 한 번에 끝난다
 - [ ] Meta App ID 폐기/유지 결정 (OneMessage 재개의 첫 단추)
 - [ ] 자동 고양이 화장실 첫 판매 — 라이브 방송 검토
 
