@@ -74,6 +74,11 @@ class Settings:
     GOOGLE_ADS_CUSTOMER_ID: str = os.getenv("GOOGLE_ADS_CUSTOMER_ID", "7958648888")
     GOOGLE_ADS_LOGIN_CUSTOMER_ID: str = os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID", "4894234221")
 
+    # --- 네이버 검색광고 (SearchAd) — 읽기 전용 조회. 집행은 qcat/truck/scripts/ads/ 쪽 ---
+    NAVER_SEARCHAD_CUSTOMER_ID: str = os.getenv("NAVER_SEARCHAD_CUSTOMER_ID", "")
+    NAVER_SEARCHAD_ACCESS_LICENSE: str = os.getenv("NAVER_SEARCHAD_ACCESS_LICENSE", "")
+    NAVER_SEARCHAD_SECRET_KEY: str = os.getenv("NAVER_SEARCHAD_SECRET_KEY", "")
+
     # --- Gmail ---
     GMAIL_REFRESH_TOKEN: str = os.getenv("GMAIL_REFRESH_TOKEN", "")
 

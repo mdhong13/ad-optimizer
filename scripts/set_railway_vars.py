@@ -43,6 +43,10 @@ KEYS_TO_SET = [
     # NAVER OpenAPI (SEO 키워드 발견)
     "NAVER_OPENAPI_CLIENT_ID",
     "NAVER_OPENAPI_CLIENT_SECRET",
+    # NAVER 검색광고 (platforms/naver_ads.py 읽기 전용 지출 조회 · 2026-08-17)
+    "NAVER_SEARCHAD_CUSTOMER_ID",
+    "NAVER_SEARCHAD_ACCESS_LICENSE",
+    "NAVER_SEARCHAD_SECRET_KEY",
     # Telegram (경보·알림 chatops)
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",

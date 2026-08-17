@@ -1,31 +1,89 @@
 {% extends "base.html" %}
 {% block title %}설정 — OneMessage Ad Optimizer{% endblock %}
 
+{% block head %}
+<style>
+  /* 실측 표 — 기존 다크 테마·배지 클래스를 그대로 쓰고 최소한만 추가한다 */
+  .probe-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .probe-meta { font-size:12px; color:#718096; }
+  .probe-meta strong { color:#e2e8f0; font-weight:600; }
+  .probe-meta .stale { color:#f6ad55; }
+  .probe-group { font-size:11px; color:#718096; text-transform:uppercase; letter-spacing:0.05em; margin:18px 0 6px; }
+  .probe-group:first-of-type { margin-top:4px; }
+  td.axis { white-space:nowrap; font-size:12px; }
+  .axis-ok { color:#68d391; }
+  .axis-bad { color:#fc8181; }
+  .axis-idle { color:#718096; }
+  .detail { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; color:#a0aec0; line-height:1.5; word-break:break-word; }
+  .detail .code { display:inline-block; background:#3a1a1a; color:#fc8181; border-radius:4px; padding:1px 6px; margin-right:6px; font-weight:700; }
+  .ms { color:#4a5568; font-size:11px; white-space:nowrap; }
+  .note { font-size:12px; color:#718096; margin-top:12px; line-height:1.6; }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>설정</h1>
 
-<!-- API 연동 상태 -->
+<!-- API 연동 실측 상태 -->
 <div class="card">
-  <h2>API 연동 상태</h2>
+  <div class="probe-head">
+    <div>
+      <h2 style="margin-bottom:6px;">API 연동 상태 (실측)</h2>
+      <div class="probe-meta">
+        마지막 점검:
+        <strong {% if snapshot.is_stale %}class="stale"{% endif %}>{{ snapshot.age_text }}</strong>
+        · {{ snapshot.checked_at_kst }}
+        · 소요 {{ '%.1f'|format(snapshot.duration_ms / 1000) }}초
+        · 실호출 성공 <strong>{{ snapshot.ok_count }}/{{ snapshot.probed_count }}</strong>
+        {% if snapshot.fail_count %}· <span class="stale">실패 {{ snapshot.fail_count }}건</span>{% endif %}
+        {% if snapshot.is_stale %}· <span class="stale">캐시 만료 — 값이 낡았을 수 있음</span>{% endif %}
+      </div>
+    </div>
+    <form method="post" action="/settings/probe" style="margin:0;">
+      <button type="submit" class="btn btn-blue">지금 점검</button>
+    </form>
+  </div>
+
+  {% for group_name, rows in groups %}
+  <div class="probe-group">{{ group_name }}</div>
   <table>
     <thead>
-      <tr><th>서비스</th><th>상태</th></tr>
+      <tr>
+        <th style="width:22%;">서비스</th>
+        <th style="width:14%;">상태</th>
+        <th style="width:7%;">키</th>
+        <th style="width:9%;">클라이언트</th>
+        <th style="width:8%;">실호출</th>
+        <th>상세</th>
+        <th style="width:7%;">소요</th>
+      </tr>
     </thead>
     <tbody>
-      {% for name, connected in api_status.items() %}
+      {% for r in rows %}
       <tr>
-        <td><strong>{{ name }}</strong></td>
-        <td>
-          {% if connected %}
-          <span class="badge badge-green">연결됨</span>
-          {% else %}
-          <span class="badge badge-red">미설정</span>
-          {% endif %}
+        <td><strong>{{ r.label }}</strong></td>
+        <td><span class="badge {{ r.badge_class }}">{{ r.badge_text }}</span></td>
+        <td class="axis {% if r.keys == 'ok' %}axis-ok{% elif r.keys == 'missing' %}axis-bad{% else %}axis-idle{% endif %}">{{ r.keys_label }}</td>
+        <td class="axis {% if r.client == 'ok' %}axis-ok{% elif r.client == 'fail' %}axis-bad{% else %}axis-idle{% endif %}">{{ r.client_label }}</td>
+        <td class="axis {% if r.call == 'ok' %}axis-ok{% elif r.call in ('fail', 'timeout') %}axis-bad{% else %}axis-idle{% endif %}">{{ r.call_label }}</td>
+        <td class="detail">
+          {% if r.error_code %}<span class="code">{{ r.error_code }}</span>{% endif %}
+          {{ r.detail }}
         </td>
+        <td class="ms">{% if r.elapsed_ms %}{{ r.elapsed_ms }}ms{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  {% endfor %}
+
+  <div class="note">
+    ※ <strong>초록은 실제 호출이 성공했을 때만</strong> 준다. 키만 있는 상태는 노랑 「키 있음 · 미점검」이다 —
+    「키가 있다」와 「호출이 된다」는 다르다(네이버 <code>stats.mjs</code> 6개월 방치 사고).<br>
+    ※ 점검은 <strong>읽기 전용</strong>(캠페인 목록 조회·health GET)이라 광고비가 나가지 않는다.
+    Anthropic·Gemini 는 호출 자체가 과금이라 일부러 부르지 않는다.<br>
+    ※ 결과는 {{ cache_ttl_min }}분 캐시되고, 프로브는 병렬로 돌며 {{ probe_budget_sec }}초에 끊는다.
+  </div>
 </div>
 
 <!-- 시스템 설정 -->

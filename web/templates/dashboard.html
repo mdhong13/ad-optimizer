@@ -1,36 +1,184 @@
 {% extends "base.html" %}
 {% block title %}대시보드 — OneMessage Ad Optimizer{% endblock %}
 
+{% block head %}
+<style>
+  /* 이 페이지에만 필요한 최소 추가분. 색·카드·배지는 base.html 것을 그대로 쓴다. */
+  /* 노대표(50대) 기준 — 돈 숫자는 크게. */
+  .stat .value-lg { font-size: 32px; font-weight: 700; color: #f6ad55; }
+  /* 「수집 안 함」 같은 상태 문구는 숫자가 아니므로 톤을 낮춰 숫자와 헷갈리지 않게 한다. */
+  .stat .value-na { font-size: 17px; font-weight: 600; color: #718096; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .section-head h2 { margin-bottom: 0; }
+  .meta-line { font-size: 12px; color: #718096; }
+  .period-label { font-size: 13px; font-weight: 600; color: #a0aec0; margin: 4px 0 10px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1>광고 성과 대시보드 <small style="font-size:13px;color:#4a5568;">최근 7일</small></h1>
+<h1>광고 성과 대시보드</h1>
+
+{#
+  네이버 검색광고 (원)
+  🩸 이 섹션은 Meta·Google 과 **절대 합산하지 않는다**. 네이버는 원(KRW)이고
+     나머지는 계정 통화가 다르다. 하나의 「총 지출」로 더하면 그 숫자는 거짓이다.
+  주석은 HTML 주석이 아니라 Jinja 주석으로 둔다 — HTML 주석은 브라우저까지 그대로 실려 나간다.
+  🩸 그리고 주석 본문 안에 닫는 기호를 예시로 쓰지 마라. Jinja 는 **먼저 나온 닫는 기호에서**
+     주석을 끝내므로, 뒷부분이 그대로 화면에 찍힌다(2026-08-17 실제로 대시보드 최상단에 샜다).
+#}
+<div class="section-head">
+  <h2>네이버 검색광고 (원)</h2>
+  <span class="meta-line">
+    기준: {{ naver.age_label }}{% if naver.cached %} · 캐시 {{ naver_ttl_min }}분{% endif %}
+    · <a href="/?refresh=1">새로 조회</a>
+  </span>
+</div>
+
+{% if naver.state == 'ok' %}
+<div class="card">
+  {% for p in naver.periods %}
+    <div class="period-label">
+      최근 {{ p.days }}일
+      <span style="font-weight:400;color:#4a5568;">— 어제까지 완결된 {{ p.days }}일 (KST)</span>
+    </div>
+    {% if p.ok %}
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="label">광고비</div>
+        <div class="value value-lg">{{ "{:,}".format(p.spend) }}원</div>
+        <div class="sub">네이버 salesAmt</div>
+      </div>
+      <div class="stat">
+        <div class="label">노출</div>
+        <div class="value">{{ "{:,}".format(p.impressions) }}</div>
+      </div>
+      <div class="stat">
+        <div class="label">클릭</div>
+        <div class="value">{{ "{:,}".format(p.clicks) }}</div>
+        <div class="sub">
+          {% if p.impressions %}CTR {{ "%.2f"|format(p.clicks / p.impressions * 100) }}%{% endif %}
+        </div>
+      </div>
+      <div class="stat">
+        <div class="label">전환수</div>
+        <div class="value">{{ "{:,}".format(p.conversions) }}</div>
+      </div>
+      <div class="stat">
+        <div class="label">전환매출</div>
+        <div class="value">{{ "{:,}".format(p.revenue) }}원</div>
+        <div class="sub">네이버 convAmt</div>
+      </div>
+      <div class="stat">
+        <div class="label">ROAS</div>
+        {% if p.roas is not none %}
+        <div class="value value-lg {% if p.roas >= 3 %}sev-low{% elif p.roas >= 1 %}sev-medium{% else %}sev-high{% endif %}">
+          {{ "%.2f"|format(p.roas) }}배
+        </div>
+        <div class="sub">전환매출 ÷ 광고비</div>
+        {% else %}
+        <div class="value value-na">—</div>
+        <div class="sub">{{ p.roas_note }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <!-- 한 기간만 실패한 경우. 0 으로 채우지 않고 사유를 그대로 띄운다. -->
+    <div class="card" style="border-color:#742a2a;background:#2d1414;margin-bottom:16px;">
+      <strong class="sev-critical">{{ p.days }}일 조회 실패</strong>
+      <div style="font-size:13px;color:#fc8181;margin-top:6px;word-break:break-all;">{{ p.error }}</div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{% elif naver.state == 'module_pending' %}
+<div class="card" style="border-color:#2b4c7e;background:#141c2d;">
+  <strong class="sev-medium">네이버 모듈 준비 중</strong>
+  <div style="font-size:13px;color:#a0aec0;margin-top:6px;">{{ naver.message }}</div>
+</div>
+
+{% elif naver.state == 'not_configured' %}
+<div class="card" style="border-color:#744210;background:#2d1a00;">
+  <strong class="sev-high">네이버 검색광고 미설정</strong>
+  <div style="font-size:13px;color:#a0aec0;margin-top:6px;">
+    {{ naver.message }} — 설정 후 이 카드에 실제 광고비가 뜹니다.
+  </div>
+</div>
+
+{% else %}
+<!-- 🩸 실패를 0 으로 삼키면 지금 고치는 그 버그를 그대로 재생산한다. 사유를 드러낸다. -->
+<div class="card" style="border-color:#742a2a;background:#2d1414;">
+  <strong class="sev-critical">네이버 조회 실패 — 이 화면에 네이버 지출이 빠져 있습니다</strong>
+  <div style="font-size:13px;color:#fc8181;margin-top:6px;word-break:break-all;">{{ naver.message }}</div>
+</div>
+{% endif %}
+
+
+{#
+  로컬 수집 성과 (performance_snapshots)
+  0건일 때 달러 0 표기는 거짓말이다 — 「0원 썼다」가 아니라 「아무도 안 적었다」이므로.
+#}
+<div class="section-head" style="margin-top:28px;">
+  <h2>로컬 수집 성과 (최근 {{ local.days }}일)</h2>
+  <span class="meta-line">Mongo performance_snapshots — 스케줄러가 적은 것만 보입니다</span>
+</div>
+
+{% if not local.collected %}
+<div class="card" style="border-color:#744210;background:#2d1a00;">
+  <strong class="sev-high">수집 안 함 — 이 구간에 기록된 스냅샷이 0건입니다</strong>
+  <div style="font-size:13px;color:#a0aec0;margin-top:6px;">
+    스케줄러 정지 상태 — 이 카드는 로컬 수집분만 봅니다. <b>0 은 「집행이 없었다」는 뜻이 아닙니다.</b>
+    {% if local.last_date %}
+    <br>마지막 수집: {{ local.last_date }}{% if local.stale_days is not none %} ({{ local.stale_days }}일 전){% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 
 <div class="stat-grid">
   <div class="stat">
-    <div class="label">총 지출</div>
-    <div class="value">${{ "%.2f"|format(totals.spend) }}</div>
-    <div class="sub">7일 누적</div>
+    <div class="label">지출</div>
+    {% if local.collected %}
+    <div class="value">{{ "{:,.0f}".format(local.totals.spend) }}</div>
+    <!-- 스냅샷에 currency 필드가 없다. 계정 통화를 모르는 채 "$"를 붙이면 그것도 거짓말이라
+         (실제 저장된 Meta 값은 원화다) 기호를 붙이지 않는다. -->
+    <div class="sub">통화 미기록 — 계정 통화 확인 필요</div>
+    {% else %}
+    <div class="value value-na">수집 안 함</div>
+    <div class="sub">스케줄러 정지 — 기록 0건</div>
+    {% endif %}
   </div>
   <div class="stat">
-    <div class="label">총 클릭</div>
-    <div class="value">{{ "{:,}".format(totals.clicks) }}</div>
+    <div class="label">클릭</div>
+    {% if local.collected %}
+    <div class="value">{{ "{:,}".format(local.totals.clicks) }}</div>
+    {% else %}<div class="value value-na">수집 안 함</div>{% endif %}
   </div>
   <div class="stat">
-    <div class="label">총 노출</div>
-    <div class="value">{{ "{:,}".format(totals.impressions) }}</div>
+    <div class="label">노출</div>
+    {% if local.collected %}
+    <div class="value">{{ "{:,}".format(local.totals.impressions) }}</div>
+    {% else %}<div class="value value-na">수집 안 함</div>{% endif %}
   </div>
   <div class="stat">
     <div class="label">전환</div>
-    <div class="value">{{ totals.conversions }}</div>
+    {% if local.collected %}
+    <div class="value">{{ local.totals.conversions }}</div>
+    {% else %}<div class="value value-na">수집 안 함</div>{% endif %}
   </div>
   <div class="stat">
     <div class="label">평균 ROAS</div>
-    <div class="value">{{ avg_roas }}x</div>
-    <div class="sub">목표: 3.0x</div>
+    {% if local.collected %}
+    <div class="value">{{ local.avg_roas }}배</div>
+    <div class="sub">목표: 3.0배</div>
+    {% else %}<div class="value value-na">수집 안 함</div>{% endif %}
   </div>
   <div class="stat">
     <div class="label">평균 CTR</div>
-    <div class="value">{{ avg_ctr }}%</div>
+    {% if local.collected %}
+    <div class="value">{{ local.avg_ctr }}%</div>
     <div class="sub">목표: 2%</div>
+    {% else %}<div class="value value-na">수집 안 함</div>{% endif %}
   </div>
 </div>
 
@@ -43,6 +191,10 @@
     <span class="badge {% if e.get('severity') == 'critical' %}badge-red{% elif e.get('severity') == 'high' %}badge-yellow{% else %}badge-blue{% endif %}">
       {{ e.get('event_type', '') }}
     </span>
+    {# 낡은 값이 현재처럼 보이는 게 문제다. 지우지 않고 나이를 붙인다. #}
+    {% if e.is_stale %}
+    <span class="badge badge-red">⚠️ {{ e.age_days }}일 전 데이터 — 수집 중단됨</span>
+    {% endif %}
     {{ e.get('title', '') }}
     <span style="color:#4a5568; font-size:11px; float:right;">{{ (e.get('created_at', '')|string)[:16] }}</span>
   </div>
@@ -52,8 +204,8 @@
 
 <!-- 캠페인 성과 테이블 -->
 <div class="card">
-  <h2>캠페인별 성과</h2>
-  {% if performance %}
+  <h2>캠페인별 성과 (로컬 수집분)</h2>
+  {% if local.performance %}
   <table>
     <thead>
       <tr>
@@ -69,23 +221,24 @@
       </tr>
     </thead>
     <tbody>
-      {% for r in performance %}
+      {% for r in local.performance %}
       <tr>
         <td>
-          <span class="badge {% if r.get('platform') == 'meta' %}badge-blue{% else %}badge-green{% endif %}">
+          <span class="badge {% if r.get('platform') == 'meta' %}badge-blue{% elif r.get('platform') == 'naver' %}badge-green{% else %}badge-gray{% endif %}">
             {{ r.get('platform', '') }}
           </span>
         </td>
         <td>{{ r.get('campaign_name', r.get('campaign_id', '')) }}</td>
         <td>{{ r.get('date', '') }}</td>
-        <td>${{ "%.2f"|format(r.get('spend', 0)) }}</td>
+        {# 스냅샷에 currency 필드가 없어 통화 기호를 붙이지 않는다 (위 지출 카드와 같은 이유). #}
+        <td>{{ "{:,.0f}".format(r.get('spend', 0)) }}</td>
         <td>{{ "{:,}".format(r.get('clicks', 0)) }}</td>
         <td>{{ "{:,}".format(r.get('impressions', 0)) }}</td>
         <td>{{ "%.2f"|format(r.get('ctr', 0) * 100) }}%</td>
-        <td>${{ "%.3f"|format(r.get('cpc', 0)) }}</td>
+        <td>{{ "%.2f"|format(r.get('cpc', 0)) }}</td>
         <td>
           <span class="{% if r.get('roas', 0) >= 3 %}sev-low{% elif r.get('roas', 0) >= 1 %}sev-medium{% else %}sev-high{% endif %}">
-            {{ "%.2f"|format(r.get('roas', 0)) }}x
+            {{ "%.2f"|format(r.get('roas', 0)) }}배
           </span>
         </td>
       </tr>
@@ -93,7 +246,10 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">성과 데이터가 없습니다. 스케줄러를 실행하거나 수동으로 수집하세요.</div>
+  <div class="empty">
+    최근 {{ local.days }}일 수집 기록이 없습니다 (스케줄러 정지).<br>
+    <span style="font-size:12px;">위 「네이버 검색광고」 섹션은 API 를 직접 조회하므로 이 표와 무관하게 실시간입니다.</span>
+  </div>
   {% endif %}
 </div>
 {% endblock %}
