@@ -95,6 +95,7 @@
 
 ## 4. 정례 운영 (통합 세션의 루틴)
 
+- **매일 (자동)**: LiveOn 리드 수집 — 미니PC(`minipc-owkhu`) 작업 스케줄러 `LiveOnLeadCollect` 매일 10:00. 사람이 기억할 일이 아니다(2026-08-12→08-18 닷새 유실이 그 증거). 빠지면 세션 시작 훅이 한 줄로 알린다
 - **주 1회 (월요일)**: ① `platform_healthcheck.py` ② 네이버 `stats.mjs --days 7` ③ Meta 캠페인 지출 확인 → 이상 시 즉시 보고, 아니면 3줄 요약
 - **월 1회**: `history.mjs --months 3` — 월별 ROAS·캠페인별 누적, 손익 재계산(마진율 반영)
 - **분기 1회**: 죽은 캠페인 정리(전환 0 장기), 계절 상품 ON/OFF (온열매트·무시동히터 11월 ON)
@@ -110,7 +111,8 @@
 | `ad-optimizer/scripts/platform_healthcheck.py` | 전 플랫폼 읽기 점검(CLI). 로직은 `web/services/platform_status.py` 공유 | 08-17 |
 | `ad-optimizer/web/services/platform_status.py` | **연결 상태 정본** — 실호출 판정·3축 분리·병렬·캐시. `/settings` 와 CLI 가 같은 것을 본다 | 08-17 운영 |
 | `ad-optimizer/platforms/naver_ads.py` | 네이버 지출·전환 조회(읽기 전용). `get_spend(days)` → 원화 | 08-17 운영 |
-| `liveon-leads/collect.py` | 셀러 리드 수집(차단감지 포함) | 08-12 |
+| `liveon-leads/collect.py` | 셀러 리드 수집(차단감지 포함). **08-18 미니PC 단독 이관** · 제품 수집기와 HALT 플래그 공유 · 매일 10:00 자동 | 08-18 운영 |
+| `liveon-leads/check_today.py` | 「오늘 수집 돌았나」 — 세션 시작 훅이 부른다(Mongo 기준이라 이관에 안 흔들림) | 08-18 |
 | `ad-optimizer/.../play-upload.mjs` | Play 스토어 리스팅 업로드 | 미검증(코드만) |
 | 스킬 8종(ad-copy·ab-test·spend-audit…) | 카피·실험·감사 | 문서 기반 — API 의존부는 위 상태 따름 |
 
