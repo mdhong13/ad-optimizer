@@ -1,0 +1,204 @@
+<title>몇 Ah 사야 하나</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Oswald:wght@400;600;700&display=swap">
+<style>
+  :root{
+    --night:#11151c;
+    --panel:#1b2129;
+    --panel-2:#252d37;
+    --amber:#ffb020;
+    --amber-dim:#8a6520;
+    --ink:#eef2f6;
+    --ink-2:#a7b2be;
+    --ink-3:#6d7883;
+    --line:#2e3742;
+    --cool:#5fc9d8;
+    --warn:#e8664a;
+  }
+  :root[data-theme="light"]{
+    --night:#eef1f4; --panel:#ffffff; --panel-2:#e4e9ee; --amber:#b87209;
+    --amber-dim:#d9b477; --ink:#131920; --ink-2:#48545f; --ink-3:#7d8892; --line:#d3dae1;
+    --cool:#1a7e8c; --warn:#c2412a;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --night:#eef1f4; --panel:#ffffff; --panel-2:#e4e9ee; --amber:#b87209;
+      --amber-dim:#d9b477; --ink:#131920; --ink-2:#48545f; --ink-3:#7d8892; --line:#d3dae1;
+      --cool:#1a7e8c; --warn:#c2412a;
+    }
+  }
+
+  body{background:var(--night); color:var(--ink);
+       font-family:'Noto Sans KR',system-ui,sans-serif; line-height:1.7;
+       font-variant-numeric:tabular-nums;}
+  .wrap{max-width:880px; margin:0 auto; padding-inline:20px;
+        padding-block:56px 80px; display:flex; flex-direction:column; gap:52px;}
+
+  .num{font-family:'Oswald','Noto Sans KR',sans-serif; font-weight:700;
+       letter-spacing:.01em;}
+  h1{font-weight:900; font-size:clamp(34px,7vw,58px); line-height:1.18;
+     letter-spacing:-.02em; text-wrap:balance;}
+  h2{font-weight:900; font-size:clamp(22px,4vw,30px); text-wrap:balance;}
+  .eyebrow{font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:.24em;
+           color:var(--amber); text-transform:uppercase;}
+  .lead{font-size:clamp(17px,2.4vw,20px); color:var(--ink-2); max-width:34em; margin-top:16px;}
+  .note{font-size:14px; color:var(--ink-3); max-width:42em;}
+
+  section{display:flex; flex-direction:column; gap:20px;}
+  .fig{background:var(--panel); border:1px solid var(--line); border-radius:8px;
+       padding:24px; overflow-x:auto;}
+  .fig svg{display:block; width:100%; height:auto; max-width:100%;}
+
+  /* 공식 */
+  .formula{background:var(--panel); border:1px solid var(--line); border-radius:8px;
+           padding:28px 24px; display:flex; flex-direction:column; gap:18px;}
+  .row{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .chip{background:var(--panel-2); border-radius:6px; padding:10px 16px;
+        font-weight:700; font-size:clamp(16px,2.6vw,20px);}
+  .op{font-family:'Oswald',sans-serif; font-size:26px; color:var(--amber);}
+  .res{color:var(--amber); font-size:clamp(20px,3.4vw,28px);}
+  .step-label{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.2em;
+              color:var(--ink-3);}
+
+  /* 사례 */
+  .case{background:var(--panel); border-left:4px solid var(--amber);
+        border-radius:6px; padding:22px 24px;}
+  .case .big{font-size:clamp(30px,6vw,46px); color:var(--amber); line-height:1.1;}
+  .case .cap{font-size:15px; color:var(--ink-2); margin-top:8px;}
+
+  /* 기준표 */
+  .specs{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  @media (max-width:640px){ .specs{grid-template-columns:1fr;} }
+  .spec{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:20px;}
+  .spec .who{font-weight:900; font-size:18px;}
+  .spec .val{font-size:clamp(28px,5vw,38px); color:var(--amber); line-height:1.15; margin:6px 0;}
+  .spec .sub{font-size:13.5px; color:var(--ink-3);}
+
+  .flip{background:var(--panel-2); border-radius:8px; padding:26px 24px;
+        border:1px solid var(--line);}
+  .flip .head{font-weight:900; font-size:clamp(21px,3.6vw,28px); color:var(--warn);
+              text-wrap:balance;}
+  .flip p{font-size:16px; color:var(--ink-2); margin-top:10px;}
+
+  .cold{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:560px){ .cold{grid-template-columns:1fr;} }
+  .cold div{background:var(--panel); border:1px solid var(--line);
+            border-radius:8px; padding:18px;}
+  .cold .t{font-weight:900; font-size:16px; color:var(--cool);}
+  .cold .d{font-size:14.5px; color:var(--ink-2); margin-top:4px;}
+
+  footer{font-size:13px; color:var(--ink-3); border-top:1px solid var(--line); padding-top:20px;}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow num">12V &nbsp;/&nbsp; 24V</div>
+    <h1>몇 Ah 짜리를 사야<br>밤새 버틸까요?</h1>
+    <p class="lead">곱하기 한 번, 나누기 한 번이면 나옵니다. 계산기도 필요 없어요.</p>
+  </header>
+
+  <!-- 공식 -->
+  <section>
+    <h2>계산은 두 줄입니다</h2>
+    <div class="formula">
+      <div>
+        <div class="step-label">STEP 1 — 얼마나 쓸 건가</div>
+        <div class="row">
+          <span class="chip">쓸 시간</span><span class="op num">×</span>
+          <span class="chip">기기 W</span><span class="op num">=</span>
+          <span class="chip res num">필요한 Wh</span>
+        </div>
+      </div>
+      <div>
+        <div class="step-label">STEP 2 — 배터리로 바꾸기</div>
+        <div class="row">
+          <span class="chip">필요한 Wh</span><span class="op num">÷</span>
+          <span class="chip num">12</span><span class="op num">=</span>
+          <span class="chip res num">필요한 Ah</span>
+        </div>
+      </div>
+      <p class="note">24V 차는 12 대신 24로 나눕니다. 그게 전부예요.</p>
+    </div>
+  </section>
+
+  <!-- 실례 -->
+  <section>
+    <h2>해 볼까요 — 히터 3일</h2>
+    <div class="case">
+      <div class="num big">36시간 × 35W = 1,260Wh</div>
+      <div class="num big">1,260Wh ÷ 12V ≈ 120Ah</div>
+      <p class="cap">하루 12시간씩 사흘. <strong>120Ah면 됩니다.</strong></p>
+    </div>
+    <p class="note">무시동 히터는 가동 중 30~40W 씁니다. 점화할 때만 잠깐 150W 올라가고요.</p>
+  </section>
+
+  <!-- 반전 -->
+  <section>
+    <h2>여기서 놀라실 겁니다</h2>
+    <div class="fig">
+      <svg viewBox="0 0 700 190" role="img" aria-label="무시동 히터의 전기 소비는 작고, 전열 기기는 훨씬 크다는 막대 비교">
+        <text x="14" y="34" font-family="Noto Sans KR, sans-serif" font-size="16"
+              font-weight="700" fill="currentColor">무시동 히터</text>
+        <rect x="14" y="46" width="62" height="34" rx="4" fill="#ffb020"/>
+        <text x="88" y="70" font-family="Oswald, sans-serif" font-size="24"
+              font-weight="700" fill="#ffb020">35W</text>
+
+        <text x="14" y="126" font-family="Noto Sans KR, sans-serif" font-size="16"
+              font-weight="700" fill="currentColor">전기장판 · 온풍기 같은 전열 기기</text>
+        <rect x="14" y="138" width="600" height="34" rx="4" fill="#e8664a"/>
+        <text x="630" y="162" font-family="Oswald, sans-serif" font-size="22"
+              font-weight="700" fill="#e8664a">훨씬</text>
+      </svg>
+    </div>
+    <div class="flip">
+      <div class="head">겨울에 배터리 모자라는 범인은<br>히터가 아니라 전열 기기입니다.</div>
+      <p>히터는 예산표에서 오히려 작은 줄에 속합니다. <strong>12V 100Ah로 40시간</strong> 갑니다.
+         히터에서 진짜로 계획할 건 전기가 아니라 <strong>연료</strong>예요 — 2kW 1단 기준 시간당 60ml,
+         하룻밤 10시간이면 0.6리터쯤입니다.</p>
+    </div>
+  </section>
+
+  <!-- 기준 -->
+  <section>
+    <h2>계산하기 귀찮으시면</h2>
+    <div class="specs">
+      <div class="spec">
+        <div class="who">히터만</div>
+        <div class="val num">100Ah</div>
+        <div class="sub">약 40시간. 짧은 밤이면 충분합니다.</div>
+      </div>
+      <div class="spec">
+        <div class="who">무시동 에어컨</div>
+        <div class="val num">170~250Ah</div>
+        <div class="sub">최소 170Ah, 넉넉히 250Ah. 제네레이터 70A 이상.</div>
+      </div>
+      <div class="spec">
+        <div class="who">25톤 윙바디</div>
+        <div class="val num">300Ah+</div>
+        <div class="sub">에어컨·전자렌지·전기장판 같이 쓸 때. 충전기 30A 이상.</div>
+      </div>
+    </div>
+    <p class="note">인버터는 3~4kW면 대개 충분하고, <strong>정현파</strong>를 고르세요. 메인 배터리와 용량 차이가 크면 주행충전기를 다셔야 합니다.</p>
+  </section>
+
+  <!-- 겨울 -->
+  <section>
+    <h2>겨울에 충전 안 된다는 말, 반은 틀렸습니다</h2>
+    <div class="cold">
+      <div>
+        <div class="t">쓰는 건 영하에서도 정상</div>
+        <div class="d">방전은 추워도 됩니다. 밤새 히터 켜는 데 문제 없어요.</div>
+      </div>
+      <div>
+        <div class="t">충전은 금지가 아니라 「천천히」</div>
+        <div class="d">0도~영하 10도에서는 0.2C 이하로. 100Ah면 20A까지입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    숫자는 QCat 위키의 실측·문답에서 가져왔습니다. 전열 기기 소비전력은 제품마다 달라 여기 적지 않았고,
+    배터리 여유분·배선 손실·기기 동시 사용은 생략했습니다. 실제 구성은 상담으로 잡으세요.
+  </footer>
+
+</div>

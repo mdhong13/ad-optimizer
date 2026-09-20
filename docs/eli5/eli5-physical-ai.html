@@ -1,0 +1,266 @@
+<title>넘어지는 연습장</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    /* 실물 세계 — 흰 실험실, 안전 노랑, 비상 빨강 */
+    --paper:#e7eaee;
+    --card:#ffffff;
+    --ink:#11161d;
+    --ink-2:#4a5560;
+    --ink-3:#7b8794;
+    --line:#ccd3da;
+    /* 가상 세계 — 어두운 뷰포트, 격자, 시안 와이어 */
+    --void:#0d1419;
+    --void-2:#16222b;
+    --wire:#2ee6d0;
+    --grid:#1e3340;
+    /* 실물 쪽 신호 */
+    --steel:#c9762a;
+    --stop:#d8352a;
+    --safety:#e8b83a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0a0f14;
+      --card:#131b23;
+      --ink:#e6ecf2;
+      --ink-2:#a3b0bd;
+      --ink-3:#6f7c89;
+      --line:#233039;
+      --void:#05090c;
+      --void-2:#0e1920;
+      --steel:#e0913f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0a0f14; --card:#131b23; --ink:#e6ecf2; --ink-2:#a3b0bd;
+    --ink-3:#6f7c89; --line:#233039; --void:#05090c; --void-2:#0e1920; --steel:#e0913f;
+  }
+
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Gothic A1','Malgun Gothic',system-ui,sans-serif;
+    font-weight:400; line-height:1.65;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding-inline:20px; padding-block:56px 80px;
+        display:flex; flex-direction:column; gap:52px;}
+
+  .eyebrow{font-family:'IBM Plex Mono',ui-monospace,monospace; font-size:12px;
+           letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3);}
+  h1{font-weight:900; font-size:clamp(34px,7vw,60px); line-height:1.15;
+     letter-spacing:-.02em; text-wrap:balance; margin-top:10px;}
+  h2{font-weight:900; font-size:clamp(22px,4vw,30px); line-height:1.25;
+     letter-spacing:-.01em; text-wrap:balance;}
+  .lead{font-size:clamp(17px,2.4vw,20px); color:var(--ink-2); max-width:36em; margin-top:16px;}
+  .say{font-size:clamp(18px,2.6vw,22px); font-weight:700; line-height:1.5; text-wrap:balance;}
+  .note{font-size:14px; color:var(--ink-3); max-width:40em;}
+
+  section{display:flex; flex-direction:column; gap:18px;}
+  .fig{background:var(--card); border:1px solid var(--line); border-radius:6px;
+       padding:22px; overflow-x:auto;}
+  .fig svg{display:block; width:100%; height:auto; max-width:100%;}
+  .fig.dark{background:var(--void); border-color:var(--grid);}
+
+  .rule{height:1px; background:var(--line); border:0;}
+
+  /* 층 쌓기 */
+  .stack{display:flex; flex-direction:column; gap:6px;}
+  .layer{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+         background:var(--card); border:1px solid var(--line);
+         border-left:4px solid var(--wire); padding:14px 16px; border-radius:4px;}
+  .layer .plain{font-weight:900; font-size:clamp(17px,2.6vw,21px);}
+  .layer .real{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-3);}
+  .layer .what{font-size:14px; color:var(--ink-2); flex-basis:100%;}
+  .layer.body-layer{border-left-color:var(--steel);}
+
+  /* 두 세계 */
+  .worlds{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:560px){ .worlds{grid-template-columns:1fr;} }
+  .world{border-radius:6px; padding:20px; border:1px solid var(--line); background:var(--card);}
+  .world.sim{background:var(--void); border-color:var(--grid); color:#cfe9e6;}
+  .world h3{font-weight:900; font-size:19px; margin-bottom:6px;}
+  .world.sim h3{color:var(--wire);}
+  .world p{font-size:15px; line-height:1.6;}
+  .world.sim p{color:#93b4b2;}
+  .world.real h3{color:var(--steel);}
+  .world.real p{color:var(--ink-2);}
+
+  .kicker{font-weight:900; font-size:clamp(20px,3.4vw,26px); text-wrap:balance;
+          border-left:4px solid var(--stop); padding-left:16px;}
+
+  footer{font-size:13px; color:var(--ink-3); border-top:1px solid var(--line); padding-top:20px;}
+  @media (prefers-reduced-motion:no-preference){
+    .pulse{animation:p 2.6s ease-in-out infinite;}
+    @keyframes p{0%,100%{opacity:1}50%{opacity:.45}}
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Physical AI</div>
+    <h1>로봇은 넘어지면서 배운다.<br>그런데 진짜로 넘어뜨리면 비싸다.</h1>
+    <p class="lead">그래서 먼저 <strong>가상에서</strong> 넘어뜨립니다. 엔비디아가 파는 게 바로 그 연습장이에요.</p>
+  </header>
+
+  <hr class="rule">
+
+  <!-- 1. 왜 가상인가 -->
+  <section>
+    <h2>실물 한 대 vs 가상 수천 대</h2>
+    <div class="fig">
+      <svg viewBox="0 0 700 250" role="img" aria-label="왼쪽에 실물 로봇 한 대, 오른쪽 격자 안에 가상 로봇 수십 대">
+        <defs>
+          <symbol id="arm" viewBox="0 0 40 46">
+            <rect x="13" y="38" width="14" height="6" rx="1.5" fill="currentColor"/>
+            <path d="M20 38 L20 24 L31 14" stroke="currentColor" stroke-width="4"
+                  fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="20" cy="24" r="3.4" fill="currentColor"/>
+            <rect x="28" y="7" width="7" height="7" rx="1.5" fill="currentColor"/>
+          </symbol>
+        </defs>
+
+        <!-- 실물 -->
+        <text x="18" y="24" font-family="IBM Plex Mono, monospace" font-size="13"
+              fill="#7b8794" letter-spacing="1.5">REAL</text>
+        <use href="#arm" x="52" y="60" width="86" height="99" color="#c9762a"/>
+        <path d="M96 176 L128 214 M128 176 L96 214" stroke="#d8352a"
+              stroke-width="7" stroke-linecap="round"/>
+        <text x="30" y="242" font-family="Gothic A1, sans-serif" font-size="17"
+              font-weight="700" fill="#d8352a">한 번 부수면 끝</text>
+
+        <line x1="228" y1="14" x2="228" y2="238" stroke="#ccd3da" stroke-width="1.5"/>
+
+        <!-- 가상 -->
+        <rect x="252" y="8" width="432" height="234" rx="5" fill="#0d1419"/>
+        <g stroke="#1e3340" stroke-width="1">
+          <path d="M252 52h432M252 96h432M252 140h432M252 184h432"/>
+          <path d="M306 8v234M360 8v234M414 8v234M468 8v234M522 8v234M576 8v234M630 8v234"/>
+        </g>
+        <text x="266" y="30" font-family="IBM Plex Mono, monospace" font-size="13"
+              fill="#2ee6d0" letter-spacing="1.5">SIMULATED</text>
+        <g color="#2ee6d0" opacity="0.92">
+          <use href="#arm" x="272" y="56" width="30" height="35"/>
+          <use href="#arm" x="326" y="56" width="30" height="35"/>
+          <use href="#arm" x="380" y="56" width="30" height="35"/>
+          <use href="#arm" x="434" y="56" width="30" height="35"/>
+          <use href="#arm" x="488" y="56" width="30" height="35"/>
+          <use href="#arm" x="542" y="56" width="30" height="35"/>
+          <use href="#arm" x="596" y="56" width="30" height="35"/>
+          <use href="#arm" x="272" y="100" width="30" height="35"/>
+          <use href="#arm" x="326" y="100" width="30" height="35"/>
+          <use href="#arm" x="380" y="100" width="30" height="35"/>
+          <use href="#arm" x="434" y="100" width="30" height="35"/>
+          <use href="#arm" x="488" y="100" width="30" height="35"/>
+          <use href="#arm" x="542" y="100" width="30" height="35"/>
+          <use href="#arm" x="596" y="100" width="30" height="35"/>
+          <use href="#arm" x="272" y="144" width="30" height="35"/>
+          <use href="#arm" x="326" y="144" width="30" height="35"/>
+          <use href="#arm" x="380" y="144" width="30" height="35"/>
+          <use href="#arm" x="434" y="144" width="30" height="35"/>
+          <use href="#arm" x="488" y="144" width="30" height="35"/>
+          <use href="#arm" x="542" y="144" width="30" height="35"/>
+          <use href="#arm" x="596" y="144" width="30" height="35"/>
+        </g>
+        <text x="266" y="225" font-family="Gothic A1, sans-serif" font-size="17"
+              font-weight="700" fill="#2ee6d0">부숴도 0원 · 무한 반복</text>
+      </svg>
+    </div>
+    <p class="say">GPU 한 장에서 로봇 수천 대를 동시에 굴립니다.</p>
+    <p class="note">사람이 하루에 백 번 시켜 볼 것을, 밤새 수백만 번 시켜 봅니다. 이게 연습장의 전부예요.</p>
+  </section>
+
+  <!-- 2. 층 -->
+  <section>
+    <h2>엔비디아가 파는 것 — 층으로 쌓여 있습니다</h2>
+    <div class="stack">
+      <div class="layer">
+        <span class="plain">무대</span><span class="real">Omniverse</span>
+        <span class="what">가짜 세계를 짓는 땅. 공장·창고·부엌을 통째로 만듭니다.</span>
+      </div>
+      <div class="layer">
+        <span class="plain">연습장</span><span class="real">Isaac Sim</span>
+        <span class="what">그 무대 위에 로봇을 세우고 시켜 봅니다.</span>
+      </div>
+      <div class="layer">
+        <span class="plain">코치</span><span class="real">Isaac Lab</span>
+        <span class="what">잘하면 칭찬, 못하면 다시. 수천 번 반복시키는 훈련 담당.</span>
+      </div>
+      <div class="layer">
+        <span class="plain">중력·마찰</span><span class="real">Newton</span>
+        <span class="what">가짜 세계에도 물리 법칙이 있어야 연습이 말이 됩니다.</span>
+      </div>
+      <div class="layer">
+        <span class="plain">두뇌</span><span class="real">Isaac GR00T</span>
+        <span class="what">「컵을 집어」를 알아듣는 쪽. 휴머노이드용 기본 모델.</span>
+      </div>
+      <div class="layer body-layer">
+        <span class="plain">몸에 넣는 칩</span><span class="real">Jetson Thor</span>
+        <span class="what">연습이 끝나면 이 칩에 담겨 진짜 로봇 안으로 들어갑니다.</span>
+      </div>
+    </div>
+    <p class="note">앞의 다섯은 가상, 마지막 하나만 실물입니다.</p>
+  </section>
+
+  <!-- 3. 건너가기 -->
+  <section>
+    <h2>진짜 어려운 건 <em>건너가는</em> 순간</h2>
+    <div class="fig dark">
+      <svg viewBox="0 0 700 200" role="img" aria-label="가상 영역에서 실물 영역으로 건너가는 화살표와 그 사이를 막는 안전 검사 관문">
+        <rect x="0" y="0" width="300" height="200" fill="#0d1419"/>
+        <g stroke="#1e3340" stroke-width="1">
+          <path d="M0 50h300M0 100h300M0 150h300M60 0v200M120 0v200M180 0v200M240 0v200"/>
+        </g>
+        <text x="24" y="34" font-family="IBM Plex Mono, monospace" font-size="13"
+              fill="#2ee6d0" letter-spacing="1.5">SIM</text>
+        <text x="24" y="118" font-family="Gothic A1, sans-serif" font-size="24"
+              font-weight="900" fill="#2ee6d0">가상</text>
+        <text x="24" y="146" font-family="Gothic A1, sans-serif" font-size="15"
+              fill="#93b4b2">틀려도 공짜</text>
+
+        <rect x="400" y="0" width="300" height="200" fill="#ffffff"/>
+        <text x="600" y="34" font-family="IBM Plex Mono, monospace" font-size="13"
+              fill="#7b8794" letter-spacing="1.5" text-anchor="end">REAL</text>
+        <text x="600" y="118" font-family="Gothic A1, sans-serif" font-size="24"
+              font-weight="900" fill="#c9762a" text-anchor="end">실물</text>
+        <text x="600" y="146" font-family="Gothic A1, sans-serif" font-size="15"
+              fill="#4a5560" text-anchor="end">한 번이 끝</text>
+
+        <!-- 관문 -->
+        <rect x="300" y="0" width="100" height="200" fill="#e8b83a"/>
+        <path d="M300 0v200M400 0v200" stroke="#11161d" stroke-width="2"/>
+        <circle class="pulse" cx="350" cy="86" r="26" fill="#d8352a" stroke="#11161d" stroke-width="3"/>
+        <text x="350" y="138" font-family="Gothic A1, sans-serif" font-size="15"
+              font-weight="900" fill="#11161d" text-anchor="middle">안전 검사</text>
+        <text x="350" y="158" font-family="Gothic A1, sans-serif" font-size="13"
+              fill="#11161d" text-anchor="middle">사람이 다치나</text>
+
+        <path d="M250 175 L452 175" stroke="#11161d" stroke-width="3"/>
+        <path d="M444 168 L456 175 L444 182 Z" fill="#11161d"/>
+      </svg>
+    </div>
+    <p class="say">가상에서 아무리 잘해도, 실물로 나오려면 노란 문을 지나야 합니다.</p>
+    <p class="note">엔비디아는 왼쪽을 팝니다. 시험·인증 기관(KTR 같은 곳)은 그 문을 지킵니다. 사진 속 로봇 팔 옆의 빨간 버튼이 그 문의 손잡이예요.</p>
+  </section>
+
+  <!-- 4. 우리 자리 -->
+  <section>
+    <h2>도라미는 어느 쪽에 있나</h2>
+    <div class="worlds">
+      <div class="world sim">
+        <h3>화면 안 · 지금</h3>
+        <p>목소리 있고, 말 하고, 물건을 팝니다. 아무도 안 다칩니다. <strong>노란 문이 필요 없습니다.</strong></p>
+      </div>
+      <div class="world real">
+        <h3>몸이 생기면 · 언젠가</h3>
+        <p>손과 다리가 붙는 순간 빨간 버튼과 인증 기관이 따라붙습니다. 그래서 로봇은 10년째 「곧」입니다.</p>
+      </div>
+    </div>
+    <p class="kicker">없는 건 지능이 아니라 몸입니다.<br>그리고 우리는 그 몸을 기다릴 필요가 없습니다.</p>
+  </section>
+
+  <footer>
+    큰 그림 우선 · 세부는 생략했습니다. 실제 이름과 층 구분은 맞지만, 정확한 기술 판단이 필요하면 원문을 확인하세요.
+  </footer>
+
+</div>

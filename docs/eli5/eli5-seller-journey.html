@@ -1,0 +1,203 @@
+<title>사진 한 뭉치</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+  :root{
+    --paper:#ffffff;
+    --card:#f4f1ec;
+    --ink:#16110d;
+    --ink-2:#514840;
+    --ink-3:#8b8078;
+    --line:#e3ddd4;
+    --accent:#ff8a3d;
+    --accent-deep:#d9631a;
+    --stage:#241a2e;
+    --stage-2:#3a2a49;
+    --onair:#e0342b;
+    --seller:#2f7fb8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#131014; --card:#1e1920; --ink:#f2ece6; --ink-2:#b8aca2;
+      --ink-3:#847970; --line:#302833; --stage:#0d0912; --stage-2:#2a1e36;
+      --accent:#ff9c58; --seller:#5aa8de;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#131014; --card:#1e1920; --ink:#f2ece6; --ink-2:#b8aca2;
+    --ink-3:#847970; --line:#302833; --stage:#0d0912; --stage-2:#2a1e36;
+    --accent:#ff9c58; --seller:#5aa8de;
+  }
+
+  body{background:var(--paper); color:var(--ink);
+       font-family:'Noto Sans KR',system-ui,sans-serif; line-height:1.7;}
+  .wrap{max-width:900px; margin:0 auto; padding-inline:20px;
+        padding-block:60px 84px; display:flex; flex-direction:column; gap:56px;}
+
+  .display{font-family:'Black Han Sans','Noto Sans KR',sans-serif; font-weight:400;
+           letter-spacing:-.01em; line-height:1.2;}
+  h1{font-size:clamp(38px,8vw,72px); text-wrap:balance;}
+  h2{font-size:clamp(24px,4.4vw,34px); text-wrap:balance;}
+  .tag{display:inline-block; font-size:12px; font-weight:900; letter-spacing:.2em;
+       color:var(--accent-deep); border:2px solid var(--accent); border-radius:99px;
+       padding:5px 14px;}
+  .lead{font-size:clamp(17px,2.4vw,20px); color:var(--ink-2); max-width:34em; margin-top:18px;}
+  .note{font-size:14px; color:var(--ink-3); max-width:42em;}
+
+  section{display:flex; flex-direction:column; gap:20px;}
+
+  .fig{background:var(--card); border-radius:10px; padding:24px; overflow-x:auto;}
+  .fig svg{display:block; width:100%; height:auto; max-width:100%;}
+
+  /* 공정 6칸 */
+  .line-up{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  @media (max-width:700px){ .line-up{grid-template-columns:1fr;} }
+  .step{background:var(--card); border-radius:10px; padding:20px;
+        display:flex; flex-direction:column; gap:8px; position:relative;}
+  .step .no{font-family:'Black Han Sans',sans-serif; font-size:34px; line-height:1;
+            color:var(--accent); }
+  .step .plain{font-family:'Black Han Sans',sans-serif; font-size:21px; line-height:1.25;}
+  .step .what{font-size:14.5px; color:var(--ink-2);}
+  .step.mine{outline:3px solid var(--seller); outline-offset:-3px;}
+  .step.mine .no{color:var(--seller);}
+  .who{font-size:12px; font-weight:900; letter-spacing:.14em; color:var(--ink-3);}
+  .step.mine .who{color:var(--seller);}
+
+  .split{display:grid; grid-template-columns:1fr 2fr; gap:14px;}
+  @media (max-width:640px){ .split{grid-template-columns:1fr;} }
+  .box{border-radius:10px; padding:24px;}
+  .box.you{background:var(--seller); color:#fff;}
+  .box.us{background:var(--stage); color:#efe6f5;}
+  .box h3{font-family:'Black Han Sans',sans-serif; font-size:24px; margin-bottom:10px;}
+  .box p{font-size:15.5px; line-height:1.65;}
+  .box.you p{color:#e2f0fa;}
+  .box.us p{color:#c3b3d0;}
+
+  .kicker{font-family:'Black Han Sans',sans-serif;
+          font-size:clamp(23px,4.4vw,36px); line-height:1.35; text-wrap:balance;
+          border-left:6px solid var(--accent); padding-left:20px;}
+  .kicker span{color:var(--accent);}
+
+  hr.rule{border:0; height:2px; background:var(--line);}
+  footer{font-size:13px; color:var(--ink-3); border-top:2px solid var(--line); padding-top:22px;}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <span class="tag">LIVEON</span>
+    <h1 class="display">사진 한 뭉치를 주시면,<br>방송이 나옵니다.</h1>
+    <p class="lead">사장님이 하실 일은 <strong>맨 앞 한 칸</strong>뿐입니다. 나머지는 저희가 합니다.</p>
+  </header>
+
+  <!-- 들어가는 것 → 나오는 것 -->
+  <section>
+    <div class="fig">
+      <svg viewBox="0 0 720 220" role="img" aria-label="왼쪽 사진 뭉치가 오른쪽 방송 화면으로 바뀌는 그림">
+        <!-- 들어가는 것 -->
+        <g>
+          <rect x="24" y="66" width="92" height="92" rx="5" fill="#ffffff"
+                stroke="#c9c0b5" stroke-width="2" transform="rotate(-8 70 112)"/>
+          <rect x="40" y="58" width="92" height="92" rx="5" fill="#ffffff"
+                stroke="#c9c0b5" stroke-width="2" transform="rotate(4 86 104)"/>
+          <rect x="34" y="52" width="92" height="92" rx="5" fill="#ffffff" stroke="#a89e93" stroke-width="2"/>
+          <circle cx="60" cy="78" r="9" fill="#ff8a3d"/>
+          <path d="M40 130 L66 100 L84 122 L98 110 L120 134 L40 134 Z" fill="#8b8078"/>
+          <text x="80" y="178" font-family="Noto Sans KR, sans-serif" font-size="16"
+                font-weight="700" fill="#514840" text-anchor="middle">제품 사진 · 영상</text>
+          <text x="80" y="199" font-family="Noto Sans KR, sans-serif" font-size="13"
+                fill="#8b8078" text-anchor="middle">있는 대로, 정리 안 해도</text>
+        </g>
+
+        <!-- 화살표 -->
+        <path d="M170 105 L520 105" stroke="#ff8a3d" stroke-width="5" stroke-linecap="round"
+              stroke-dasharray="14 12"/>
+        <path d="M512 92 L536 105 L512 118 Z" fill="#ff8a3d"/>
+        <text x="350" y="86" font-family="Noto Sans KR, sans-serif" font-size="13"
+              font-weight="900" fill="#d9631a" text-anchor="middle" letter-spacing="2">저희 몫</text>
+
+        <!-- 나오는 것 : 세로 방송 화면 -->
+        <g>
+          <rect x="572" y="26" width="124" height="168" rx="12" fill="#241a2e"/>
+          <rect x="582" y="36" width="104" height="148" rx="6" fill="#3a2a49"/>
+          <circle cx="634" cy="92" r="23" fill="#f3d9c4"/>
+          <path d="M611 150 q23 -30 46 0 z" fill="#ff8a3d"/>
+          <rect x="592" y="160" width="60" height="9" rx="4.5" fill="#efe6f5" opacity=".65"/>
+          <circle cx="600" cy="50" r="6" fill="#e0342b"/>
+          <text x="614" y="55" font-family="Noto Sans KR, sans-serif" font-size="11"
+                font-weight="900" fill="#ffffff">LIVE</text>
+          <text x="634" y="216" font-family="Noto Sans KR, sans-serif" font-size="13"
+                fill="#8b8078" text-anchor="middle">24시간 도는 방송</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- 공정 -->
+  <section>
+    <h2 class="display">사이에서 벌어지는 일</h2>
+    <div class="line-up">
+      <div class="step mine">
+        <span class="who">사장님</span>
+        <span class="no">1</span>
+        <span class="plain">보내 주기</span>
+        <span class="what">찍어 둔 사진, 상세페이지, 예전 방송 영상. 폴더째 주셔도 됩니다.</span>
+      </div>
+      <div class="step">
+        <span class="who">저희</span>
+        <span class="no">2</span>
+        <span class="plain">고르기</span>
+        <span class="what">쓸 것과 못 쓸 것을 가릅니다. 흐린 사진, 남의 로고 든 것은 뺍니다.</span>
+      </div>
+      <div class="step">
+        <span class="who">저희</span>
+        <span class="no">3</span>
+        <span class="plain">무대 만들기</span>
+        <span class="what">제품을 상 위에 올리고, 화면에 띄울 판을 짭니다.</span>
+      </div>
+      <div class="step">
+        <span class="who">저희</span>
+        <span class="no">4</span>
+        <span class="plain">대본 쓰기</span>
+        <span class="what">제품마다 할 말을 정합니다. 사장님이 하시던 설명을 그대로 씁니다.</span>
+      </div>
+      <div class="step">
+        <span class="who">저희</span>
+        <span class="no">5</span>
+        <span class="plain">목소리 입히기</span>
+        <span class="what">도라미가 그 대본을 말합니다. 쉬지 않고, 틀리지 않고.</span>
+      </div>
+      <div class="step">
+        <span class="who">저희</span>
+        <span class="no">6</span>
+        <span class="plain">방송 돌리기</span>
+        <span class="what">켜 두면 계속 돕니다. 새벽 세 시에도 손님이 들어옵니다.</span>
+      </div>
+    </div>
+    <p class="note">파란 칸이 사장님 몫입니다. 여섯 칸 중 하나입니다.</p>
+  </section>
+
+  <!-- 누가 뭘 하나 -->
+  <section>
+    <h2 class="display">사람 쇼호스트와 뭐가 다른가</h2>
+    <div class="split">
+      <div class="box you">
+        <h3>사람</h3>
+        <p>한 시간 서면 한 시간어치 값. 밥도 먹고 잠도 잡니다. 시청자가 셋이어도 값은 같습니다.</p>
+      </div>
+      <div class="box us">
+        <h3>도라미</h3>
+        <p>한 번 만들어 두면 계속 돕니다. 시청자가 셋이든 삼백이든 값이 안 늘어납니다.<br><br>
+           <strong>그래서 작은 방송일수록 이쪽이 남습니다.</strong> 큰 방송은 사람을 쓰셔도 됩니다 — 그건 이미 남으니까요.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="kicker">방송을 <span>안 하는 게</span> 아니라,<br>사람 값이 안 나와서 못 하신 겁니다.</p>
+
+  <footer>
+    큰 그림만 그렸습니다. 제품 종류·소재 상태에 따라 순서와 기간은 달라집니다.
+  </footer>
+
+</div>
