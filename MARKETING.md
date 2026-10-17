@@ -124,7 +124,7 @@
 
 | | |
 |---|---|
-| 쿠팡 검색 노출 | 정본 `/design/coupang-search-visibility` · 메모리 `project_coupang_search_visibility`. 두 상점(본계정 A00351801 193 · mdhong2 43+) 승인완료 148개 진단 끝(`scripts/coupang_seo_audit.py` 읽기 전용 · 속성 빈칸 129 · 태그 미달 65 · 노출상품명 변경 21 · U+FFFD 0). 역할 = 마케팅 A·§4 규칙·D / 쇼핑몰(gram-73) B seo.py 쿠팡 모드·C 적용 / 노대표 임시저장 86개 판정·브랜드 정본. **⏸ B·D 는 re-lab 의 sellha 익스텐션 REA 분석(쿠팡 키워드 순위 방식) 참조 뒤** — re-lab-57·10 에 경로 요청 중 |
+| 쿠팡 검색 노출 | 정본 `/design/coupang-search-visibility` · 메모리 `project_coupang_search_visibility`. 두 상점(본계정 A00351801 193 · mdhong2 43+) 승인완료 148개 진단 끝(`scripts/coupang_seo_audit.py` 읽기 전용 · 속성 빈칸 129 · 태그 미달 65 · 노출상품명 변경 21 · U+FFFD 0). 역할 = 마케팅 A·§4 규칙·D / 쇼핑몰(gram-73) B seo.py 쿠팡 모드·C 적용 / 노대표 임시저장 86개 판정·브랜드 정본. 셀하 참조 끝(§6-1 · re-lab 명세) → re-lab 구현 **익스텐션 v0.9.10**(쿠팡 순위 조회·스위치·교착 자가치유)을 마케팅이 검토·커밋 `dda395db`·자료실 배포(휴면 — 서버 없음). 노대표 발주 「스토어 관리 · 내 제품 쿠팡 순위 1일 1업데이트 · 키워드 자동 3~5」 → 위키 §7(계약 rank/targets·rank/result) → 쇼핑몰에 발주 · B 재개(키워드 3~5). 노대표 몫 = 첫 10개·브랜드 정본·돌리는 PC(지포스?) |
 | 레일 | 쿠팡 태그 API PUT 10개(2자·15개 = 400 · Wing 옛 상품 20개 → 재적용 때 clean_tags) · 전체 PUT = 재승인(연달아 PUT 금지) · 쿠팡 검색량 없음(네이버 대리값) · 로그인 없는 검색 자동 수집 금지 · 쿠팡 키 = 구글 시트(값 안 옮김) |
 | REA | WSL 우분투에 REA 6.5.0·Ghidra 12.1.4·JADX·GDB·tshark·mitmproxy · ST-LINK = CubeIDE · MCP 는 `D:\0_Dotcell\re-lab` 폴더에만(새 창에서 씀) · 메모리 `reference_rea_reverse_engineering_setup` · 히터 본체 `.ReP100` = 암호화 아닌 스크램블 포장(re-lab 판정) → 월요일 사무실에서 ST-LINK 덤프가 깨끗한 길 |
 | 영업 목록 | 10-16 밤 연락처 보강 끝(106행 · 홈페이지 90 · 번호 103) — `/design/bms-market-2026-10/sales-list` |
