@@ -120,6 +120,15 @@
 
 ## 6. 백로그 (우선순위순)
 
+### ⏭⏭ 2026-10-17 기준 — 쿠팡 검색 노출 협업 · REA 설치 (컴팩트 대비 기록)
+
+| | |
+|---|---|
+| 쿠팡 검색 노출 | 정본 `/design/coupang-search-visibility` · 메모리 `project_coupang_search_visibility`. 두 상점(본계정 A00351801 193 · mdhong2 43+) 승인완료 148개 진단 끝(`scripts/coupang_seo_audit.py` 읽기 전용 · 속성 빈칸 129 · 태그 미달 65 · 노출상품명 변경 21 · U+FFFD 0). 역할 = 마케팅 A·§4 규칙·D / 쇼핑몰(gram-73) B seo.py 쿠팡 모드·C 적용 / 노대표 임시저장 86개 판정·브랜드 정본. **⏸ B·D 는 re-lab 의 sellha 익스텐션 REA 분석(쿠팡 키워드 순위 방식) 참조 뒤** — re-lab-57·10 에 경로 요청 중 |
+| 레일 | 쿠팡 태그 API PUT 10개(2자·15개 = 400 · Wing 옛 상품 20개 → 재적용 때 clean_tags) · 전체 PUT = 재승인(연달아 PUT 금지) · 쿠팡 검색량 없음(네이버 대리값) · 로그인 없는 검색 자동 수집 금지 · 쿠팡 키 = 구글 시트(값 안 옮김) |
+| REA | WSL 우분투에 REA 6.5.0·Ghidra 12.1.4·JADX·GDB·tshark·mitmproxy · ST-LINK = CubeIDE · MCP 는 `D:\0_Dotcell\re-lab` 폴더에만(새 창에서 씀) · 메모리 `reference_rea_reverse_engineering_setup` · 히터 본체 `.ReP100` = 암호화 아닌 스크램블 포장(re-lab 판정) → 월요일 사무실에서 ST-LINK 덤프가 깨끗한 길 |
+| 영업 목록 | 10-16 밤 연락처 보강 끝(106행 · 홈페이지 90 · 번호 103) — `/design/bms-market-2026-10/sales-list` |
+
 ### ⏭⏭ 2026-10-16 기준 — 배터리 전 산업군 25 재조사 (완료 · 컴팩트 대비 기록)
 
 **정본** = 위키 `/design/bms-market-2026-10`(허브=합본 · 보고서 25 · `/contacts` 업체 연락처 · 28장 모두 「📥 PDF 다운로드 · 📄 PDF로 저장」) · 파일 `D:\2_QuantumCat\QCAT_MARKET_2026-10.md` + `_market_survey_2026-10\`(보고서 25·브리프·`_tracker.md` 재검증·`_publish_wiki/pdf.py`) · 메모리 `project_battery_market_survey_2026_10` **「⏯ 컴팩트 뒤 첫 동작」부터 읽는다.**
