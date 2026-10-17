@@ -122,7 +122,7 @@
 
 ### ⏭⏭ 2026-10-17 기준 — 쿠팡 검색 노출 협업 · REA 설치 (컴팩트 대비 기록)
 
-**⏯ 컴팩트 뒤 첫 동작(10-17 저녁)** — 마케팅 할 일 0. ① 쇼핑몰 세션(gram-73)의 «배포 끝»(순위 화면 + 쿠팡 연결 카드 · bead1d19) 기다림 — 그 전엔 homepage `next build` 잡지 마라(세션 간 한 번에 하나 · .next 충돌 2회) ② 오면 노대표 할 일 셋 한 줄로: 윙 두 계정 접속 IP 에 15.164.24.191 추가(사무실 IP 유지) → 카드에 본계정(MD홍)·mdhong2(굿파인드) 키 직접 입력 → 지포스 크롬 익스텐션 0.9.11 + 로그인 + 첫 10개 «순위 보기» ③ 방송 건(고양이 자동 화장실 스토리·이미지·한소리)은 마에스트로(gram-91)에 인계 끝 — 마케팅 손 뗌. 정본 = 메모리 `project_coupang_search_visibility` ⏯ 절 · 위키 /design/coupang-search-visibility(f745334c).
+**⏯ 컴팩트 뒤 첫 동작(10-17 밤)** — 마케팅 남은 일 = 위키 한 파일 닫기. ① 쇼핑몰(gram-73) 첫 «배포 끝»(순위 화면 + 쿠팡 연결 카드 · bead1d19 · mirror-deploy 성공) 받음 → 쇼핑몰이 이어서 카드 «발급 방법 보기» 2단계 팝업(IP 줄 삭제 · 가린 캡처 `public/guide/coupang/`) homepage 빌드 중 → **그쪽 두 번째 «배포 끝» 뒤에** `homepage/app/design/coupang-search-visibility/page.mdx` 로컬 수정 3줄(§8 2단계 IP 조건부 · §6 ✅ 배포 행 · 미커밋)을 build → `git commit --only -- 그 파일`(CoupangConnectCard.tsx 는 쇼핑몰 것 · 빼기) → push → railway_poll → curl 307. 그 전엔 homepage `next build` 잡지 마라(세션 간 한 번에 하나 · .next 충돌 2회) ② 노대표 할 일 셋(이미 전달): 카드에 본계정(MD홍)·mdhong2(굿파인드) 키 직접 입력(IP 는 「연동 정보」 칸 있는 키만 15.164.24.191 · 실패하면 카드가 안내) → 지포스 크롬 익스텐션 0.9.11 + 로그인 → 첫 10개 «순위 보기» ③ 방송 건(고양이 자동 화장실 스토리·이미지·한소리)은 마에스트로(gram-91)에 인계 끝 — 마케팅 손 뗌. 정본 = 메모리 `project_coupang_search_visibility` ⏯ 절 · 위키 /design/coupang-search-visibility(f745334c).
 
 | | |
 |---|---|
