@@ -26,7 +26,6 @@ def _get_access_token() -> str:
         client_secret=settings.GOOGLE_ADS_CLIENT_SECRET,
         token_uri="https://oauth2.googleapis.com/token",
         scopes=[
-            "https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/gmail.send",
         ],
     )

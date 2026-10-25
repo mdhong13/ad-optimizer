@@ -11,7 +11,11 @@ from datetime import datetime
 
 ENV_FILE = "D:/0_Dotcell/.env.global"
 APP_ID = "26414252244902498"
-APP_SECRET = "4c62b28b5f2c071f6137f5f542b90ba7"
+# 10-25 — 비밀값은 코드에 두지 않는다(공개 저장소에 6개월 박혀 있었음 · 교체 대상). 값은 .env.global 에만.
+from dotenv import load_dotenv
+
+load_dotenv(ENV_FILE)
+APP_SECRET = os.environ["META_APP_SECRET"]
 
 
 def get_current_token():

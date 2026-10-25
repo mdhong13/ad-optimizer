@@ -3,13 +3,19 @@ Google Ads API 연동 테스트
 - 계정 정보 조회
 - 캠페인 목록 조회
 """
+import os
+
+from dotenv import load_dotenv
+
+# 10-25 — 비밀값은 코드에 두지 않는다(공개 저장소에 6개월 박혀 있었음 · 교체 대상). 값은 .env.global 에만.
+load_dotenv("D:/0_Dotcell/.env.global")
 from google.ads.googleads.client import GoogleAdsClient
 
 config = {
-    "developer_token": "44LWhcvDCRFB4bhu_sUd6w",
-    "client_id": "352203835844-ia1id3gvn4il2snqkjeu1l2f2mlejr4g.apps.googleusercontent.com",
-    "client_secret": "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",
-    "refresh_token": "1//0e9cWHrJblTDICgYIARAAGA4SNwF-L9IrOs67o-75fXvISF8b8go9Ev4rNHWKHfxzl0wOyl1a_p-xwrfgs67rffYFE_eU_ys2NlA",
+    "developer_token": os.environ["GOOGLE_ADS_DEVELOPER_TOKEN"],
+    "client_id": os.environ["GOOGLE_ADS_CLIENT_ID"],
+    "client_secret": os.environ["GOOGLE_ADS_CLIENT_SECRET"],
+    "refresh_token": os.environ["GOOGLE_ADS_REFRESH_TOKEN"],
     "login_customer_id": "4894234221",
     "use_proto_plus": True,
 }

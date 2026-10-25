@@ -2,10 +2,16 @@
 Google Ads API OAuth2 Refresh Token 생성
 브라우저에서 Google 로그인 → 권한 승인 → refresh_token 출력
 """
+import os
+
+from dotenv import load_dotenv
+
+# 10-25 — 비밀값은 코드에 두지 않는다(공개 저장소에 6개월 박혀 있었음 · 교체 대상). 값은 .env.global 에만.
+load_dotenv("D:/0_Dotcell/.env.global")
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-CLIENT_ID = "352203835844-ia1id3gvn4il2snqkjeu1l2f2mlejr4g.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
+CLIENT_ID = os.environ["GOOGLE_ADS_CLIENT_ID"]
+CLIENT_SECRET = os.environ["GOOGLE_ADS_CLIENT_SECRET"]
 
 SCOPES = ["https://www.googleapis.com/auth/adwords"]
 
