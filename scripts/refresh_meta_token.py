@@ -92,8 +92,9 @@ def main():
     result = refresh_token(current)
     if result:
         new_token, expires_in = result
-        print(f"  새 토큰 발급 성공 (유효: {expires_in // 86400}일)")
-        update_env(new_token)
+        update_env(new_token)  # 10-26 — 먼저 저장(예전엔 아래 출력이 expires_in=None 에서 죽어 토큰이 저장 안 됐다)
+        days = f"{expires_in // 86400}일" if isinstance(expires_in, int) else "메타가 기간을 안 알려 줌(장기 토큰)"
+        print(f"  새 토큰 발급 성공 (유효: {days}) · .env.global 저장 완료")
     else:
         print("  토큰 갱신 실패!")
 
