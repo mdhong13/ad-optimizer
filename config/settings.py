@@ -20,8 +20,11 @@ class Settings:
     # --- OpenAI (GPT-4o) ---
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # --- 로컬 LLM (d4win) ---
-    LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "http://106.253.105.18:31088")
+    # --- 로컬 LLM (스파크 · 관문 하나로만 · 10-30 노대표 «게이트 안 거치면 차단») ---
+    LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "https://api.shoppingliveon.com/infer/vllm")
+    # 관문 머리글(통합관문 설계 §3) — 광고 카피·답변 생성 = 배치(우선순위 4 · 송출 중엔 관문이 조임)
+    LOCAL_LLM_HEADERS: dict = {"X-Caller": os.getenv("LOCAL_LLM_CALLER", "marketing/ad-optimizer"),
+                               "X-Priority": os.getenv("LOCAL_LLM_PRIORITY", "4")}
     LOCAL_LLM_CHAT_ENDPOINT: str = os.getenv("LOCAL_LLM_CHAT_ENDPOINT", "/v1/chat/completions")
     LOCAL_LLM_MODELS_ENDPOINT: str = os.getenv("LOCAL_LLM_MODELS_ENDPOINT", "/v1/models")
 

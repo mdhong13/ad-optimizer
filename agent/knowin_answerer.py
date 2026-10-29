@@ -161,15 +161,15 @@ def _call_claude(prompt: str) -> tuple[str, str]:
 def _call_local_llm(prompt: str) -> tuple[str, str]:
     """로컬 d4win vLLM 호출 → (답변 텍스트, model id)"""
     import requests
-    base = os.getenv("LOCAL_LLM_BASE_URL", "http://106.253.105.18:31088")
-    url = base.rstrip("/") + "/v1/chat/completions"
+    from config.settings import settings   # 관문 주소·머리글 한 곳(10-30 · 31088 직결 폐기)
+    url = settings.LOCAL_LLM_BASE_URL.rstrip("/") + "/v1/chat/completions"
     body = {
         "model": "host",  # vLLM 자동 (현재 gemma4-e4b-it)
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 1200,
         "temperature": 0.6,
     }
-    r = requests.post(url, json=body, timeout=60)
+    r = requests.post(url, json=body, headers=settings.LOCAL_LLM_HEADERS, timeout=60)
     r.raise_for_status()
     data = r.json()
     text = data["choices"][0]["message"]["content"].strip()

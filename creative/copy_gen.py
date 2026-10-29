@@ -171,7 +171,7 @@ async def _call_local_vllm(system: str, user: str) -> str:
     base = settings.LOCAL_LLM_BASE_URL.rstrip("/")
     # 모델 자동 감지
     async with httpx.AsyncClient(timeout=10.0) as client:
-        rm = await client.get(f"{base}{settings.LOCAL_LLM_MODELS_ENDPOINT}")
+        rm = await client.get(f"{base}{settings.LOCAL_LLM_MODELS_ENDPOINT}", headers=settings.LOCAL_LLM_HEADERS)
         rm.raise_for_status()
         models = rm.json().get("data", [])
         if not models:
@@ -187,7 +187,7 @@ async def _call_local_vllm(system: str, user: str) -> str:
         "max_tokens": 3000,
     }
     async with httpx.AsyncClient(timeout=180.0) as client:
-        r = await client.post(f"{base}{settings.LOCAL_LLM_CHAT_ENDPOINT}", json=payload)
+        r = await client.post(f"{base}{settings.LOCAL_LLM_CHAT_ENDPOINT}", json=payload, headers=settings.LOCAL_LLM_HEADERS)
         r.raise_for_status()
         data = r.json()
     return data["choices"][0]["message"]["content"]

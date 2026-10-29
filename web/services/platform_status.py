@@ -383,7 +383,7 @@ def _probe_local_llm(r: ProbeResult) -> None:
     r.client = CLIENT_OK
     target = base + (settings.LOCAL_LLM_MODELS_ENDPOINT or "/v1/models")
     try:
-        resp = httpx.get(target, timeout=HTTP_TIMEOUT_SECONDS)
+        resp = httpx.get(target, headers=settings.LOCAL_LLM_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
     except Exception as e:  # noqa: BLE001
         r.call = CALL_FAIL
         r.detail = f"{_exc_detail(e)} ({target})"

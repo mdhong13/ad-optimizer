@@ -22,7 +22,7 @@ class LocalLLM:
         if self._model_id:
             return self._model_id
         try:
-            r = httpx.get(self.models_url, timeout=10)
+            r = httpx.get(self.models_url, headers=settings.LOCAL_LLM_HEADERS, timeout=10)
             models = r.json().get("data", [])
             if models:
                 self._model_id = models[0]["id"]
@@ -34,7 +34,7 @@ class LocalLLM:
 
     def is_available(self) -> bool:
         try:
-            r = httpx.get(f"{self.base_url}/health", timeout=5)
+            r = httpx.get(f"{self.base_url}/health", headers=settings.LOCAL_LLM_HEADERS, timeout=5)
             return r.status_code == 200
         except Exception:
             return False
@@ -50,7 +50,7 @@ class LocalLLM:
             "temperature": temperature,
         }
         try:
-            r = httpx.post(self.chat_url, json=payload, timeout=120)
+            r = httpx.post(self.chat_url, json=payload, headers=settings.LOCAL_LLM_HEADERS, timeout=120)
             r.raise_for_status()
             return r.json()["choices"][0]["message"]["content"]
         except Exception as e:
