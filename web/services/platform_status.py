@@ -48,7 +48,7 @@ KST = timezone(timedelta(hours=9))
 
 # QCat RAG 는 아직 config/settings.py 에 없을 수 있다(agent/rag_client.py 는 env 직접 읽음).
 # settings → env → 기본값 순서로 폴백한다.
-DEFAULT_QCAT_RAG_URL = "http://106.253.105.18:3900"
+DEFAULT_QCAT_RAG_URL = "https://api.shoppingliveon.com/infer/ttsgate/k/qcat-rag"   # 관문(10-30 · :3900 직결 폐기)
 
 # ── 상태 상수 — 세 축을 따로 둔다 ─────────────────────────────
 KEYS_OK = "ok"
@@ -353,7 +353,7 @@ def _probe_qcat_rag(r: ProbeResult) -> None:
     r.client = CLIENT_OK
     target = f"{url}/health"
     try:
-        resp = httpx.get(target, timeout=HTTP_TIMEOUT_SECONDS)
+        resp = httpx.get(target, headers=settings.LOCAL_LLM_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
     except Exception as e:  # noqa: BLE001
         r.call = CALL_FAIL
         r.detail = f"{_exc_detail(e)} ({target})"

@@ -23,9 +23,12 @@ from urllib.parse import urljoin
 
 import requests
 
+from config.settings import settings   # 관문 머리글(X-Caller·X-Priority·UA) 한 곳
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "http://106.253.105.18:3900"
+# 스파크 관문 qcat-rag 종류(10-30 · :3900 직결 폐기) · 보이스가 길 돌리면 /infer/qcat-rag 로 짧아짐 → env QCAT_RAG_URL 로만 바꾼다
+DEFAULT_BASE_URL = "https://api.shoppingliveon.com/infer/ttsgate/k/qcat-rag"
 DEFAULT_TIMEOUT = 30  # /query 는 LLM 호출 포함이라 길어질 수 있음
 
 
@@ -146,7 +149,7 @@ class RAGClient:
     # ── 내부 HTTP ────────────────────────────────────────────
     def _get(self, path: str) -> dict:
         try:
-            r = requests.get(urljoin(self.base_url + "/", path.lstrip("/")), timeout=self.timeout)
+            r = requests.get(urljoin(self.base_url + "/", path.lstrip("/")), timeout=self.timeout, headers=settings.LOCAL_LLM_HEADERS)
             r.raise_for_status()
             return r.json()
         except requests.RequestException as e:
@@ -160,7 +163,7 @@ class RAGClient:
                 urljoin(self.base_url + "/", path.lstrip("/")),
                 json=body,
                 timeout=self.timeout,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", **settings.LOCAL_LLM_HEADERS},
             )
             r.raise_for_status()
             return r.json()
