@@ -27,8 +27,8 @@ from config.settings import settings   # 관문 머리글(X-Caller·X-Priority·
 
 logger = logging.getLogger(__name__)
 
-# 스파크 관문 qcat-rag 종류(10-30 · :3900 직결 폐기) · 보이스가 길 돌리면 /infer/qcat-rag 로 짧아짐 → env QCAT_RAG_URL 로만 바꾼다
-DEFAULT_BASE_URL = "https://api.shoppingliveon.com/infer/ttsgate/k/qcat-rag"
+# 스파크 관문 qcat-rag 짧은 주소(10-30 10:47 보이스 길 돌리기 · 옛 /infer/ttsgate/k/qcat-rag 도 됨 · :3900 직결 폐기)
+DEFAULT_BASE_URL = "https://api.shoppingliveon.com/infer/qcat-rag"
 DEFAULT_TIMEOUT = 30  # /query 는 LLM 호출 포함이라 길어질 수 있음
 
 

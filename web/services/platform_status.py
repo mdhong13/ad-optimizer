@@ -48,7 +48,7 @@ KST = timezone(timedelta(hours=9))
 
 # QCat RAG 는 아직 config/settings.py 에 없을 수 있다(agent/rag_client.py 는 env 직접 읽음).
 # settings → env → 기본값 순서로 폴백한다.
-DEFAULT_QCAT_RAG_URL = "https://api.shoppingliveon.com/infer/ttsgate/k/qcat-rag"   # 관문(10-30 · :3900 직결 폐기)
+DEFAULT_QCAT_RAG_URL = "https://api.shoppingliveon.com/infer/qcat-rag"   # 관문 짧은 주소(10-30 · :3900 직결 폐기)
 
 # ── 상태 상수 — 세 축을 따로 둔다 ─────────────────────────────
 KEYS_OK = "ok"
